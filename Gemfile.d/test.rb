@@ -26,7 +26,6 @@ group :test do
   gem 'simplecov', '0.15.1', require: false
     gem 'docile', '1.1.5', require: false
   gem 'simplecov-rcov', '0.2.3', require: false
-  gem 'puma', '3.11.3'
 
   gem 'rspec', '3.7.0'
   gem 'rspec_around_all', '0.2.0'
