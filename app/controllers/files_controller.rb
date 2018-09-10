@@ -790,6 +790,7 @@ class FilesController < ApplicationController
     @attachment.workflow_state = nil
     @attachment.uploaded_data = params[:file] || params[:attachment] && params[:attachment][:uploaded_data]
     if @attachment.save
+      @attachment.queue_file_postprocess
       # for consistency with the s3 upload client flow, we redirect to the success url here to finish up
       includes = Array(params[:success_include])
       includes << 'avatar' if @attachment.folder == @attachment.user&.profile_pics_folder

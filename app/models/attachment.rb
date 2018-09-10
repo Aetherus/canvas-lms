@@ -130,6 +130,10 @@ class Attachment < ActiveRecord::Base
       :thumbnail_class => 'Thumbnail'
   )
 
+  def partitioned_path(*args)
+    ["%08d" % id, *args].join('_')
+  end
+
   # These callbacks happen after the attachment data is saved to disk/s3, or
   # immediately after save if no data is being uploading during this save cycle.
   # That means you can't rely on these happening in the same transaction as the save.
@@ -197,6 +201,11 @@ class Attachment < ActiveRecord::Base
     self.workflow_state = 'unattached'
   end
 
+  def need_background_postprocess?
+    #self.class.local_storage? && !!POSTPROCESSES[self.extension]
+    self.class.local_storage? && %w(video).include?(mime_class)
+  end
+
   # this is a magic method that gets run by attachment-fu after it is done sending to s3,
   # note, that the time it takes to send to s3 is the bad guy.
   # It blocks and makes the user wait.
@@ -209,7 +218,7 @@ class Attachment < ActiveRecord::Base
 
     if %w(pending_upload processing).include?(workflow_state)
       # we don't call .process here so that we don't have to go through another whole save cycle
-      self.workflow_state = 'processed'
+      self.workflow_state = need_background_postprocess? ? 'processing' : 'processed'
     end
 
     # directly update workflow_state so we don't trigger another save cycle
@@ -325,6 +334,14 @@ class Attachment < ActiveRecord::Base
         self.content_type && self.content_type.match(/\A(video|audio)/)
       build_media_object
     end
+  end
+
+  def queue_file_postprocess
+    #return true unless self.class.local_storage?
+    #postprocess_type = POSTPROCESSES[self.extension]
+    #return true unless postprocess_type
+    return true unless need_background_postprocess?
+    Hutch.publish("conversion.#{mime_class}", attachment_id: self.id)
   end
 
   def build_media_object
@@ -1084,8 +1101,8 @@ class Attachment < ActiveRecord::Base
     self.attachment_associations.create(:context => context)
   end
 
-  def mime_class
-    {
+
+  MIME_CLASSES = {
       'text/html' => 'html',
       "text/x-csharp" => "code",
       "text/xml" => "code",
@@ -1133,8 +1150,13 @@ class Attachment < ActiveRecord::Base
       "video/x-sgi-movie" => "video",
       "video/3gpp" => "video",
       "video/mp4" => "video",
-      "application/x-shockwave-flash" => "flash"
-    }[content_type] || "file"
+      "video/webm" => "video",
+      "application/x-shockwave-flash" => "flash",
+      "application/vnd.rn-realmedia" => "video",
+      "application/vnd.rn-realmedia-vbr" => "video",
+  }.freeze
+  def mime_class
+    MIME_CLASSES[content_type] || "file"
   end
 
   def associated_with_submission?
@@ -1818,7 +1840,8 @@ class Attachment < ActiveRecord::Base
   end
 
   def previewable_media?
-    self.content_type && (self.content_type.match(/\A(video|audio)/) || self.content_type == 'application/x-flash-video')
+    #self.content_type && (self.content_type.match(/\A(video|audio)/) || self.content_type == 'application/x-flash-video')
+    %w(video audio flash).include?(self.mime_class)
   end
 
   def preview_params(user, type, opts = {})
@@ -1835,6 +1858,12 @@ class Attachment < ActiveRecord::Base
 
   def can_unpublish?
     false
+  end
+
+  def playback_url
+    mime_class == 'video' ? 
+      (Rails.application.config.media_url_base + "/#{File.basename(filename, File.extname(filename))}.mp4/index.m3u8") : 
+      nil
   end
 
   def set_publish_state_for_usage_rights

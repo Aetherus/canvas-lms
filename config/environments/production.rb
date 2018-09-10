@@ -67,6 +67,9 @@ environment_configuration(defined?(config) && config) do |config|
 
   config.eager_load = true
 
+  config.media_url_base = 'http://dsj2.ziyuenet.com.cn:28382'
+  #config.media_url_base = 'http://172.168.70.49:8888'
+
   # eval <env>-local.rb if it exists
   Dir[File.dirname(__FILE__) + "/" + File.basename(__FILE__, ".rb") + "-*.rb"].each { |localfile| eval(File.new(localfile).read, nil, localfile, 1) }
 end
