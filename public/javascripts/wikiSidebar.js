@@ -104,8 +104,8 @@ import 'jqueryui/tabs'
 
       // wikiSidebar.editor.editorBox('create_link', {title: title , url: url, file: true, image: node.hasClass('image'), scribdable: node.hasClass('scribdable'), kaltura_entry_id: node.attr('data-media-entry-id'), kaltura_media_type: node.hasClass('video_playback') ? 'video' : 'audio'});
       var playerHTML =
-        `<div data-role="video-placeholder" data-playback-url="${playbackUrl}" style="display: inline-block; position: relative;" contenteditable="false">
-          <img src="${posterUrl}" width="300" data-role="video-poster"/>
+        `<div data-role="video-placeholder" data-playback-url="${playbackUrl}" style="display: inline-block; font-size: 0; width: 300px; position: relative;" contenteditable="false">
+          <img src="${posterUrl}" data-role="video-poster" style="width: 100%;"/>
           <div style="width: 140px; height: 100px; position: absolute; left: 50%; top: 50%;" data-role="playback-indicator">
             <img src="/images/play_overlay.png" style="position: relative; left: -50%; top: -50%;"/>
           </div>
