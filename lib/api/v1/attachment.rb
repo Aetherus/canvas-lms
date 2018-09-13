@@ -44,7 +44,8 @@ module Api::V1::Attachment
       'display_name' => attachment.display_name,
       'filename' => attachment.filename,
       'playback_url' => attachment.playback_url,
-      'poster_url' => attachment.poster_url
+      'poster_url' => attachment.poster_url,
+      'processed' => attachment.workflow_state == 'processed'
     }
     return hash if options[:only] && options[:only].include?('names')
 

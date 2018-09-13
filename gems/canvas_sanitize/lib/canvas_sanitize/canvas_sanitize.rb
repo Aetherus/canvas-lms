@@ -337,7 +337,8 @@ module CanvasSanitize #:nodoc:
           /\Afont-(?:family|size|stretch|style|variant|weight)\z/,
           /\Alist-style-(?:image|position|type)\z/,
           /\Amargin-(?:bottom|left|right|top|offset)\z/,
-          /\Apadding-(?:bottom|left|right|top)\z/
+          /\Apadding-(?:bottom|left|right|top)\z/,
+          /\Aalign-(?:self|items)\z/
       ].freeze,
       :transformers => lambda { |env|
         CanvasSanitize.sanitize_style(env) if env[:node]['style']
