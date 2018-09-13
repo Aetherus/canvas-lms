@@ -17971,6 +17971,7 @@ zh-Hans:
       file_size_limit: "每个文件限制为 %{size}"
       files_remaining: 还有*0*个要上传
       files_tab: 单击任何文件以插入该文件的下载链接。
+      videos_tab: 单击任何文件以插入该文件的视频播放器。
       group_links: 链接至小组中的其它内容。
       headings: 
         insert_content: 将内容插入到页面中
@@ -18725,6 +18726,7 @@ zh-Hans:
   table_of_contents_544d9471: 目录
   table_of_contents_d2d11ba6: 目录
   tabs: 
+    videos: 视频
     announcements: 公告
     assignments: 作业
     collaborations: 协作

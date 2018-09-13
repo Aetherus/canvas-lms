@@ -11,16 +11,18 @@ class VideoConverter
     attachment_id = message[:attachment_id]
     logger.info "Start processing video attachment #{attachment_id}"
     attachment = Attachment.find(attachment_id)
-    if attachment.workflow_state == 'processing' and attachment.extension != '.mp4'
+    if attachment.workflow_state == 'processing'
       original_path = attachment.full_filename
       logger.info "Original video path: #{original_path}"
       dirname = File.dirname(original_path)
       basename = File.basename(original_path, attachment.extension)
+      poster_path = Pathname.new(dirname).join("#{basename}.jpg").to_s
       target_path = Pathname.new(dirname).join("#{basename}.mp4").to_s
       original = FFMPEG::Movie.new(original_path)
+      original.screenshot(poster_path, seek_time: original.duration / 3)
       original.transcode(target_path, %w[-f mp4 -strict -2]) do |progress|
         puts progress
-      end
+      end unless attachment.extension == '.mp4'
     end
     attachment.update(workflow_state: 'processed') if attachment.workflow_state == 'processing'
     logger.info "Finished processing video attachment #{attachment_id}"

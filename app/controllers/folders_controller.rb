@@ -258,6 +258,8 @@ class FoldersController < ApplicationController
           else
             @folder.visible_file_attachments.not_hidden.not_locked.by_position_then_display_name
           end
+          files = files.where(workflow_state: params[:workflow_state]) if params[:workflow_state]
+          files = files.select{|f| f.mime_class == params[:mime_class]} if params[:mime_class]
           files_options = {:permissions => {:user => @current_user}, :methods => [:currently_locked, :mime_class, :readable_size], :only => [:id, :comments, :content_type, :context_id, :context_type, :display_name, :folder_id, :position, :media_entry_id, :filename, :workflow_state]}
           folders_options = {:permissions => {:user => @current_user}, :methods => [:currently_locked, :mime_class], :only => [:id, :context_id, :context_type, :lock_at, :last_lock_at, :last_unlock_at, :name, :parent_folder_id, :position, :unlock_at]}
           sub_folders_scope = @folder.active_sub_folders
@@ -269,7 +271,9 @@ class FoldersController < ApplicationController
             :sub_folders => sub_folders_scope.by_position.map { |f| f.as_json(folders_options) },
             :files => files.map { |f|
               f.as_json(files_options).tap { |json|
-                json['attachment'].merge! doc_preview_json(f, @current_user)
+                json['attachment'].merge!(doc_preview_json(f, @current_user))
+                json['attachment'].merge!('playback_url' => f.playback_url)
+                json['attachment'].merge!('poster_url' => f.poster_url)
               }
             }
           }

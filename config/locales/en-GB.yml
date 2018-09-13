@@ -18038,6 +18038,7 @@ en-GB:
       file_size_limit: "limit %{size} per file"
       files_remaining: "*0* more to upload"
       files_tab: "Click any file to insert a download link for that file."
+      videos_tab: "Click any file to insert a video player for that file."
       group_links: "Link to other content in the group."
       headings: 
         insert_content: "Insert content into the page"
@@ -18790,6 +18791,7 @@ en-GB:
   table_of_contents_544d9471: "Table Of contents"
   table_of_contents_d2d11ba6: "Table of contents"
   tabs: 
+    videos: Videos
     announcements: Announcements
     assignments: Assignments
     collaborations: Collaborations

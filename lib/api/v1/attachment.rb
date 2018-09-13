@@ -43,7 +43,8 @@ module Api::V1::Attachment
       'folder_id' => attachment.folder_id,
       'display_name' => attachment.display_name,
       'filename' => attachment.filename,
-      'playback_url' => attachment.playback_url
+      'playback_url' => attachment.playback_url,
+      'poster_url' => attachment.poster_url
     }
     return hash if options[:only] && options[:only].include?('names')
 

@@ -218,5 +218,43 @@
   <% end %>
   <%= render :partial => 'layouts/foot', :locals => { :include_common_bundle => true } %>
 </div> <!-- #application -->
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+<script src="https://cdn.bootcss.com/hls.js/0.9.1/hls.js"></script>
+<script>
+$(function () {
+
+  var play = function(video, url) {
+    if (Hls.isSupported()) {
+      var hls = new Hls();
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        video.play();
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+      video.addEventListener('loadedmetadata',function() {
+        video.play();
+      });
+    }
+  };
+
+  $('div[data-role="video-placeholder"]').on('click', function (event) {
+    var $this = $(event.currentTarget);
+    if ($this.attr('converted')) return;
+    $this.attr('converted', 'converted');
+    var $poster = $this.find('[data-role="video-poster"]');
+    var width = $poster.width(),
+        height = $poster.height();
+    var playbackUrl = $this.data().playbackUrl;
+    if (!playbackUrl) return;
+    $video = $('<video autoplay controls/>')
+              .prop('width', width)
+              .prop('height', height);
+    $this.html($video);
+    play($video.get(0), playbackUrl);
+  });
+})
+</script>
 </body>
 </html>

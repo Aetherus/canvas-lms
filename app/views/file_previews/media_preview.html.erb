@@ -35,7 +35,7 @@
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
       window.onload = function () {
-        var m3u8Url = '<%= Rails.application.config.media_url_base %>/<%= ('%08d_' % @file.id) + @file.filename.sub(/\.\w+$/, '.mp4/index.m3u8') %>';
+        var m3u8Url = '<%= @file.playback_url %>';
         var video = document.getElementById('video');
         if (Hls.isSupported()) {
           var hls = new Hls();

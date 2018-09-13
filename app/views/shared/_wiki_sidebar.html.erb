@@ -27,6 +27,7 @@
     <li><a href="#editor_tabs_2"><%= t('tabs.links', %{Links}) %></a></li>
     <% if show_files_tab %>
       <li><a href="#editor_tabs_3"><%= t('tabs.files', %{Files}) %></a></li>
+      <li><a href="#editor_tabs_5"><%= t('tabs.videos', %{Videos}) %></a></li>
     <% end %>
     <li><a href="#editor_tabs_4"><%= t('tabs.images', %{Images}) %></a></li>
   </ul>
@@ -243,6 +244,40 @@
     <% end %>
   </div>
   <% end %>
+
+
+  <% if show_files_tab %>
+  <div id="editor_tabs_5">
+    <%= t('videos_tab', %{Click any file to insert a video player for that file.}) %>
+    <div class="file_list_holder <%= 'file_drop' if can_do(@context, @current_user, :manage_files) %>">
+      <div id="file_list_container" class="file_list" style="max-height: 300px; overflow: auto;">
+        <a id="folder_url" href="<%= context_url(@context, :context_folder_url, '{{ id }}').html_safe %>" style="display: none;">&nbsp;</a>
+        <ul id="tree2" role="tree" data-level="0" tabindex="0" aria-label="<%= t('aria_labels.files', 'Files, Use the up and down arrow keys to navigate through the tree. Press right to expand folders, left to collapse ') %>">
+          <% @wiki_sidebar_data[:root_folders].each do |folder| %>
+            <li aria-level="0" aria-selected="false" role="treeitem" data-id="<%= folder.id %>" class="folder folder_<%= folder.id %>" id="root_folder_<%= folder.id %>">
+            <span class="screenreader-only"><%= folder.name %> <%= t('aria_only.folder', 'folder') %></span>
+            <span class='name'><%= folder.name %> </span>
+              <ul role="group"></ul>
+            </li>
+          <% end %>
+          <li aria-selected="false" role="treeitem" class="file file_blank" style="display: none;">
+            <span class='name' rel="{{ poster_url }}"></span>
+            <%# <video controls autoplay data-playback-url="{{ playback_url }}" class="_video_player" width="300" height="225" /> %>
+          </li>
+          <li aria-selected="false" role="treeitem" class="folder_blank" style="display: none;">
+            <span class='name'></span>
+            <ul role="group"></ul>
+          </li>
+          <li class="loading" style="display: none;">
+            <%= t 'messages.loading', "Loading..." %>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <% end %>
+
+
   <div aria-atomic="true" id="editor_tabs_4">
     <%= t('images_tab', %{Click any image to embed the image in the page.}) %>
     <% if can_do(@context, @current_user, :manage_files) %>

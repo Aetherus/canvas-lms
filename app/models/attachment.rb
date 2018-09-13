@@ -1862,7 +1862,13 @@ class Attachment < ActiveRecord::Base
 
   def playback_url
     mime_class == 'video' ? 
-      (Rails.application.config.media_url_base + "/#{File.basename(filename, File.extname(filename))}.mp4/index.m3u8") : 
+      (Rails.application.config.media_url_base + "/#{'%08d' % id}_#{File.basename(filename, File.extname(filename))}.mp4/index.m3u8") : 
+      nil
+  end
+
+  def poster_url
+    mime_class == 'video' ? 
+      (Rails.application.config.media_url_base + "/#{'%08d' % id}_#{File.basename(filename, File.extname(filename))}.jpg") :
       nil
   end
 
