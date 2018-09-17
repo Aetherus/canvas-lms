@@ -93,9 +93,10 @@ import 'jqueryui/tabs'
     },
     videoSelected: function(node) {
       var $span = node.find('span.text').first(),
-          posterUrl = $span.attr('rel');
+          posterUrl = $span.attr('rel'),
+          playbackUrl = $span.next().attr('rel');
 
-      var playbackUrl = posterUrl.replace(/\.jpg$/, '.mp4/index.m3u8');
+      // var playbackUrl = posterUrl.replace(/\.jpg$/, '.mp4/index.m3u8');
 
       // Remove the screenreader only from the text
       var title = $span.clone();

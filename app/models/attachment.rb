@@ -130,9 +130,9 @@ class Attachment < ActiveRecord::Base
       :thumbnail_class => 'Thumbnail'
   )
 
-  def partitioned_path(*args)
-    ["%08d" % id, *args].join('_')
-  end
+  # def partitioned_path(*args)
+  #   ["%08d" % id, *args].join('_')
+  # end
 
   # These callbacks happen after the attachment data is saved to disk/s3, or
   # immediately after save if no data is being uploading during this save cycle.
@@ -1863,15 +1863,15 @@ class Attachment < ActiveRecord::Base
   EDGE_AUTH = Akamai::EdgeAuth.new(key: Canvas::Security.config['akamai_key'], token_name: '__hdnea__')
   def playback_url
     return nil unless mime_class == 'video'
-    m3u8_path = "/#{'%08d' % id}_#{File.basename(filename, File.extname(filename))}.mp4/index.m3u8"
-    m3u8_url = Rails.application.config.media_url_base + m3u8_path
-    token = EDGE_AUTH.generate_token(start_time: "now", window_seconds: 3600, acl: m3u8_path)
+    m3u8_path = partitioned_path("#{File.basename(filename, File.extname(filename))}.mp4", 'index.m3u8')
+    m3u8_url = [Rails.application.config.media_url_base, *m3u8_path].join('/')
+    token = EDGE_AUTH.generate_token(start_time: "now", window_seconds: 3600, acl: '/' + m3u8_path.join('/'))
     "#{m3u8_url}?#{token}"
   end
 
   def poster_url
     mime_class == 'video' ? 
-      (Rails.application.config.media_url_base + "/#{'%08d' % id}_#{File.basename(filename, File.extname(filename))}.jpg") :
+      [Rails.application.config.media_url_base, *partitioned_path("#{File.basename(filename, File.extname(filename))}.jpg")].join('/') :
       nil
   end
 
