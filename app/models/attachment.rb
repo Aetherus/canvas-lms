@@ -1860,10 +1860,13 @@ class Attachment < ActiveRecord::Base
     false
   end
 
+  EDGE_AUTH = Akamai::EdgeAuth.new(key: Canvas::Security.config['akamai_key'], token_name: '__hdnea__')
   def playback_url
-    mime_class == 'video' ? 
-      (Rails.application.config.media_url_base + "/#{'%08d' % id}_#{File.basename(filename, File.extname(filename))}.mp4/index.m3u8") : 
-      nil
+    return nil unless mime_class == 'video'
+    m3u8_path = "/#{'%08d' % id}_#{File.basename(filename, File.extname(filename))}.mp4/index.m3u8"
+    m3u8_url = Rails.application.config.media_url_base + m3u8_path
+    token = EDGE_AUTH.generate_token(start_time: "now", window_seconds: 3600, acl: m3u8_path)
+    "#{m3u8_url}?#{token}"
   end
 
   def poster_url

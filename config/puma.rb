@@ -16,4 +16,25 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-threads 0,1
+if ENV['RAILS_ENV'] == 'production'
+  workers 4
+  threads 4, 4
+  port 28090
+  environment 'production'
+  
+  preload_app!
+  
+  before_fork do
+    ActiveRecord::Base.connection_pool.disconnect! if defined?(ActiveRecord)
+    Hutch.disconnect
+  end
+  
+  on_worker_boot do
+    ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
+    Hutch.connect
+  end
+  
+  plugin :tmp_restart  
+else
+  threads 0,1
+end

@@ -29,6 +29,8 @@ gem 'rack', '2.0.4'
 
 gem 'streamio-ffmpeg', require: false
 
+gem 'akamai-edge_auth'
+
 # oauth2-1.4.0 caused issues with google oauth login flow, which needs to be
 # investigated as part of a future gem bump.
 gem 'oauth2', '1.2.0', require: false
