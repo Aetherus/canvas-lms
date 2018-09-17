@@ -151,7 +151,12 @@ FolderChild.isFolder = function () {
             <FilesystemObjectThumbnail model= {this.props.model} />
           </span>
           <span className='ef-name-col__text'>
-            {this.props.model.displayName() + (this.props.model.processed() ? '' : '(转换中)')}
+            {
+              this.props.model.displayName() + (
+                this.props.model.workflowState() === 'processing' ? '(处理中)' :
+                this.props.model.workflowState() === 'errored' ? '(处理失败)' : ''
+              )
+            }
           </span>
         </a>
       );

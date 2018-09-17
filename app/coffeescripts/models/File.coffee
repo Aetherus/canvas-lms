@@ -44,8 +44,8 @@ define [
         # backbone would do by default.
         "/api/v1/files/#{@id}"
 
-    processed: ->
-      @get('processed') or false
+    workflowState: ->
+      @get('workflow_state') or false
 
     initialize: (attributes, options = {}) ->
       @preflightUrl = options.preflightUrl

@@ -209,6 +209,13 @@ import Toolbar from '../files/Toolbar'
             </div>
           )}
         </div>
+        <div>
+          <p>如果文件处理失败，请尝试以下方案：</p>
+          <ol>
+            <li>检查文件是否损坏</li>
+            <li>联系管理员</li>
+          </ol>
+        </div>
         {this.state.showingModal && (
           <ReactModal
             isOpen={this.state.showingModal}

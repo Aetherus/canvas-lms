@@ -916,6 +916,13 @@ CanvasRails::Application.routes.draw do
   get 'terms_of_use' => 'legal_information#terms_of_use', as: 'terms_of_use_redirect'
   get 'privacy_policy' => 'legal_information#privacy_policy', as: 'privacy_policy_redirect'
 
+  namespace :admin do
+    resources :conversion_failures, only: [:index] do
+      post :retry_all, on: :collection
+      post :retry, action: :retry_one, on: :member
+    end
+  end
+
   ### API routes ###
 
   # TODO: api routes can't yet take advantage of concerns for DRYness, because of
