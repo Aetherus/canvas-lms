@@ -18035,6 +18035,8 @@ zh-Hans:
       select_destination: "选择这 %{count} 个文件的目标文件夹:"
       tabs: 
         files: 文件
+        videos: 视频
+        docs: 文档
         images: 图像
         links: 链接
       uploading_file: 正在上传*文件*...

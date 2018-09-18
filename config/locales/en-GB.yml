@@ -18102,6 +18102,8 @@ en-GB:
       select_destination: "Select a destination folder for these %{count} files:"
       tabs: 
         files: Files
+        videos: Videos
+        docs: Documents
         images: Images
         links: Links
       uploading_file: "Uploading *file*..."

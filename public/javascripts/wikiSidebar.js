@@ -304,7 +304,7 @@ import 'jqueryui/tabs'
         if (children) {
           children.append($file);
           $file.show();
-          $tree3.instTree.InitInstTree($tree2);
+          $tree3.instTree.InitInstTree($tree3);
         }
         if (fileCallback) {
           fileCallback($file);
@@ -413,7 +413,7 @@ import 'jqueryui/tabs'
       var $loading = $tree3.find(">.loading").clone();
       $loading.show();
       node.append($loading);
-      $.ajaxJSON(url, 'GET', {mime_class: 'office', workflow_state: 'processed'}, function(data) {
+      $.ajaxJSON(url, 'GET', {mime_class: ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf'], workflow_state: 'processed'}, function(data) {
         $loading.remove();
         var children = node.find('ul');
         // Update folder level for accessiblity
@@ -421,7 +421,7 @@ import 'jqueryui/tabs'
 
         for(var idx in data.sub_folders) {
           var folder = data.sub_folders[idx].folder;
-          var $folder = $tree2.find(".folder_blank").clone(true);
+          var $folder = $tree3.find(".folder_blank").clone(true);
           $folder.attr('class', 'folder').data('id', folder.id).addClass('folder_' + folder.id);
           $folder.find('.name').html(" <span class='screenreader-only'>" + htmlEscape(folder.name) + " " + htmlEscape(I18n.t('aria_tree.folder', 'folder')) + "</span>" + htmlEscape(folder.name) );
           $folder.attr('aria-level', children.data('level'))
@@ -433,7 +433,7 @@ import 'jqueryui/tabs'
           wikiSidebar.fileAdded2(data.files[idx].attachment, children);
         }
         node.addClass('initialized');
-        $tree3.instTree.InitInstTree($tree2);
+        $tree3.instTree.InitInstTree($tree3);
       }, function() {
         $loading.remove();
       });
@@ -605,19 +605,19 @@ import 'jqueryui/tabs'
             dragdrop: false,
             onExpand: function(node) {
               if(node.hasClass('folder') && !node.data('includes_files')) {
-                wikiSidebar.loadFolder2(node);
+                wikiSidebar.loadFolder3(node);
               }
             },
             onClick: function (event,node) {
               if (node.hasClass('leaf') || node.hasClass('file')) {
-                wikiSidebar.videoSelected(node);
+                wikiSidebar.docSelected(node);
               } else if (node.hasClass('node')) {
                 node.children('.sign').click();
               }
             },
             onEnter: function (event, node){
               if (node.hasClass('leaf') || node.hasClass('file')) {
-                wikiSidebar.videoSelected(node);
+                wikiSidebar.docSelected(node);
               } else if (node.hasClass('node')) {
                 node.children('.sign').click();
               }
