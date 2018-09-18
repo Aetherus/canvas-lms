@@ -10,10 +10,12 @@ class VideoConverter
             'x-dead-letter-routing-key' => 'conversion.failover.video'
 
   def process(message)
+    #byebug
     attachment_id = message[:attachment_id]
     logger.info "Start processing video attachment #{attachment_id}"
     attachment = Attachment.find(attachment_id)
     if attachment.workflow_state == 'processing'
+      #byebug
       original_path = attachment.full_filename
       logger.info "Original video path: #{original_path}"
       dirname = File.dirname(original_path)
@@ -25,6 +27,7 @@ class VideoConverter
       original.transcode(target_path, %w[-f mp4 -strict -2]) do |progress|
         # puts progress
       end unless attachment.extension == '.mp4'
+      #byebug
       attachment.update!(workflow_state: 'processed')
     end
     logger.info "Finished processing video attachment #{attachment_id}"

@@ -15443,6 +15443,7 @@ en-CA:
       files_remaining: "*0* more to upload"
       files_tab: "Click any file to insert a download link for that file."
       videos_tab: "Click any file to insert a video player for that file."
+      docs_tab: "Click any file to insert an office document viewer for that file."
       group_links: "Link to other content in the group."
       headings: 
         insert_content: "Insert Content into the Page"

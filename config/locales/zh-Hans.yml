@@ -17972,6 +17972,7 @@ zh-Hans:
       files_remaining: 还有*0*个要上传
       files_tab: 单击任何文件以插入该文件的下载链接。
       videos_tab: 单击任何文件以插入该文件的视频播放器。
+      docs_tab: 单击任何文件以插入该文件的Office文档视图。
       group_links: 链接至小组中的其它内容。
       headings: 
         insert_content: 将内容插入到页面中

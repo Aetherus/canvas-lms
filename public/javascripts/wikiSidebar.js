@@ -36,6 +36,7 @@ import 'jqueryui/tabs'
   var $editor_tabs,
       $tree1, 
       $tree2,
+      $tree3,
       $image_list,
       $course_show_secondary,
       $sidebar_upload_image_form,
@@ -53,6 +54,7 @@ import 'jqueryui/tabs'
       $editor_tabs = $("#editor_tabs");
       $tree1 = $editor_tabs.find('ul#tree1');
       $tree2 = $editor_tabs.find('ul#tree2');
+      $tree3 = $editor_tabs.find('ul#tree3');
       $image_list = $editor_tabs.find('#editor_tabs_4 .image_list');
       $course_show_secondary = $("#course_show_secondary");
       $sidebar_upload_image_form = $("form#sidebar_upload_image_form");
@@ -113,6 +115,22 @@ import 'jqueryui/tabs'
         </div>`;
       // wikiSidebar.editor.execCommand('mceInsertTemplate', playerHTML);
       wikiSidebar.editor.editorBox('insert_code', playerHTML);
+    },
+    docSelected: function(node) {
+      var $span = node.find('span.text').first(),
+          url = encodeURIComponent($span.attr('rel'));
+
+      // Remove the screenreader only from the text
+      var title = $span.clone();
+      title.find('.screenreader-only').remove()
+      // title = title.text();
+
+      // wikiSidebar.editor.editorBox('create_link', {title: title , url: url, file: true, image: node.hasClass('image'), scribdable: node.hasClass('scribdable'), kaltura_entry_id: node.attr('data-media-entry-id'), kaltura_media_type: node.hasClass('video_playback') ? 'video' : 'audio'});
+      var docView =
+        `<iframe src='https://weboffice.sjtu.edu.cn/op/embed.aspx?src=${url}' width='476px' height='288px' frameborder='0'>
+           This is an embedded <a target='_blank' href='http://office.com'>Microsoft Office</a> document, powered by <a target='_blank' href='http://office.com/webapps'>Office Web Apps</a>.
+         </iframe>`;
+      wikiSidebar.editor.editorBox('insert_code', docView);
     },
     imageSelected: function($img) {
       var src = $img.data('url') || $img.attr('src'),
@@ -245,6 +263,69 @@ import 'jqueryui/tabs'
         }
       }
     },
+    fileAdded3: function(attachment, newUploadOrCallbackOrParent, fileCallback) {
+      var children, newUpload, imageCallback, $file;
+      if($.isFunction(newUploadOrCallbackOrParent)) {
+        newUpload = true;
+        imageCallback = newUploadOrCallbackOrParent;
+      } else if(typeof newUploadOrCallbackOrParent == "object") {
+        children = newUploadOrCallbackOrParent;
+      } else {
+        newUpload = newUploadOrCallbackOrParent;
+      }
+      if(children == null) {
+        children = $tree3.find('.initialized.folder_' + attachment.folder_id + '>ul');
+      }
+      if(children.length || fileCallback) {
+        var file = attachment;
+        var displayName = "<span class='screenreader-only'>" + htmlEscape(file.display_name) + " " + htmlEscape(I18n.t('aria_tree.file', 'file')) + "</span>" + htmlEscape(file.display_name);
+
+        $file = $tree3.find(".file_blank").clone(true);
+        $file
+          .attr('class', 'file')
+          .attr('title', htmlEscape(file.display_name))
+          .attr('data-tooltip', '')
+          .attr('aria-level', children.data('level'))
+          .attr('id', this.generateTreeItemID('file'))
+          .addClass(file.mime_class)
+          .toggleClass('scribdable', !!(file.canvadoc_session_url));
+        if(file.media_entry_id) {
+          $file
+            .addClass('kalturable')
+            .attr('data-media-entry-id', file.media_entry_id)
+            .addClass(file['content-type'] && file['content-type'].match(/video/) ? 'video_playback' : 'audio_playback');
+        }
+        file.name = displayName;
+        $file.fillTemplateData({
+          data: file,
+          hrefValues: ['id', 'url'],
+          htmlValues: ['name', 'url']
+        });
+        if (children) {
+          children.append($file);
+          $file.show();
+          $tree3.instTree.InitInstTree($tree2);
+        }
+        if (fileCallback) {
+          fileCallback($file);
+        }
+      }
+      if(newUpload && (attachment.mime_class == 'image' || attachment['content-type'].match(/^image/)) &&
+        $image_list.hasClass('initialized')) {
+        var url = $.replaceTags($("#editor_tabs_4 .file_url").attr('href'), 'id', attachment.id);
+        var $img = $editor_tabs.find("#wiki_sidebar_image_uploads .img_link").clone();
+        $img.find(".img")
+            .attr({'src': attachment.thumbnail_url || url, 'alt': attachment.display_name})
+            .data('url', url).end()
+          .fillTemplateData({data: attachment})
+          .prependTo($image_list);
+        if (imageCallback) {
+          $img.slideDown(imageCallback);
+        } else {
+          $img.slideDown();
+        }
+      }
+    },
     show: function() {
       $editor_tabs.addClass('showing');
       $editor_tabs.show();
@@ -321,6 +402,38 @@ import 'jqueryui/tabs'
         }
         node.addClass('initialized');
         $tree2.instTree.InitInstTree($tree2);
+      }, function() {
+        $loading.remove();
+      });
+    },
+    loadFolder3: function(node) {
+      node.data('includes_files', true);
+      var url = $.replaceTags($("#editor_tabs_6 #folder_url").attr('href'), 'id', node.data('id'));
+
+      var $loading = $tree3.find(">.loading").clone();
+      $loading.show();
+      node.append($loading);
+      $.ajaxJSON(url, 'GET', {mime_class: 'office', workflow_state: 'processed'}, function(data) {
+        $loading.remove();
+        var children = node.find('ul');
+        // Update folder level for accessiblity
+        children.data('level', children.parents('ul:first').data('level') + 1);
+
+        for(var idx in data.sub_folders) {
+          var folder = data.sub_folders[idx].folder;
+          var $folder = $tree2.find(".folder_blank").clone(true);
+          $folder.attr('class', 'folder').data('id', folder.id).addClass('folder_' + folder.id);
+          $folder.find('.name').html(" <span class='screenreader-only'>" + htmlEscape(folder.name) + " " + htmlEscape(I18n.t('aria_tree.folder', 'folder')) + "</span>" + htmlEscape(folder.name) );
+          $folder.attr('aria-level', children.data('level'))
+                 .attr('id', wikiSidebar.generateTreeItemID('folder'));
+          children.append($folder);
+          $folder.show();
+        }
+        for(var idx in data.files) {
+          wikiSidebar.fileAdded2(data.files[idx].attachment, children);
+        }
+        node.addClass('initialized');
+        $tree3.instTree.InitInstTree($tree2);
       }, function() {
         $loading.remove();
       });
@@ -483,7 +596,38 @@ import 'jqueryui/tabs'
           $tree2.attr('aria-activedescendant', $node.attr('id'));
           $tree2.find('[aria-selected="true"]').attr('aria-selected', 'false');
           $node.attr('aria-selected', 'true');
+        }
+        // defer loading everything in the "docs" tree until we click on that tab
+        if (ui.panel.id === 'editor_tabs_6' && !$tree3.hasClass('initialized')) {
+          $tree3.addClass('initialized unstyled_list');
+          $tree3.instTree({
+            multi: false,
+            dragdrop: false,
+            onExpand: function(node) {
+              if(node.hasClass('folder') && !node.data('includes_files')) {
+                wikiSidebar.loadFolder2(node);
+              }
+            },
+            onClick: function (event,node) {
+              if (node.hasClass('leaf') || node.hasClass('file')) {
+                wikiSidebar.videoSelected(node);
+              } else if (node.hasClass('node')) {
+                node.children('.sign').click();
+              }
+            },
+            onEnter: function (event, node){
+              if (node.hasClass('leaf') || node.hasClass('file')) {
+                wikiSidebar.videoSelected(node);
+              } else if (node.hasClass('node')) {
+                node.children('.sign').click();
+              }
+            }
+          });
 
+          var $node = $tree3.find('.folder').first();
+          $tree3.attr('aria-activedescendant', $node.attr('id'));
+          $tree3.find('[aria-selected="true"]').attr('aria-selected', 'false');
+          $node.attr('aria-selected', 'true');
         }
         // defer setting up the <img>es until we click the "images" tab
         if (ui.panel.id === 'editor_tabs_4' && !$image_list.hasClass('initialized')) {
