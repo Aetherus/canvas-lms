@@ -26,7 +26,9 @@
   <ul>
     <li><a href="#editor_tabs_2"><%= t('tabs.links', %{Links}) %></a></li>
     <% if show_files_tab %>
+      <% if false %>
       <li><a href="#editor_tabs_3"><%= t('tabs.files', %{Files}) %></a></li>
+      <% end %>
       <li><a href="#editor_tabs_5"><%= t('tabs.videos', %{Videos}) %></a></li>
       <li><a href="#editor_tabs_6"><%= t('tabs.docs', %{Documents}) %></a></li>
     <% end %>
@@ -177,7 +179,7 @@
     </div>
 
   </div>
-  <% if show_files_tab %>
+  <% if show_files_tab and false %>
   <div id="editor_tabs_3">
     <%= t('files_tab', %{Click any file to insert a download link for that file.}) %>
     <div id="wiki_sidebar_file_uploads" class="uploading_file_list" style="display: none;">
