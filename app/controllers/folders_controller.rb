@@ -275,6 +275,7 @@ class FoldersController < ApplicationController
                 json['attachment'].merge!(doc_preview_json(f, @current_user))
                 json['attachment'].merge!('playback_url' => f.playback_url)
                 json['attachment'].merge!('poster_url' => f.poster_url)
+                json['attachment'].merge!('doc_view_url' => f.doc_view_url)
               }
             }
           }

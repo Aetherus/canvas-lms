@@ -1881,6 +1881,11 @@ class Attachment < ActiveRecord::Base
       nil
   end
 
+  def doc_view_url
+    return nil unless mime_class.in? %w[doc ppt xls pdf]
+    [Rails.application.config.media_url_base, *partitioned_path(filename)].join('/')
+  end
+
   def set_publish_state_for_usage_rights
     if self.context &&
        (!self.folder || !self.folder.for_submissions?) &&

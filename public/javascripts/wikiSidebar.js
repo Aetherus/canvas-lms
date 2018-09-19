@@ -127,7 +127,7 @@ import 'jqueryui/tabs'
 
       // wikiSidebar.editor.editorBox('create_link', {title: title , url: url, file: true, image: node.hasClass('image'), scribdable: node.hasClass('scribdable'), kaltura_entry_id: node.attr('data-media-entry-id'), kaltura_media_type: node.hasClass('video_playback') ? 'video' : 'audio'});
       var docView =
-        `<iframe src='https://weboffice.sjtu.edu.cn/op/embed.aspx?src=${url}' width='476px' height='288px' frameborder='0'>
+        `<iframe src='https://weboffice.sjtu.edu.cn/op/embed.aspx?src=${url}' style='width: 476px; height: 288px;' frameborder='0'>
            This is an embedded <a target='_blank' href='http://office.com'>Microsoft Office</a> document, powered by <a target='_blank' href='http://office.com/webapps'>Office Web Apps</a>.
          </iframe>`;
       wikiSidebar.editor.editorBox('insert_code', docView);
@@ -298,8 +298,8 @@ import 'jqueryui/tabs'
         file.name = displayName;
         $file.fillTemplateData({
           data: file,
-          hrefValues: ['id', 'url'],
-          htmlValues: ['name', 'url']
+          hrefValues: ['id', 'doc_view_url'],
+          htmlValues: ['name', 'doc_view_url']
         });
         if (children) {
           children.append($file);
@@ -430,7 +430,7 @@ import 'jqueryui/tabs'
           $folder.show();
         }
         for(var idx in data.files) {
-          wikiSidebar.fileAdded2(data.files[idx].attachment, children);
+          wikiSidebar.fileAdded3(data.files[idx].attachment, children);
         }
         node.addClass('initialized');
         $tree3.instTree.InitInstTree($tree3);
