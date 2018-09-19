@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+require 'open3'
+
+$try_counter = 0
+
+begin
+  Open3.popen3('yarn install --pure-lockfile >/dev/null') do |stdin, stdout, stderr, thread|
+    puts "Try #{$try_counter += 1}"
+    fail unless stderr.readline =~ /^warning/i
+  end
+rescue
+  retry
+end

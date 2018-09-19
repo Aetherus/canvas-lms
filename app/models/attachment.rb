@@ -1871,7 +1871,7 @@ class Attachment < ActiveRecord::Base
     return nil unless mime_class == 'video'
     m3u8_path = partitioned_path("#{File.basename(filename, File.extname(filename))}.mp4", 'index.m3u8')
     m3u8_url = [Rails.application.config.media_url_base, *m3u8_path].join('/')
-    token = EDGE_AUTH.generate_token(start_time: "now", window_seconds: 3600, acl: '/' + m3u8_path.join('/'))
+    token = EDGE_AUTH.generate_token(start_time: "now", window_seconds: 3600, acl: '*')
     "#{m3u8_url}?#{token}"
   end
 
