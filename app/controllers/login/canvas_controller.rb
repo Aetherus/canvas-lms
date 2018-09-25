@@ -151,7 +151,7 @@ class Login::CanvasController < ApplicationController
       render :mobile_login, layout: 'mobile_auth', status: status
     else
       @aacs_with_buttons = @domain_root_account.authentication_providers.active.select { |aac| aac.class.login_button? }
-      render :new, status: status
+      render :new, status: status, layout: 'bare'
     end
   end
 end

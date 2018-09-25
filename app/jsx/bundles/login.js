@@ -34,3 +34,12 @@ $('.login_link').click((event) => {
   event.preventDefault()
   return switcher.switchToLogin()
 })
+
+$('.sjtu-tab').on('click', function(event) {
+  var contentId = event.target.dataset.content;
+  var $content = $(contentId);
+  $content.show();
+  $content.siblings('.sjtu-login-form').hide();
+  $(event.target).addClass('sjtu-active');
+  $(event.target).siblings('.sjtu-tab').removeClass('sjtu-active');
+});

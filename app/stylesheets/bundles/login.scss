@@ -17,6 +17,141 @@
  */
 
 @import "base/environment";
-@import "pages/login/registration_dialog.scss";
-@import "pages/login/ic-login.scss";
-@import "pages/login/ic-login-sso.scss";
+// @import "pages/login/registration_dialog.scss";
+// @import "pages/login/ic-login.scss";
+// @import "pages/login/ic-login-sso.scss";
+
+* {
+	padding: 0;
+	margin: 0;
+}
+
+.sjtu-header {
+	padding: 20px;
+}
+
+.sjtu-header * {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.sjtu-header h1 {
+	margin-left: 2em;
+	color: #309BD1;
+	font-weight: 300;
+}
+
+.sjtu-main {
+	background: url(/images/sjtu-gate.jpg) no-repeat;
+  position: relative;
+  border-width:0px;
+  left:0px;
+  top:0px;
+  width:100vw;
+  height:40vw;
+  overflow:hidden;
+  background-size: cover;
+}
+
+.sjtu-main .buttons-container {
+	display: inline-block;
+	margin: 680px auto 80px auto;
+}
+
+.sjtu-footer {
+  position: fixed;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 50% 50%;
+  grid-template-rows: 50% 50%;
+  width: 100vw;
+  padding: 40px 20vw;
+  background-color: #309BD1;
+  color: white;
+}
+
+#login-forms {
+  width: 300px;
+  height: 320px;
+  padding: 20px;
+  background-color: white;
+  position: fixed;
+  top: 25vh;
+  right: 10vw;
+}
+
+#login-forms .sjtu-tabs {
+  font-size: 0;
+}
+
+#login-forms .sjtu-tabs .sjtu-tab {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 50%;
+  text-align: center;
+  line-height: 2.5em;
+  color: #666666;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+#login-forms .sjtu-tabs .sjtu-tab.sjtu-active,
+#login-forms .sjtu-tabs .sjtu-tab.sjtu-active:hover,
+#login-forms .sjtu-tabs .sjtu-tab.sjtu-active:visited {
+  color: #309BD1;
+}
+
+#login-forms .sjtu-submit-button {
+	display: block;
+  color: white;
+	background-color: #309BD1;
+	border-radius: 5px;
+	text-align: center;
+  text-decoration: none;
+	line-height: 3em;
+	font-weight: 400;
+  font-size: 1.1rem;
+  border: none;
+  width: 100%;
+}
+
+#login-forms .sjtu-fieldset {
+  display: flex;
+  border: none;
+  margin: 2em 0;
+}
+
+#login-forms .sjtu-fieldset input {
+  flex: 1;
+  border: 1px solid #666666;
+  border-radius: 0 2px 2px 0;
+  min-width: 0;
+  text-indent: 1em;
+}
+
+#login-forms .sjtu-fieldset i {
+  font-size: 1.2em;
+  padding: 0.4em 0.6em;
+  border: 1px solid #666666;
+  border-right: none;
+  border-radius: 2px 0 0 2px;
+}
+
+#guest-login {
+  padding-top: 20px;
+}
+
+#guest-login .sjtu-submit-button {
+  margin-top: 74px;
+}
+
+#jaccount-login .sjtu-submit-button {
+  margin-top: 20px;
+}
+
+#jaccount-login img {
+  display: block;
+  width: 70%;
+  margin: auto
+}
