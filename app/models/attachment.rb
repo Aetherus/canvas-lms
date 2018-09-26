@@ -1157,6 +1157,11 @@ class Attachment < ActiveRecord::Base
       "video/3gpp" => "video",
       "video/mp4" => "video",
       "video/webm" => "video",
+      "video/x-flv" => "video",
+      "video/x-m4v" => "video",
+      "video/x-matroska" => "video",
+      "video/x-ms-wmv" => "video",
+      "video/avi" => "video",
       "application/x-shockwave-flash" => "flash",
       "application/vnd.rn-realmedia" => "video",
       "application/vnd.rn-realmedia-vbr" => "video",
@@ -1883,7 +1888,7 @@ class Attachment < ActiveRecord::Base
 
   def doc_view_url
     return nil unless mime_class.in? %w[doc ppt xls pdf]
-    [Rails.application.config.media_url_base, *partitioned_path(filename)].join('/')
+    [Rails.application.config.doc_url_base, *partitioned_path(filename)].join('/')
   end
 
   def set_publish_state_for_usage_rights

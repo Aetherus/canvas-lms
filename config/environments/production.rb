@@ -67,7 +67,8 @@ environment_configuration(defined?(config) && config) do |config|
 
   config.eager_load = true
 
-  config.media_url_base = 'http://dsj2.ziyuenet.com.cn:28382'
+  config.media_url_base = 'http://211.161.198.242:13801'
+  config.doc_url_base = 'http://211.161.198.242:13801'
   #config.media_url_base = 'http://172.168.70.49:8888'
 
   # eval <env>-local.rb if it exists
