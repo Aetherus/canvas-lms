@@ -28,6 +28,10 @@
 
 body {
   overflow-y: hidden;
+  
+  .hidden-readable {
+    display: none;
+  }
 }
 
 .sjtu-header {
