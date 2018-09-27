@@ -261,7 +261,9 @@ var Pagination = (_dec = (0, _uiThemeable2.default)(_theme2.default, styles), _d
   }, {
     key: 'renderArrowButton',
     value: function renderArrowButton(icon, title, direction, currentPageIndex) {
-      var _props$children$props = this.props.children[currentPageIndex + direction].props,
+      var child = this.props.children[currentPageIndex + direction];
+      if (!child) return;
+      var _props$children$props = child.props,
           onClick = _props$children$props.onClick,
           disabled = _props$children$props.disabled;
 

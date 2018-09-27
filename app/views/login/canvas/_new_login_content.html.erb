@@ -33,16 +33,16 @@
     <div id="guest-login" class="sjtu-login-form" style="display: none;">
       <%= form_for :pseudonym_session, :url => url_for({ action: :create }.merge(params.slice(:id).to_unsafe_h)), :html => {:id => "login_form"} do |f| %>
         <input type="hidden" name="redirect_to_ssl" value="1"/>
-        <div class="sjtu-fieldset">
-          <i class="fa fa-user"></i>
+        <div class="sjtu-fieldset sjtu-fieldset-first">
+          <i class="fa fa-user fa-fw"></i>
           <%= f.text_field :unique_id, 
                            :value => params[:pseudonym_session].try(:[], :unique_id), 
                            :autofocus => !params[:previewing_from_themeeditor],
                            :placeholder => '请输入邮箱地址' %>
           <%# <input placeholder="请输入邮箱地址"/> %>
         </div>
-        <div class="sjtu-fieldset">
-          <i class="fa fa-lock"></i>
+        <div class="sjtu-fieldset sjtu-fieldset-last">
+          <i class="fa fa-lock fa-fw"></i>
           <%= f.password_field :password, :role => "textbox", :placeholder => '请输入登录密码' %>
           <%# <input placeholder="请输入登录密码"/> %>
         </div>
