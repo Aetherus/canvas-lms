@@ -24,7 +24,7 @@ import { actionTypes } from './actions'
 import { reduceNotifications } from '../shared/reduxNotifications'
 import { createPaginatedReducer } from '../shared/reduxPagination'
 
-const MIN_SEATCH_LENGTH = 3
+const MIN_SEATCH_LENGTH = 2
 
 const identity = (defaultState = null) => (
   state => (state === undefined ? defaultState : state)
