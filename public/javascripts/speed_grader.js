@@ -637,6 +637,7 @@ function renderCommentTextArea () {
     label: React.createElement(ScreenReaderContent, null, I18n.t('Add a Comment')),
     placeholder: I18n.t('Add a Comment'),
     resize: 'vertical',
+    height: '5em',
     textareaRef
   };
 
