@@ -1763,6 +1763,7 @@ class CoursesController < ApplicationController
         add_crumb(t('#crumbs.modules', "Modules"))
         load_modules
       when 'syllabus'
+        @active_tab = "home"
         rce_js_env(:sidebar)
         add_crumb(t('#crumbs.syllabus', "Syllabus"))
         @groups = @context.assignment_groups.active.order(
