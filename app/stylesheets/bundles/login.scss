@@ -28,6 +28,7 @@
 
 body {
   overflow-y: hidden;
+  font-family: Arial, Helvetica, sans-serif;
   
   .hidden-readable {
     display: none;
@@ -35,7 +36,7 @@ body {
 }
 
 .sjtu-header {
-  padding: 2.2vh;
+  padding: 0.46875rem;
   
   * {
     display: inline-block;
@@ -45,7 +46,9 @@ body {
   h1 {
     margin-left: 2em;
     color: #309BD1;
-    font-weight: 300;
+    font-size: 1.25rem;
+    font-weight: 400;
+    font-family: 华文行楷, sans-serif;
   }
 }
 
@@ -58,18 +61,18 @@ body {
   background-size: cover;
 
   #login-forms {
-    $login-forms-width: 20vw;
-    $login-forms-min-width: 200px;
-    $login-content-size: $login-forms-width * 0.7;
-    $login-content-min-size: $login-forms-min-width * 0.7;
+    box-sizing: border-box;
+    $login-forms-width: 310px;
+    // $login-forms-min-width: 200px;
+    // $login-content-size: $login-forms-width * 0.7;
 
-    width: $login-content-size;
-    min-width: $login-forms-min-width;
-    padding: 20px;
+    width: $login-forms-width;
+    // min-width: $login-forms-min-width;
+    padding: 22px;
     background-color: white;
     position: fixed;
-    top: 25vh;
-    right: 10vw;
+    top: 24.16667vh;
+    right: 13.02vw;
 
     .sjtu-tabs {
       font-size: 0;
@@ -93,16 +96,19 @@ body {
       }
     }
 
+    $login-form-line-height: 2.8125rem;
+
     .sjtu-submit-button {
+      cursor: pointer;
       display: block;
       color: white;
       background-color: #309BD1;
-      border-radius: 5px;
+      border-radius: 4px;
       text-align: center;
       text-decoration: none;
-      line-height: 3em;
-      font-weight: 400;
-      font-size: 1.1rem;
+      line-height: $login-form-line-height;
+      font-weight: 700;
+      font-size: 1.125rem;
       border: none;
       width: 100%;
     }
@@ -111,31 +117,28 @@ body {
       .sjtu-fieldset {
         display: flex;
         border: none;
-        height: $login-content-size / 8;
-        min-height: 1.2rem;
+        margin-bottom: $login-form-line-height / 2;
 
         &.sjtu-fieldset-first {
-          padding-top: $login-content-size / 8;
-          padding-bottom: $login-content-size / 16;
+          margin-top: $login-form-line-height / 2;
         }
 
-        &.sjtu-fieldset-last {
-          padding-top: $login-content-size / 16;
-          padding-bottom: $login-content-size / 8;
-        }
+        $input-border-color: #a7a8a8;
 
         input {
           flex: 1;
-          border: 1px solid #666666;
+          border: 1px solid $input-border-color;
           border-radius: 0 2px 2px 0;
           min-width: 0;
           text-indent: 1em;
+          line-height: $login-form-line-height;
         }
 
         i {
           font-size: 1.2rem;
-          line-height: $login-content-size / 8;
-          border: 1px solid #666666;
+          width: $login-form-line-height;
+          line-height: $login-form-line-height;
+          border: 1px solid $input-border-color;
           border-right: none;
           border-radius: 2px 0 0 2px;
         }
@@ -144,9 +147,10 @@ body {
 
     #jaccount-login {
       img {
+        $img-width: 70%;
         display: block;
-        width: 70%;
-        margin: auto;
+        width: $img-width;
+        margin: ((100% - $img-width) / 4) auto;
       }
     }
   }  
@@ -155,11 +159,13 @@ body {
 .sjtu-footer {
   position: fixed;
   bottom: 0;
+  font-size: 0.8125rem;
+  line-height: 1.9rem;
   display: grid;
   grid-template-columns: 50% 50%;
   grid-template-rows: 50% 50%;
   width: 100vw;
-  padding: 4.4vh 20vw;
+  padding: 2rem 20vw;
   background-color: #309BD1;
   color: white;
 
