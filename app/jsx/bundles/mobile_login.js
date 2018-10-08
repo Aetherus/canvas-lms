@@ -21,8 +21,9 @@ import signupDialog from 'compiled/registration/signupDialog'
 
 const eventToBindTo = ('ontouchstart' in window) ? 'touchstart' : 'click'
 document.addEventListener('DOMContentLoaded', () => {
-  setupForgotPassword()
-  setupParentSignup()
+  // setupForgotPassword()
+  // setupParentSignup()
+  setupSJTUTabs()
 })
 
 function setupParentSignup () {
@@ -112,4 +113,30 @@ function ajax(options){
   Object.keys(options.headers).forEach(name => xhr.setRequestHeader(name, options.headers[name]))
   xhr.send(options.data)
   return xhr
+}
+
+function setupSJTUTabs() {
+  var tabs = document.querySelectorAll('.sjtu-tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function(event) {
+      tabs.forEach(function (child) {
+        if (child === tab) {
+          addClass(child, 'sjtu-active');
+        } else {
+          removeClass(child, 'sjtu-active');
+        }
+      });
+
+      var contentId = event.target.dataset.content;
+      var elemContent = document.querySelector(contentId);
+      elemContent.parentNode.childNodes.forEach(function (child) {
+        if (child.nodeType !== Node.ELEMENT_NODE) return;
+        if (child === elemContent) {
+          addClass(child, 'active');
+        } else {
+          removeClass(child, 'active');
+        }
+      });
+    });
+  })
 }
