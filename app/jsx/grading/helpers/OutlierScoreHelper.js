@@ -18,7 +18,7 @@
 
 import GRADEBOOK_TRANSLATIONS from 'compiled/gradebook/GradebookTranslations'
 
-  const MULTIPLIER = 1.5;
+  const MULTIPLIER = 1.0;
 
   const isNegativePoints = function(score) {
     return score < 0;
@@ -27,7 +27,7 @@ import GRADEBOOK_TRANSLATIONS from 'compiled/gradebook/GradebookTranslations'
   const isUnusuallyHigh = function(score, pointsPossible) {
     if (pointsPossible === 0 || pointsPossible == null) { return false; }
     const outlierBoundary = pointsPossible * MULTIPLIER;
-    return score >= outlierBoundary;
+    return score > outlierBoundary;
   };
 
   class OutlierScoreHelper {
