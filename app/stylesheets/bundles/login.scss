@@ -161,9 +161,9 @@ body {
   bottom: 0;
   font-size: 0.8125rem;
   line-height: 1.9rem;
-  display: grid;
-  grid-template-columns: 50% 50%;
-  grid-template-rows: 50% 50%;
+  display: block;
+  // grid-template-columns: 50% 50%;
+  // grid-template-rows: 50% 50%;
   width: 100vw;
   padding: 2rem 20vw;
   background-color: #309BD1;
@@ -171,5 +171,13 @@ body {
 
   .hidden-readable {
     display: none;
+  }
+
+  .sjtu-row {
+    display: flex;
+
+    p {
+      flex: 1;
+    }
   }
 }
