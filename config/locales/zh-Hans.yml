@@ -8175,7 +8175,7 @@ zh-Hans:
       page_title: 文件预览
   files_and_folder_contents_only_available_to_studen_944f9166: 只能通过链接向学生提供文件和文件夹内容。在学生文件中不显示。
   files_c300e900: 文件
-  files_quota_percentused_of_bytesavailable_used_7f62792c: "文件配额：%{percentUsed} 已使用……，共 %{bytesAvailable}"
+  files_quota_percentused_of_bytesavailable_used_7f62792c: "文件配额：已使用 %{bytesAvailable} 中的 %{percentUsed}"
   files_quota_percentused_of_bytesavailable_used_d208857a: "文件配额: %{percentUsed}% of %{bytesAvailable} 被使用"
   files_toolbar_2f2f0976: 文件工具栏
   files_tutorial_tray_3ad1eea6: 文件教程托盘
@@ -13906,7 +13906,7 @@ zh-Hans:
   percent_of_students_scoring_1239d948: 学生分数的百分比
   percentage_34ab7c2c: 百分比、百分率
   percentused_of_bytesavailable_used_894e2327: "%{percentUsed}% 已使用，共 %{bytesAvailable}"
-  percentused_of_bytesavailable_used_a859a40d: "%{percentUsed} 已使用……，共 %{bytesAvailable}"
+  percentused_of_bytesavailable_used_a859a40d: "已使用 %{bytesAvailable} 中的 %{percentUsed}"
   performance_ac5f9e70: 表现
   performance_enhancements_for_the_gradebook_e6c5d5a5: 提高成绩册的性能
   permission_must_be_enabled_for_someone_397e1ce3: 权限必须为人所启用
