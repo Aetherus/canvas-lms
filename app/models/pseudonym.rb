@@ -43,7 +43,7 @@ class Pseudonym < ActiveRecord::Base
   before_destroy :retire_channels
 
   before_save :set_password_changed
-  before_validation :infer_defaults, :verify_unique_sis_user_id, :verify_unique_integration_id
+  before_validation :infer_defaults, :verify_unique_sis_user_id, :verify_unique_integration_id, :ensure_root_account
   after_save :update_account_associations_if_account_changed
   has_a_broadcast_policy
 
@@ -96,7 +96,8 @@ class Pseudonym < ActiveRecord::Base
     return unless self.user && !User.skip_updating_account_associations?
     if self.id_before_last_save.nil?
       return if %w{creation_pending deleted}.include?(self.user.workflow_state)
-      self.user.update_account_associations(:incremental => true, :precalculated_associations => {self.account_id => 0})
+      #precalculated_associations = self.account_id == @maybe_non_root_account.id ? {self.account_id => 0} : {self.account_id => 0, @maybe_non_root_account.id => 1}
+      self.user.update_account_associations(:incremental => true, :precalculated_associations => {@maybe_non_root_account.id => 0})
     elsif self.saved_change_to_account_id?
       self.user.update_account_associations_later
     end
@@ -549,5 +550,10 @@ class Pseudonym < ActiveRecord::Base
     redis_key = cas_ticket_key(ticket)
 
     Canvas.redis.set(redis_key, true, ex: CAS_TICKET_TTL)
+  end
+
+  def ensure_root_account
+    @maybe_non_root_account ||= self.account
+    self.account = self.account.root_account unless self.account.nil? or self.account.root_account?
   end
 end
