@@ -16376,7 +16376,7 @@ zh-Hans:
         keywords: 尝试不同的关键字。
         spelled: 确保所有字词拼写正确。
         suggestions: 建议：
-        three_chars: "在搜索框中输入至少 3 个字母。"
+        three_chars: "在搜索框中输入至少 2 个字母。"
         your_search: "您搜索的 - \"%{search_term}\" - 不匹配任何文件。"
     file_list: 文件列表
     files: 文件

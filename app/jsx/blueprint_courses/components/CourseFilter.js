@@ -26,7 +26,7 @@ import Grid, {GridCol, GridRow} from '@instructure/ui-layout/lib/components/Grid
 import propTypes from '../propTypes'
 
 const { func } = PropTypes
-const MIN_SEACH = 3 // min search term length for API
+const MIN_SEACH = 2 // min search term length for API
 
 export default class CourseFilter extends React.Component {
   static propTypes = {

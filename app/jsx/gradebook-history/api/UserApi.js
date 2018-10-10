@@ -24,7 +24,7 @@ const userMetaTypes = {
 };
 
 function getUsersByName (courseId, userType, searchTerm, enrollmentStates = []) {
-  if (searchTerm.length < 3) {
+  if (searchTerm.length < 2) {
     // the endpoint doesn't allow searching by 2 letters or less
     return Promise.resolve({ response: {data: []} });
   }

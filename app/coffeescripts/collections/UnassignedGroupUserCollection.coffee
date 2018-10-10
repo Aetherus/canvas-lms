@@ -39,7 +39,7 @@ define [
       options = options || {}
       options.reset = true
 
-      if filter && filter.length >= 3
+      if filter && filter.length >= 2
         options.url = @url + "&search_term=" + filter
         @filtered = true
         return @fetch(options)

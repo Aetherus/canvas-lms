@@ -29,7 +29,7 @@ import SearchHelpers from '../shared/helpers/searchHelpers'
 import DisabledTokenInput from '../due_dates/DisabledTokenInput'
 
   var DueDateWrapperConsts = {
-    MINIMUM_SEARCH_LENGTH: 3,
+    MINIMUM_SEARCH_LENGTH: 2,
     MAXIMUM_STUDENTS_TO_SHOW: 7,
     MAXIMUM_GROUPS_TO_SHOW: 5,
     MAXIMUM_SECTIONS_TO_SHOW: 3,

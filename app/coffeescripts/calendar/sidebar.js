@@ -176,6 +176,7 @@ export default function sidebar(contexts, selectedContexts, dataSource) {
     ReactDOM.render(
       <ColorPicker
         isOpen
+        parentComponent='#color_picker_holder'
         positions={positions}
         assetString={assetString}
         afterClose={() => forceScreenreaderToReparse($('#application')[0])}

@@ -38,7 +38,7 @@ define [
     defaults:
       onInputDelay: 200
       modelAttribute: 'filter'
-      minLength: 3
+      minLength: 2
       allowSmallerNumbers: true
 
     onInput: =>

@@ -16449,7 +16449,7 @@ en-AU:
         keywords: "Try different keywords."
         spelled: "Make sure all words are spelled correctly."
         suggestions: "Suggestions:"
-        three_chars: "Enter at least 3 letters in the search box."
+        three_chars: "Enter at least 2 letters in the search box."
         your_search: "Your search - \"%{search_term}\" - did not match any files."
     file_list: "File List"
     files: Files

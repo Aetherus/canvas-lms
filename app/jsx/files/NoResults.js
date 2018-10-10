@@ -37,7 +37,7 @@ import PropTypes from 'prop-types'
           <ul>
             <li>{I18n.t('errors.no_match.spelled', 'Make sure all words are spelled correctly.')}</li>
             <li>{I18n.t('errors.no_match.keywords', 'Try different keywords.')}</li>
-            <li>{I18n.t('errors.no_match.three_chars', 'Enter at least 3 letters in the search box.')}</li>
+            <li>{I18n.t('errors.no_match.three_chars', 'Enter at least 2 letters in the search box.')}</li>
           </ul>
         </div>
       );

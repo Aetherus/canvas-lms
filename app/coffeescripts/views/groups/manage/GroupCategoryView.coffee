@@ -81,7 +81,7 @@ define [
 
       @options.unassignedUsersView.setFilter(search_term)
 
-      @_setUnassignedHeading(@originalCount) unless search_term.length >= 3
+      @_setUnassignedHeading(@originalCount) unless search_term.length >= 2
       _previousSearchTerm = search_term
 
     attach: ->

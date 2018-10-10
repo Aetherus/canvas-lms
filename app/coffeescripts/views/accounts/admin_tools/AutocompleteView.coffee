@@ -33,7 +33,7 @@ define [
       @collection = @options.collection
       super
 
-      @options.minLength ||= 3
+      @options.minLength ||= 2
       @options.labelProperty ||= 'name'
       @options.valueProperty ||= 'id'
       @options.fieldName ||= @options.valueProperty

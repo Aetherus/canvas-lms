@@ -145,7 +145,7 @@ define [
     setFilter: (search_term, options) ->
       searchDefer = @collection.search(search_term, options)
       searchDefer.always(=>
-        if search_term.length < 3
+        if search_term.length < 2
           shouldShow = search_term.length > 0
           @$invalidFilter.toggleClass("hidden", !shouldShow)
           @$noResultsWrapper.toggle(shouldShow)

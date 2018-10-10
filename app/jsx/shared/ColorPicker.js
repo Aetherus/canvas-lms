@@ -84,7 +84,7 @@ import 'compiled/jquery.rails_flash_notifications'
         }
         return undefined;
       },
-      hideOnScroll: PropTypes.bool,
+      // hideOnScroll: PropTypes.bool,
       positions: PropTypes.object,
       nonModal: PropTypes.bool,
       hidePrompt: PropTypes.bool,
@@ -146,11 +146,11 @@ import 'compiled/jquery.rails_flash_notifications'
         this.setFocus();
       }
 
-      $(window).on('scroll', this.handleScroll);
+      // $(window).on('scroll', this.handleScroll);
     },
 
     componentWillUnmount () {
-      $(window).off('scroll', this.handleScroll);
+      // $(window).off('scroll', this.handleScroll);
     },
 
     componentWillReceiveProps (nextProps) {
@@ -468,6 +468,7 @@ import 'compiled/jquery.rails_flash_notifications'
       return (
         <ReactModal
           ref = 'reactModal'
+          contentLabel = ''
           style = {styleObj}
           isOpen = {this.state.isOpen}
           onRequestClose = {this.closeModal}

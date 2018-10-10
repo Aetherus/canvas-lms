@@ -29,7 +29,7 @@ import CoursesToolbar from './CoursesToolbar'
 import SearchMessage from './SearchMessage'
 import { SEARCH_DEBOUNCE_TIME } from './UsersPane'
 
-const MIN_SEARCH_LENGTH = 3
+const MIN_SEARCH_LENGTH = 2
 const stores = [CoursesStore, TermsStore, AccountsTreeStore]
 
 const defaultFilters = {

@@ -42,7 +42,7 @@ define [
       if query is ''
         @collection.deleteParam @options.paramName
       # this might not be general :\
-      else if query.length < 3
+      else if query.length < 2
         return
       else
         @collection.setParam @options.paramName, query
@@ -52,7 +52,7 @@ define [
     onFail: (xhr) ->
       return if xhr.statusText is 'abort'
       parsed = $.parseJSON xhr.responseText
-      message = if parsed?.errors?[0].message is "3 or more characters is required"
+      message = if parsed?.errors?[0].message is "2 or more characters is required"
         I18n.t('greater_than_three', 'Please enter a search term with three or more characters')
       else
         I18n.t('unknown_error', 'Something went wrong with your search, please try again.')

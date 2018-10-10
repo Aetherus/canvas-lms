@@ -16339,7 +16339,7 @@ zh-Hant:
         keywords: 請嘗試不同的關鍵字。
         spelled: 請確保所有單詞均拼寫正確。
         suggestions: 建議：
-        three_chars: "在搜索輸入框中至少輸入 3 個字母。"
+        three_chars: "在搜索輸入框中至少輸入 2 個字母。"
         your_search: "您的搜索『%{search_term}』沒有找到相符的文檔。"
     file_list: 檔案清單
     files: 文檔
