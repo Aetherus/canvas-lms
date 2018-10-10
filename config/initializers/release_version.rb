@@ -1,0 +1,1 @@
+RELEASE_VERSION = File.read(Rails.root.join('release_version.txt')).strip
