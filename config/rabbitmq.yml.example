@@ -1,0 +1,14 @@
+development: &development
+  mq_username: guest
+  mq_password: guest
+  mq_host: 127.0.0.1
+
+production:
+  mq_username: canvas
+  mq_password: P@ssw0rd
+  mq_host: 192.168.0.2
+  mq_port: 5672
+  mq_api_host: 192.168.0.2
+  mq_api_port: 15672
+  mq_vhost: /canvas
+  mq_exchange: canvas
