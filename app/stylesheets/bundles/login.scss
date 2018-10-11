@@ -120,7 +120,7 @@ body {
         margin-bottom: $login-form-line-height / 2;
 
         &.sjtu-fieldset-first {
-          margin-top: $login-form-line-height / 2;
+          margin-top: 0.2rem;
         }
 
         $input-border-color: #a7a8a8;
@@ -142,6 +142,11 @@ body {
           border-right: none;
           border-radius: 2px 0 0 2px;
         }
+      }
+
+      .sjtu-login-error {
+        color: red;
+        text-align: center;
       }
     }
 

@@ -27,12 +27,13 @@
 <div class="sjtu-main">
   <div id="login-forms">			
     <div class="sjtu-tabs">
-      <div class="sjtu-tab" data-content="#guest-login">访客登录</div>
-      <div class="sjtu-tab sjtu-active" data-content="#jaccount-login">jAccount登录</div>
+      <div class="sjtu-tab sjtu-active" data-content="#guest-login">访客登录</div>
+      <div class="sjtu-tab" data-content="#jaccount-login">jAccount登录</div>
     </div>
-    <div id="guest-login" class="sjtu-login-form" style="display: none;">
+    <div id="guest-login" class="sjtu-login-form">
       <%= form_for :pseudonym_session, :url => url_for({ action: :create }.merge(params.slice(:id).to_unsafe_h)), :html => {:id => "login_form"} do |f| %>
         <input type="hidden" name="redirect_to_ssl" value="1"/>
+        <p class="sjtu-login-error"><%= (flash[:error] || '&nbsp;').html_safe %></p>
         <div class="sjtu-fieldset sjtu-fieldset-first">
           <i class="fa fa-user fa-fw"></i>
           <%= f.text_field :unique_id, 
@@ -49,7 +50,7 @@
         <button type="submit" class="sjtu-submit-button">立即登录</button>
       <% end %>
     </div>
-    <div id="jaccount-login" class="sjtu-login-form">
+    <div id="jaccount-login" class="sjtu-login-form" style="display: none;">
       <img src="/images/tim.jpg" alt=""/>
       <a href="http://baidu.com/" class="sjtu-submit-button">立即登录</a>
     </div>
