@@ -1,11 +1,14 @@
 production:
   # replace this with a random string of at least 20 characters
   encryption_key: 12345
+  akamai_key: 54321
 
 development:
   encryption_key: facdd3a131ddd8988b14f6e4e01039c93cfa0160
   previous_encryption_keys:
     - 0610afc39c93010e4e6f41b8898ddd131a3ddcaf
+  akamai_key: a85171415d71d94446b10b6e84bf280ce0a2a2c137f3b619612c6aeeea29deea217a739e790ac3b94563e6b59f59bfc67078acd01fd3aa9aca07add99e55ebac
 
 test:
   encryption_key: facdd3a131ddd8988b14f6e4e01039c93cfa0160
+  akamai_key: a85171415d71d94446b10b6e84bf280ce0a2a2c137f3b619612c6aeeea29deea217a739e790ac3b94563e6b59f59bfc67078acd01fd3aa9aca07add99e55ebac
