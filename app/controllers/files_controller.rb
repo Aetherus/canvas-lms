@@ -427,7 +427,7 @@ class FilesController < ApplicationController
     # verify that the requested attachment belongs to the submission
     return render_unauthorized_action if @submission && !@submission.includes_attachment?(@attachment)
     if @submission ? authorized_action(@submission, @current_user, :read) : authorized_action(@attachment, @current_user, :download)
-      render :json  => { :public_url => @attachment.public_url(:secure => request.ssl?) }
+      render :json  => { :public_url => @attachment.office_document? ? @attachment.doc_view_url : @attachment.public_url(:secure => request.ssl?) }
     end
   end
 

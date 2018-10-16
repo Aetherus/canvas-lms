@@ -50,8 +50,13 @@ import './jquery.loadingImg'
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":   [1, 1],
       "application/postscript":                                                    [1, 1],
       "application/pdf":                                                           [1, 1],
-      "application/vnd.ms-powerpoint":                                             [1, 1]
-
+      "application/vnd.ms-powerpoint":                                             [1, 1],
+      "application/wps-office.xls":                                                [1, 1],
+      "application/wps-office.xlsx":                                               [1, 1],
+      "application/wps-office.ppt":                                                [1, 1],
+      "application/wps-office.pptx":                                               [1, 1],
+      "application/wps-office.doc":                                                [1, 1],
+      "application/wps-office.docx":                                               [1, 1]
   };
 
   $.filePreviewsEnabled = function(){
@@ -123,9 +128,12 @@ import './jquery.loadingImg'
         // else if it's something google docs preview can handle and we can get a public url to this document.
         var loadGooglePreview = function () {
           // this handles both ssl and plain http.
-          var googleDocPreviewUrl = '//docs.google.com/viewer?' + $.param({
-            embedded: true,
-            url: opts.public_url
+          // var googleDocPreviewUrl = '//docs.google.com/viewer?' + $.param({
+          //   embedded: true,
+          //   url: opts.public_url
+          // });
+          var googleDocPreviewUrl = 'https://weboffice.sjtu.edu.cn/op/view.aspx?' + $.param({
+            src: opts.public_url
           });
           if (!opts.ajax_valid || opts.ajax_valid()){
             $('<iframe src="' + htmlEscape(googleDocPreviewUrl) + '" height="' + opts.height  + '" width="100%" />')

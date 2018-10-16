@@ -1886,8 +1886,12 @@ class Attachment < ActiveRecord::Base
       nil
   end
 
+  def office_document?
+    mime_class.in? %w[doc ppt xls pdf]
+  end
+
   def doc_view_url
-    return nil unless mime_class.in? %w[doc ppt xls pdf]
+    return nil unless office_document?
     [Rails.application.config.doc_url_base, *partitioned_path(filename)].join('/')
   end
 
