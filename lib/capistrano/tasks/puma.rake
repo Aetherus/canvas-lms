@@ -13,6 +13,7 @@ namespace :deploy do
     task :restart do
       on roles(:app) do
         within current_path do
+          execute *%w[systemctl daemon-reload]
           execute *%w[service puma restart]
         end
       end

@@ -50,7 +50,7 @@ set :default_env, { path: "/opt/ruby/bin:$PATH", rails_env: 'production' }
 # we have to install them on the target hosts.
 # We added capistrano related gems in the group 'deployment',
 # and these gems are only needed on the development host,
-# so we can exclude them on the target hosts
+# so we can exclude them on the target host
 set :bundle_without, 'test deployment'
 
 # Default value for local_user is ENV['USER']
