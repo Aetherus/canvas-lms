@@ -50,4 +50,4 @@ File.open(__FILE__) do |f|
     maintain_plugin_symlinks('app/stylesheets')
     maintain_plugin_symlinks('spec/coffeescripts', 'spec_canvas/coffeescripts')
   end
-end
+end unless ENV['CANVAS_SKIP_COMPILE_ASSETS']

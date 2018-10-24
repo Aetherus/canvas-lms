@@ -81,4 +81,4 @@ File.open(__FILE__) do |f|
   Dir.chdir(Rails.root) do
     maintain_client_app_symlinks
   end
-end
+end unless ENV['CANVAS_SKIP_COMPILE_ASSETS']

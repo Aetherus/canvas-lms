@@ -39,6 +39,7 @@ gem 'rails-observers', '0.1.5'
 
 gem 'builder', '3.2.3'
 gem 'tzinfo', '1.2.5'
+gem 'tzinfo-data'
 
 gem 'encrypted_cookie_store-instructure', '1.2.8', require: 'encrypted_cookie_store'
 gem 'active_model_serializers',   '0.9.0alpha1',
@@ -54,12 +55,13 @@ gem 'folio-pagination', '0.0.12', require: 'folio/rails'
 
 gem 'addressable', '2.5.2', require: false
 gem "after_transaction_commit", '2.0.0'
-gem "aws-sdk-kinesis", '1.2.0', require: false
-gem "aws-sdk-s3", '1.8.2', require: false
-gem "aws-sdk-sns", '1.1.0', require: false
-gem "aws-sdk-sqs", '1.3.0', require: false
-gem "aws-sdk-core", "3.22.0", require: false
-gem "aws-sigv4", "1.0.2", require: false
+gem "aws-sdk-kinesis", '~> 1.2', require: false
+gem "aws-sdk-s3", '~> 1.8', require: false
+gem "aws-sdk-sns", '~> 1.1', require: false
+gem "aws-sdk-sqs", '~> 1.3', require: false
+gem "aws-sdk-core", "~> 3.22", require: false
+
+gem "aws-sigv4", "~> 1.0", require: false
 
 gem 'barby', '0.6.5', require: false
   gem 'rqrcode', '0.10.1', require: false

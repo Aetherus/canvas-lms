@@ -19,10 +19,12 @@
 if ENV['RAILS_ENV'] == 'production'
   workers 4
   threads 4, 4
-  port 28090
+  port 3000
   environment 'production'
   
   preload_app!
+
+  # daemonize
   
   before_fork do
     ActiveRecord::Base.connection_pool.disconnect! if defined?(ActiveRecord)

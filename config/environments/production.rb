@@ -67,8 +67,8 @@ environment_configuration(defined?(config) && config) do |config|
 
   config.eager_load = true
 
-  config.media_url_base = 'http://store.canvas.ziyuenet.com.cn:13801'
-  config.doc_url_base = 'http://store.canvas.ziyuenet.com.cn:13801'
+  config.media_url_base = 'http://202.121.178.111:1935'
+  config.doc_url_base = 'http://202.121.178.111'
   #config.media_url_base = 'http://172.168.70.49:8888'
 
   # eval <env>-local.rb if it exists
