@@ -29,6 +29,12 @@ function extractIds(arr) {
   return arr.map((element) => element.id)
 }
 
+function sortSectionName(a,b) {
+  if(a.name.toLowerCase() < b.name.toLowerCase()) return -1;
+  if(a.name.toLowerCase() > b.name.toLowerCase()) return 1;
+  return 0;
+}
+
 export default class SectionsAutocomplete extends React.Component {
   static propTypes = {
     sections: propTypes.sectionList.isRequired,
@@ -45,7 +51,7 @@ export default class SectionsAutocomplete extends React.Component {
   }
 
   state = {
-    sections: this.props.sections.concat([ALL_SECTIONS_OBJ]),
+    sections: this.props.sections.concat([ALL_SECTIONS_OBJ]).sort(sortSectionName),
     selectedSectionsValue: extractIds(this.props.selectedSections),
     messages: []
   }
@@ -82,6 +88,21 @@ export default class SectionsAutocomplete extends React.Component {
   }
 
   render () {
+    // NOTE: the hidden input is used by the erb that this component is rendered in
+    // If we do not have the hidden component then the erb tries to grab the element
+    // and will block the submission because it does not exist
+    // One day we should probably try to decouple this
+    if(this.props.disabled) {
+      return(
+        <div id="disabled_sections_autocomplete">
+          <input
+            name="specific_sections"
+            type="hidden"
+            value={this.state.selectedSectionsValue}/>
+        </div>
+      );
+    }
+
     return (
       <View
         display="block"

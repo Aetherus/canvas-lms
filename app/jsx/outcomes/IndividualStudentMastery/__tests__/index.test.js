@@ -17,7 +17,7 @@
  */
 
 import React from 'react'
-import { mount, shallow } from 'enzyme'
+import { mount, shallow } from 'old-enzyme-2.x-you-need-to-upgrade-this-spec-to-enzyme-3.x-by-importing-just-enzyme'
 import { Set } from 'immutable'
 import IndividualStudentMastery from '../index'
 import fetchOutcomes from '../fetchOutcomes'
@@ -84,7 +84,21 @@ describe('expand and contract', () => {
   beforeEach(() => {
     fetchOutcomes.mockImplementation(() => Promise.resolve({
       outcomeGroups: [{ id: 1, title: 'Group' }],
-      outcomes: [{id: 2, expansionId: 100, groupId: 1, title: 'Outcome', mastered: false, mastery_points: 0, points_possible: 0, results: [], ratings: []}]
+      outcomes: [
+        {
+          id: 2,
+          expansionId: 100,
+          groupId: 1,
+          title: 'Outcome',
+          mastered: false,
+          mastery_points: 0,
+          points_possible: 0,
+          calculation_method: 'highest',
+          assignments: [],
+          results: [],
+          ratings: []
+        }
+      ]
     }))
   })
 

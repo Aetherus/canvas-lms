@@ -99,6 +99,7 @@ module CanvasRails
 
     # Activate observers that should always be running
     config.active_record.observers = [:cacher, :stream_item_cache, :live_events_observer, :conditional_release_observer ]
+    config.active_record.allow_unsafe_raw_sql = :disabled unless CANVAS_RAILS5_1
 
     config.active_support.encode_big_decimal_as_string = false
 
@@ -119,6 +120,8 @@ module CanvasRails
       app.config.middleware.insert_before(Rack::Head, RequestThrottle)
       app.config.middleware.insert_before(Rack::MethodOverride, PreventNonMultipartParse)
     end
+
+    config.i18n.load_path << Rails.root.join('config', 'locales', 'locales.yml')
 
     config.to_prepare do
       require_dependency 'canvas/plugins/default_plugins'

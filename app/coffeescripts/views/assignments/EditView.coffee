@@ -42,6 +42,7 @@ define [
   '../../util/SisValidationHelper'
   'jsx/assignments/AssignmentConfigurationTools'
   'jsx/assignments/ModeratedGradingFormFieldGroup'
+  'jsx/assignments/AssignmentExternalTools'
   'jqueryui/dialog'
   'jquery.toJSON'
   '../../jquery.rails_flash_notifications'
@@ -51,7 +52,7 @@ define [
   VeriCiteSettings, TurnitinSettingsDialog, preventDefault, MissingDateDialog,
   AssignmentGroupSelector, GroupCategorySelector, toggleAccessibly,
   RCEKeyboardShortcuts, ConditionalRelease, deparam, SisValidationHelper,
-  SimilarityDetectionTools, ModeratedGradingFormFieldGroup) ->
+  SimilarityDetectionTools, ModeratedGradingFormFieldGroup, AssignmentExternalTools) ->
 
   RichContentEditor.preloadRemoteModule()
 
@@ -93,6 +94,7 @@ define [
     CONDITIONAL_RELEASE_TARGET = '#conditional_release_target'
     SIMILARITY_DETECTION_TOOLS = '#similarity_detection_tools'
     ANONYMOUS_GRADING_BOX = '#assignment_anonymous_grading'
+    ASSIGNMENT_EXTERNAL_TOOLS = '#assignment_external_tools'
 
     els: _.extend({}, @::els, do ->
       els = {}
@@ -123,6 +125,7 @@ define [
       els["#{SIMILARITY_DETECTION_TOOLS}"] = '$similarityDetectionTools'
       els["#{SECURE_PARAMS}"] = '$secureParams'
       els["#{ANONYMOUS_GRADING_BOX}"] = '$anonymousGradingBox'
+      els["#{ASSIGNMENT_EXTERNAL_TOOLS}"] = '$assignmentExternalTools'
       els
     )
 
@@ -332,6 +335,12 @@ define [
             ENV.SELECTED_CONFIG_TOOL_TYPE,
             ENV.REPORT_VISIBILITY_SETTING)
 
+      @AssignmentExternalTools = AssignmentExternalTools.attach(
+            @$assignmentExternalTools.get(0),
+            "assignment_edit",
+            parseInt(ENV.COURSE_ID),
+            parseInt(@assignment.id))
+
       @_attachEditorToDescription()
       @addTinyMCEKeyboardShortcuts()
       @togglePeerReviewsAndGroupCategoryEnabled()
@@ -361,6 +370,7 @@ define [
         conditionalReleaseServiceEnabled: ENV?.CONDITIONAL_RELEASE_SERVICE_ENABLED or false
         lockedItems: @lockedItems
         anonymousGradingEnabled: ENV?.ANONYMOUS_GRADING_ENABLED or false
+        anonymousInstructorAnnotationsEnabled: ENV?.ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED or false
 
     _attachEditorToDescription: =>
       return if @lockedItems.content
@@ -379,6 +389,36 @@ define [
       keyboardShortcutsView.render().$el.insertBefore($(".rte_switch_views_link:first"))
 
     # -- Data for Submitting --
+    _dueAtHasChanged: (dueAt) =>
+      originalDueAt = new Date(@model.dueAt())
+      newDueAt = new Date(dueAt)
+
+      # Since a user can't edit the seconds field in the UI and the form also
+      # thinks that the seconds is always set to 00, we compare by everything
+      # except seconds.
+      originalDueAt.setSeconds(0)
+      newDueAt.setSeconds(0)
+      originalDueAt.getTime() != newDueAt.getTime()
+
+    _getDueAt: (defaultDates) ->
+      # The UI doesn't allow settings seconds to 59, but when a new assignment
+      # is created, the seconds are set to 59. Thus, to avoid issues where
+      # the date is edited after creation, we set seconds to 59 behind the
+      # scenes here. However, to ensure that we don't fudge with specifically
+      # set seconds value through the assignments api, if the date is not
+      # changed in the UI form, we keep the previous seconds value.
+      date = defaultDates?.get('due_at')
+      return null unless date
+
+      due_at = new Date(date)
+
+      if @_dueAtHasChanged(date)
+        due_at.setSeconds(59)
+      else
+        due_at.setSeconds(new Date(@model.dueAt()).getSeconds())
+
+      due_at.toISOString()
+
     getFormData: =>
       data = super
       data = @_inferSubmissionTypes data
@@ -392,7 +432,7 @@ define [
       defaultDates = @dueDateOverrideView.getDefaultDueDate()
       data.lock_at = defaultDates?.get('lock_at') or null
       data.unlock_at = defaultDates?.get('unlock_at') or null
-      data.due_at = defaultDates?.get('due_at') or null
+      data.due_at = @_getDueAt(defaultDates)
       data.only_visible_to_overrides = !@dueDateOverrideView.overridesContainDefault()
       data.assignment_overrides = @dueDateOverrideView.getOverrides()
       data.published = true if @shouldPublish

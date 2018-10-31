@@ -924,11 +924,15 @@ describe AssignmentsApiController, type: :request do
             :include => ['submission']
              )
       assign = json.first
-      expect(assign['submission']).to eq(
-        json_parse(
-          controller.submission_json(submission, assignment, @user, session, { include: ['submission'] }).to_json
-        )
-      )
+      s_json = controller.submission_json(
+        submission,
+        assignment,
+        @user,
+        session,
+        assignment.context,
+        { include: ['submission'] }
+      ).to_json
+      expect(assign['submission']).to eq(json_parse(s_json))
     end
 
     it "includes all_dates with include flag" do
@@ -1115,7 +1119,7 @@ describe AssignmentsApiController, type: :request do
       ta = ta_in_section(section)
 
       api_get_assignments_user_index(student, @course, ta)
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "returns unauthorized for ta who cannot read target student data" do
@@ -1691,7 +1695,7 @@ describe AssignmentsApiController, type: :request do
               'online_url'
             ]}
       })
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "should allow valid submission types as a string (quick add dialog)" do
@@ -1704,7 +1708,7 @@ describe AssignmentsApiController, type: :request do
             'name' => 'some assignment',
             'submission_types' => 'not_graded'}
       })
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "should not allow unpermitted submission types" do
@@ -2076,6 +2080,32 @@ describe AssignmentsApiController, type: :request do
         expect(@student.messages.detect{|m| m.notification_id == @notification.id}).to be_present
       end
 
+      it "should send notification on due date update (even if other overrides are passed in)" do
+        section2 = @course.course_sections.create!
+        assignment = @course.assignments.create!(:name => "blah", :workflow_state => 'published', :due_at => 1.hour.from_now)
+        Assignment.where(:id => assignment).update_all(:created_at => 5.hours.ago)
+
+        notification = Notification.create!(:name => "Assignment Due Date Changed")
+        @student.email_channel.notification_policies.create!(notification: notification, frequency: 'immediately')
+
+        @user = @teacher
+        json = api_call(:put,
+          "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}",
+          {
+            :controller => 'assignments_api',
+            :action => 'update', :format => 'json',
+            :course_id => @course.id.to_s,
+            :id => assignment.to_param
+          },
+          {
+            :assignment => {
+              'due_at' => 2.days.from_now.iso8601,
+              'assignment_overrides' => {'0' => {'course_section_id' => section2.id, 'due_at' => 1.day.from_now.iso8601}}
+            }
+          })
+        expect(@student.messages.detect{|m| m.notification_id == notification.id}).to be_present
+      end
+
       it "should use new overrides for notifications of creation on save and publish" do
         assignment = @course.assignments.create!(:name => "blah", :workflow_state => 'unpublished',
           :only_visible_to_overrides => true)
@@ -2094,9 +2124,10 @@ describe AssignmentsApiController, type: :request do
             :course_id => @course.id.to_s,
             :id => assignment.to_param
           },
-          { :assignment => {
-            'published' => true,
-            'assignment_overrides' => {
+          {
+            :assignment => {
+              'published' => true,
+              'assignment_overrides' => {
               '0' => {
                 'course_section_id' => section2.id,
                 'due_at' => 1.day.from_now.iso8601
@@ -2106,6 +2137,35 @@ describe AssignmentsApiController, type: :request do
           })
         expect(@student.messages).to be_empty
         expect(student2.messages.detect{|m| m.notification_id == @notification.id}).to be_present
+      end
+
+      it "should update only_visible_to_overrides to false if updating overall date" do
+        assignment = @course.assignments.create!(:name => "blah", :workflow_state => 'unpublished',
+                                                 :only_visible_to_overrides => true)
+        section2 = @course.course_sections.create!
+
+        @user = @teacher
+        json = api_call(:put,
+          "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}",
+          {
+            :controller => 'assignments_api',
+            :action => 'update', :format => 'json',
+            :course_id => @course.id.to_s,
+            :id => assignment.to_param
+          },
+          {
+            :assignment => {
+              'published' => true,
+              'due_at' => 1.day.from_now.iso8601,
+              'assignment_overrides' => {
+                '0' => {
+                  'course_section_id' => section2.id,
+                  'due_at' => 1.day.from_now.iso8601
+                }
+              }
+            }
+            })
+        expect(json["only_visible_to_overrides"]).to be false
       end
     end
 
@@ -2516,7 +2576,7 @@ describe AssignmentsApiController, type: :request do
                                   'lock_at' => '',
                                   'unlock_at' => nil,
                                   'peer_reviews_assign_at' => nil })
-      expect(response).to be_success
+      expect(response).to be_successful
       @assignment.reload
 
       expect(@assignment.due_at).to be_nil
@@ -2634,7 +2694,7 @@ describe AssignmentsApiController, type: :request do
           },
           { assignment: { name: 'a fancy new name' } },
         )
-        expect(response).to be_success
+        expect(response).to be_successful
       end
     end
 
@@ -4163,11 +4223,15 @@ describe AssignmentsApiController, type: :request do
           :format => "json", :course_id => @course.id.to_s,
           :id => assignment.id.to_s},
           {:include => ['submission']})
-        expect(json['submission']).to eq(
-          json_parse(
-            controller.submission_json(submission, assignment, @user, session, { include: ['submission'] }).to_json
-          )
-        )
+        s_json = controller.submission_json(
+          submission,
+          assignment,
+          @user,
+          session,
+          assignment.context,
+          { include: ['submission'] }
+        ).to_json
+        expect(json['submission']).to eq(json_parse(s_json))
       end
 
       context "AssignmentFreezer plugin disabled" do
@@ -4334,7 +4398,7 @@ describe AssignmentsApiController, type: :request do
         course_with_teacher_logged_in(:course => @course, :active_all => true)
 
         json = api_get_assignment_in_course(@assignment, @course)
-        expect(response).to be_success
+        expect(response).to be_successful
         expect(json['id']).to eq @assignment.id
         expect(json['unpublishable']).to eq true
 
@@ -4343,7 +4407,7 @@ describe AssignmentsApiController, type: :request do
         @assignment.submit_homework(@student, :submission_type => "online_text_entry")
         @user = @teacher
         json = api_get_assignment_in_course(@assignment, @course)
-        expect(response).to be_success
+        expect(response).to be_successful
         expect(json['unpublishable']).to eq false
       end
     end
@@ -4473,14 +4537,32 @@ describe AssignmentsApiController, type: :request do
       end
     end
 
-    it "contains true for anonymous_grading when the assignment has anonymous grading enabled" do
-      @assignment.anonymous_grading = true
-      expect(result['anonymous_grading']).to be true
-    end
-
     it "contains false for anonymous_grading when the assignment has anonymous grading disabled" do
       @assignment.anonymous_grading = false
       expect(result['anonymous_grading']).to be false
+    end
+
+    it 'is false for anonymize_students when the assignment is not anonymous' do
+      expect(result['anonymize_students']).to be false
+    end
+
+    context 'when the assignment is anonymous' do
+      before(:once) do
+        @assignment.anonymous_grading = true
+      end
+
+      it 'contains true for anonymous_grading' do
+        expect(result['anonymous_grading']).to be true
+      end
+
+      it 'is true for anonymize_students when the assignment is muted' do
+        @assignment.muted = true
+        expect(result['anonymize_students']).to be true
+      end
+
+      it 'is false for anonymize_students when the assignment is unmuted' do
+        expect(result['anonymize_students']).to be false
+      end
     end
   end
 

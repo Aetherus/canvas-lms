@@ -67,6 +67,7 @@ module Api::V1::DiscussionTopics
     if opts[:include_sections_user_count] && context
       opts[:context_user_count] = context.enrollments.not_fake.active_or_pending_by_date_ignoring_access.count
     end
+    ActiveRecord::Associations::Preloader.new.preload(topics, [:user, :attachment, :root_topic, :context])
     topics.inject([]) do |result, topic|
       if topic.visible_for?(user)
         result << discussion_topic_api_json(topic, context || topic.context, user, session, opts, root_topics)
@@ -103,7 +104,8 @@ module Api::V1::DiscussionTopics
     )
 
     opts[:user_can_moderate] = context.grants_right?(user, session, :moderate_forum) if opts[:user_can_moderate].nil?
-    json = api_json(topic, user, session, { only: ALLOWED_TOPIC_FIELDS, methods: ALLOWED_TOPIC_METHODS }, [:attach, :update, :reply, :delete])
+    permissions = opts[:skip_permissions] ? [] : [:attach, :update, :reply, :delete]
+    json = api_json(topic, user, session, { only: ALLOWED_TOPIC_FIELDS, methods: ALLOWED_TOPIC_METHODS }, permissions)
 
     json.merge!(serialize_additional_topic_fields(topic, context, user, opts))
 
@@ -166,8 +168,8 @@ module Api::V1::DiscussionTopics
 
     fields = { require_initial_post: topic.require_initial_post?,
       user_can_see_posts: topic.user_can_see_posts?(user), podcast_url: url,
-      read_state: topic.read_state(user), unread_count: topic.unread_count(user),
-      subscribed: topic.subscribed?(user), topic_children: topic.child_topics.pluck(:id),
+      read_state: topic.read_state(user), unread_count: topic.unread_count(user, opts: opts),
+      subscribed: topic.subscribed?(user, opts: opts), topic_children: topic.child_topics.pluck(:id),
       group_topic_children: topic.child_topics.pluck(:id, :context_id).map{|id, group_id| {id: id, group_id: group_id}},
       attachments: attachments, published: topic.published?,
       can_unpublish: opts[:user_can_moderate] ? topic.can_unpublish?(opts) : false,

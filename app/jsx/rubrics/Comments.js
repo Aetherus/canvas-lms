@@ -26,13 +26,20 @@ import I18n from 'i18n!edit_rubric'
 
 import { assessmentShape } from './types'
 
+const ellipsis = () => I18n.t("…")
+
+const truncate = (comment) =>
+  comment.length > 100 ? [comment.slice(0, 99), ellipsis()] : [comment]
+
 const FreeFormComments = (props) => {
   const { savedComments, comments, saveLater, setComments, setSaveLater } = props
   const first = <option key="first" value="first">{I18n.t('[ Select ]')}</option>
 
   const options = savedComments.map((comment, ix) => (
     // eslint-disable-next-line react/no-array-index-key
-    <option key={ix} value={ix.toString()}>{comment}</option>
+    <option key={ix} value={ix.toString()} label={comment}>
+      {truncate(comment)}
+    </option>
   ))
   const selector = [
     (
@@ -89,9 +96,11 @@ const commentElement = (assessment) => (
 )
 
 export const CommentText = ({ assessment, placeholder, weight }) => (
-  <Text size="x-small" weight={weight}>
-    {assessment !== null ? commentElement(assessment) : placeholder}
-  </Text>
+  <span className="react-rubric-break-words">
+    <Text size="x-small" weight={weight}>
+      {assessment !== null ? commentElement(assessment) : placeholder}
+    </Text>
+  </span>
 )
 CommentText.propTypes = {
   assessment: PropTypes.shape(assessmentShape),

@@ -20,9 +20,10 @@ import { connect } from 'react-redux';
 import themeable from '@instructure/ui-themeable/lib';
 import Button from '@instructure/ui-buttons/lib/components/Button';
 import CloseButton from '@instructure/ui-buttons/lib/components/CloseButton';
-import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent';
+import AccessibleContent from '@instructure/ui-a11y/lib/components/AccessibleContent'
 import View from '@instructure/ui-layout/lib/components/View';
-import Portal from '@instructure/ui-portal/lib/components/Portal'
+import Portal from '@instructure/ui-portal/lib/components/Portal';
 import IconPlusLine from '@instructure/ui-icons/lib/Line/IconPlus';
 import IconAlertsLine from '@instructure/ui-icons/lib/Line/IconAlerts';
 import IconGradebookLine from '@instructure/ui-icons/lib/Line/IconGradebook';
@@ -34,6 +35,7 @@ import Badge from '@instructure/ui-elements/lib/components/Badge';
 import Opportunities from '../Opportunities';
 import GradesDisplay from '../GradesDisplay';
 import StickyButton from '../StickyButton';
+import { isFutureEmpty } from '../../utilities/statusUtils';
 
 import {
   addDay, savePlannerItem, deletePlannerItem, cancelEditingPlannerItem, openEditingPlannerItem, getNextOpportunities,
@@ -113,12 +115,14 @@ export class PlannerHeader extends Component {
   constructor (props) {
     super(props);
 
+    const [newOpportunities, dismissedOpportunities] = this.segregateOpportunities(props.opportunities)
+
     this.state = {
-      opportunities: props.opportunities.items,
+      newOpportunities,
+      dismissedOpportunities,
       trayOpen: false,
       gradesTrayOpen: false,
       opportunitiesOpen: false,
-      dismissedTabSelected: false
     };
   }
 
@@ -127,15 +131,17 @@ export class PlannerHeader extends Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    let opportunities = nextProps.opportunities.items.filter((opportunity) => this.isOpportunityVisible(opportunity));
+    let [newOpportunities, dismissedOpportunities] = this.segregateOpportunities(nextProps.opportunities);
 
     if (!nextProps.loading.allOpportunitiesLoaded &&
         !nextProps.loading.loadingOpportunities) {
       nextProps.getNextOpportunities();
     }
 
-    this.setUpdateItemTray(!!nextProps.todo.updateTodoItem);
-    this.setState({opportunities});
+    if (this.props.todo.updateTodoItem !== nextProps.todo.updateTodoItem) {
+      this.setUpdateItemTray(!!nextProps.todo.updateTodoItem);
+    }
+    this.setState({newOpportunities, dismissedOpportunities});
   }
 
   componentWillUpdate () {
@@ -150,26 +156,58 @@ export class PlannerHeader extends Component {
   }
 
   handleSavePlannerItem = (plannerItem) => {
-    this.toggleUpdateItemTray();
+    this.handleCloseTray();
     this.props.savePlannerItem(plannerItem);
   }
 
-  isOpportunityVisible = (opportunity) => {
-    if(this.state.dismissedTabSelected) {
-      return opportunity.planner_override ? opportunity.planner_override.dismissed : false;
-    } else {
-      return opportunity.planner_override ? !opportunity.planner_override.dismissed : true;
-    }
-  }
-
   handleDeletePlannerItem = (plannerItem) => {
-    this.toggleUpdateItemTray();
+    this.handleCloseTray();
     this.props.deletePlannerItem(plannerItem);
   }
 
+  handleCloseTray = () => {
+    this.setUpdateItemTray(false);
+  }
+
   handleToggleTray = () => {
-    if (this.state.trayOpen) this.props.cancelEditingPlannerItem();
-    this.toggleUpdateItemTray();
+    if(this.state.trayOpen) {
+      this.handleCloseTray();
+    } else {
+      this.setUpdateItemTray(true);
+    }
+  }
+
+  // segregate new and dismissed opportunities
+  segregateOpportunities (opportunities) {
+    const newOpportunities = []; 
+    const dismissedOpportunities = [];
+    
+    opportunities.items.forEach(opportunity => {
+      if (opportunity.planner_override && opportunity.planner_override.dismissed) {
+        dismissedOpportunities.push(opportunity)
+      } else {
+        newOpportunities.push(opportunity)
+      }
+    });
+    return [newOpportunities, dismissedOpportunities];
+  }
+
+  // sets the tray open state and tells dynamic-ui what just happened
+  // via open/cancelEditingPlannerItem
+  setUpdateItemTray (trayOpen) {
+    if (trayOpen) {
+      if (this.props.openEditingPlannerItem) {
+        this.props.openEditingPlannerItem();  // tell dynamic-ui we've started editing
+      }
+    } else {
+      if (this.props.cancelEditingPlannerItem) {
+        this.props.cancelEditingPlannerItem();
+      }
+    }
+
+    this.setState({ trayOpen }, () => {
+      this.toggleAriaHiddenStuff(this.state.trayOpen);
+    });
   }
 
   toggleAriaHiddenStuff = (hide) => {
@@ -180,10 +218,6 @@ export class PlannerHeader extends Component {
     }
   }
 
-  toggleUpdateItemTray = () => {
-    this.setUpdateItemTray(!this.state.trayOpen);
-  }
-
   toggleGradesTray = () => {
     if (!this.state.gradesTrayOpen &&
       !this.props.loading.loadingGrades &&
@@ -191,15 +225,6 @@ export class PlannerHeader extends Component {
       this.props.startLoadingGradesSaga();
     }
     this.setState({gradesTrayOpen: !this.state.gradesTrayOpen});
-  }
-
-  setUpdateItemTray (trayOpen) {
-    if (trayOpen && this.props.openEditingPlannerItem) {
-      this.props.openEditingPlannerItem();
-    }
-    this.setState({ trayOpen }, () => {
-      this.toggleAriaHiddenStuff(this.state.trayOpen);
-    });
   }
 
   handleTodayClick = () => {
@@ -238,7 +263,7 @@ export class PlannerHeader extends Component {
         =0 {# opportunities}
         one {# opportunity}
         other {# opportunities}
-      }`, { count: this.state.opportunities.length })
+      }. Click to open Opportunity Center popup.`, { count: this.state.newOpportunities.length })
     );
   }
 
@@ -275,12 +300,13 @@ export class PlannerHeader extends Component {
     return (
       <Portal mountNode={this.props.auxElement} open={this.newActivityAboveView()}>
         <StickyButton
+          id="new_activity_button"
           direction="up"
-          hidden={true}
           onClick={this.handleNewActivityClick}
           zIndex={this.props.stickyZIndex}
           buttonRef={ref => this.newActivityButtonRef = ref}
           className="StickyButton-styles__newActivityButton"
+          description={formatMessage("Scrolls up to the previous item with new activity.")}
         >
           {formatMessage("New Activity")}
         </StickyButton>
@@ -288,11 +314,12 @@ export class PlannerHeader extends Component {
     );
   }
 
-  render () {
-    const verticalRoom = this.getPopupVerticalRoom();
-
-    return (
-      <div className={styles.root}>
+  renderToday () {
+    // if we're not displaying any items, don't show the today button
+    // this is true if the planner is completely empty, or showing the balloons
+    // because everything is in the past when first loaded
+    if (this.props.days.length > 0) {
+      return (
         <Button
           id="planner-today-btn"
           variant="light"
@@ -301,21 +328,57 @@ export class PlannerHeader extends Component {
         >
           {formatMessage("Today")}
         </Button>
+      );
+    }
+    return null;
+  }
+
+  renderOpportunitiesBadge () {
+    const props = {}
+    if (this.props.loading.allOpportunitiesLoaded && this.state.newOpportunities.length) {
+      props.count = this.state.newOpportunities.length;
+      props.formatOutput=(formattedCount) => {
+        return (
+          <AccessibleContent alt={this.opportunityTitle()}>
+            {formattedCount}
+          </AccessibleContent>
+        );
+      };
+    } else {
+      props.formatOutput=() => {
+        return <AccessibleContent alt={this.opportunityTitle()}/>;
+      }
+    }
+    return (
+      <Badge {...props}>
+        <View>
+          <IconAlertsLine/>
+        </View>
+      </Badge>
+    );
+  }
+
+  render () {
+    const verticalRoom = this.getPopupVerticalRoom();
+
+    return (
+      <div className={`${styles.root} PlannerHeader`}>
+        {this.renderToday()}
         <Button
           variant="icon"
+          icon={IconPlusLine}
           margin="0 medium 0 0"
           onClick={this.handleToggleTray}
           ref={(b) => { this.addNoteBtn = b; }}
         >
-          <IconPlusLine/>
           <ScreenReaderContent>{formatMessage("Add To Do")}</ScreenReaderContent>
         </Button>
         <Button
           variant="icon"
+          icon={IconGradebookLine}
           margin="0 medium 0 0"
           onClick={this.toggleGradesTray}
         >
-          <IconGradebookLine/>
           <ScreenReaderContent>{formatMessage("Show My Grades")}</ScreenReaderContent>
         </Button>
         <Popover
@@ -333,16 +396,14 @@ export class PlannerHeader extends Component {
               ref={(b) => { this.opportunitiesButton = b; }}
               buttonRef={(b) => { this.opportunitiesHtmlButton = b; }}
             >
-              <Badge {...this.props.loading.allOpportunitiesLoaded && this.state.opportunities.length ? {count :this.state.opportunities.length} : {}}>
-                <IconAlertsLine/>
-                <ScreenReaderContent>{this.opportunityTitle()}</ScreenReaderContent>
-              </Badge>
+              {this.renderOpportunitiesBadge()}
             </Button>
           </PopoverTrigger>
           <PopoverContent>
             <Opportunities
               togglePopover={this.closeOpportunitiesDropdown}
-              opportunities={this.state.opportunities}
+              newOpportunities={this.state.newOpportunities}
+              dismissedOpportunities={this.state.dismissedOpportunities}
               courses={this.props.courses}
               timeZone={this.props.timeZone}
               dismiss={this.props.dismissOpportunity}
@@ -351,15 +412,16 @@ export class PlannerHeader extends Component {
           </PopoverContent>
         </Popover>
         <Tray
-          closeButtonLabel={formatMessage("Close")}
           open={this.state.trayOpen}
           label={this.getTrayLabel()}
           placement="end"
           shouldContainFocus={true}
           shouldReturnFocus={false}
-          applicationElement={() => document.getElementById('application') }
-          onDismiss={this.handleToggleTray}
+          onDismiss={this.handleCloseTray}
         >
+          <CloseButton placement="start" variant="icon" onClick={this.handleCloseTray}>
+            {formatMessage("Close")}
+          </CloseButton>
           <UpdateItemTray
             locale={this.props.locale}
             timeZone={this.props.timeZone}

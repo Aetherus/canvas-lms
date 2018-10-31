@@ -157,7 +157,7 @@ class UsersController < ApplicationController
     :ignore_item, :ignore_stream_item, :close_notification, :mark_avatar_image,
     :user_dashboard, :toggle_hide_dashcard_color_overlays,
     :masquerade, :external_tool, :dashboard_sidebar, :settings, :activity_stream,
-    :activity_stream_summary, :pandata_token]
+    :activity_stream_summary, :pandata_events_token, :dashboard_cards]
   before_action :require_registered_user, :only => [:delete_user_service,
     :create_user_service]
   before_action :reject_student_view_student, :only => [:delete_user_service,
@@ -398,7 +398,7 @@ class UsersController < ApplicationController
   # @returns [User]
   def index
     get_context
-    if !api_request? && @context.feature_enabled?(:course_user_search)
+    if !api_request? && @context.feature_enabled?(:course_user_search) && !params.key?(:term)
       @account ||= @context
       return course_user_search
     end
@@ -511,7 +511,6 @@ class UsersController < ApplicationController
   def user_dashboard
     # Use the legacy to do list for non-students until it is ready for other roles
     if planner_enabled? && !@current_user.non_student_enrollment?
-      js_bundle :react_todo_sidebar
       css_bundle :react_todo_sidebar
     end
     session.delete(:parent_registration) if session[:parent_registration]
@@ -537,14 +536,29 @@ class UsersController < ApplicationController
         :custom_colors => @current_user.custom_colors,
       },
       :STUDENT_PLANNER_ENABLED => planner_enabled?,
-      :STUDENT_PLANNER_COURSES => planner_enabled? && map_courses_for_menu(@current_user.courses_with_primary_enrollment,
-                                                                           :include_section_tabs => true),
+      :STUDENT_PLANNER_COURSES => planner_enabled? && map_courses_for_menu(@current_user.courses_with_primary_enrollment),
       :STUDENT_PLANNER_GROUPS => planner_enabled? && map_groups_for_planner(@current_user.current_groups)
     })
 
     @announcements = AccountNotification.for_user_and_account(@current_user, @domain_root_account)
     @pending_invitations = @current_user.cached_invitations(:include_enrollment_uuid => session[:enrollment_uuid], :preload_course => true)
+  end
+
+  def dashboard_stream_items
+    cancel_cache_buster
+
     @stream_items = @current_user.try(:cached_recent_stream_items) || []
+    if stale?(etag: @stream_items)
+      render partial: 'shared/recent_activity', layout: false
+    end
+  end
+
+  def dashboard_cards
+    cancel_cache_buster
+
+    dashboard_courses = map_courses_for_menu(@current_user.menu_courses, :include_section_tabs => true)
+    Rails.cache.write(['last_known_dashboard_cards_count', @current_user].cache_key, dashboard_courses.count)
+    render json: dashboard_courses
   end
 
   def cached_upcoming_events(user)
@@ -1020,7 +1034,7 @@ class UsersController < ApplicationController
           assignments: {context_id: shard_course_ids}).
           merge(Assignment.published)
         subs = subs.merge(Assignment.not_locked) if only_submittable
-        submissions = subs.order(:cached_due_date)
+        submissions = subs.order(:cached_due_date, :id)
       end
     end
     assignments = Api.paginate(submissions, self, api_v1_user_missing_submissions_url).map(&:assignment)
@@ -1254,7 +1268,18 @@ class UsersController < ApplicationController
                                                                         current_user: @current_user,
                                                                         current_pseudonym: @current_pseudonym,
                                                                         tool: @tool})
-    adapter = Lti::LtiOutboundAdapter.new(@tool, @current_user, @domain_root_account).prepare_tool_launch(@return_url, variable_expander,  opts)
+    adapter = if @tool.settings.fetch('use_1_3', false)
+      Lti::LtiAdvantageAdapter.new(
+        tool: @tool,
+        user: @current_user,
+        context: @domain_root_account,
+        return_url: @return_url,
+        expander: variable_expander,
+        opts: opts
+      )
+    else
+      Lti::LtiOutboundAdapter.new(@tool, @current_user, @domain_root_account).prepare_tool_launch(@return_url, variable_expander,  opts)
+    end
     @lti_launch.params = adapter.generate_post_payload
 
     @lti_launch.resource_url = @tool.user_navigation(:url)
@@ -2031,7 +2056,6 @@ class UsersController < ApplicationController
                            enrollment.course.grants_right?(@current_user, :read_reports) &&
                            enrollment.course.apply_enrollment_visibility(enrollment.course.all_student_enrollments, @teacher).where(id: enrollment).first
           if should_include
-            Enrollment.recompute_final_score_if_stale(enrollment.course, student) { enrollment.reload }
             @courses[enrollment.course] = teacher_activity_report(@teacher, enrollment.course, [enrollment])
           end
         end
@@ -2047,7 +2071,6 @@ class UsersController < ApplicationController
           flash[:error] = t('errors.user_not_teacher', "That user is not a teacher in this course")
           redirect_to_referrer_or_default(root_url)
         elsif authorized_action(course, @current_user, :read_reports)
-          Enrollment.recompute_final_score_if_stale(course)
           enrollments = course.apply_enrollment_visibility(course.all_student_enrollments, @teacher)
           @courses[course] = teacher_activity_report(@teacher, course, enrollments)
         end
@@ -2276,8 +2299,9 @@ class UsersController < ApplicationController
       root_account_uuid: @domain_root_account.uuid
     }
 
-    auth_token = Canvas::Security.create_jwt(auth_body, expires_at, sekrit)
-    props_token = Canvas::Security.create_jwt(props_body, nil, sekrit)
+    private_key = OpenSSL::PKey::EC.new(Base64.decode64(sekrit))
+    auth_token = Canvas::Security.create_jwt(auth_body, expires_at, private_key, :ES512)
+    props_token = Canvas::Security.create_jwt(props_body, nil, private_key, :ES512)
     render json: {
       url: settings["url"],
       auth_token: auth_token,
@@ -2300,10 +2324,10 @@ class UsersController < ApplicationController
       student[:last_interaction] = [student[:last_interaction], date].compact.max
     end
     scope = ConversationMessage.
-        joins("INNER JOIN #{ConversationParticipant.quoted_table_name} ON conversation_participants.conversation_id=conversation_messages.conversation_id").
-        where('conversation_messages.author_id = ? AND conversation_participants.user_id IN (?) AND NOT conversation_messages.generated', teacher, ids)
+        joins(:conversation_message_participants).
+        where('conversation_messages.author_id = ? AND conversation_message_participants.user_id IN (?) AND NOT conversation_messages.generated', teacher, ids)
     # fake_arel can't pass an array in the group by through the scope
-    last_message_dates = scope.group(['conversation_participants.user_id', 'conversation_messages.author_id']).maximum(:created_at)
+    last_message_dates = scope.group(['conversation_message_participants.user_id', 'conversation_messages.author_id']).maximum(:created_at)
     last_message_dates.each do |key, date|
       next unless (student = data[key.first.to_i])
       student[:last_interaction] = [student[:last_interaction], date].compact.max
@@ -2467,6 +2491,13 @@ class UsersController < ApplicationController
         @user = @pseudonym.user
         @user.workflow_state = 'registered'
         @user.update_account_associations
+        if params[:user][:skip_registration] && params[:communication_channel][:skip_confirmation]
+          cc = CommunicationChannel.where(user_id: @user.id, path_type: :email).order(updated_at: :desc).first
+          return if cc.nil?
+          cc.pseudonym = @pseudonym
+          cc.workflow_state = 'active'
+          cc.save!
+        end
       end
     end
 
@@ -2479,7 +2510,7 @@ class UsersController < ApplicationController
     @user ||= @pseudonym&.user
     @user ||= @context.shard.activate { User.new }
 
-    use_pairing_code = @domain_root_account.feature_enabled?(:observer_pairing_code)
+    use_pairing_code = params[:user] && params[:user][:initial_enrollment_type] == 'observer' && @domain_root_account.self_registration?
     force_validations = value_to_boolean(params[:force_validations])
     manage_user_logins = @context.grants_right?(@current_user, session, :manage_user_logins)
     self_enrollment = params[:self_enrollment].present?
@@ -2563,19 +2594,12 @@ class UsersController < ApplicationController
     @invalid_observee_creds = nil
     @invalid_observee_code = nil
     if @user.initial_enrollment_type == 'observer'
-      if use_pairing_code
-        @pairing_code = ObserverPairingCode.active.where(code: params[:pairing_code][:code]).first
-        if !@pairing_code.nil?
-          @observee = @pairing_code.user
-        else
-          @invalid_observee_code = ObserverPairingCode.new
-          @invalid_observee_code.errors.add('code', 'invalid')
-        end
-      elsif (observee_pseudonym = authenticate_observee)
-        @observee = observee_pseudonym.user
+      @pairing_code = ObserverPairingCode.active.where(code: params[:pairing_code][:code]).first
+      if !@pairing_code.nil?
+        @observee = @pairing_code.user
       else
-        @invalid_observee_creds = Pseudonym.new
-        @invalid_observee_creds.errors.add('unique_id', 'bad_credentials')
+        @invalid_observee_code = ObserverPairingCode.new
+        @invalid_observee_code.errors.add('code', 'invalid')
       end
     end
 
@@ -2596,6 +2620,9 @@ class UsersController < ApplicationController
       pseudonym_params.delete(:password_confirmation)
     end
     password_provided = @pseudonym.new_record? && pseudonym_params.key?(:password)
+    if password_provided && @user.workflow_state == 'pre_registered'
+      @user.workflow_state = 'registered'
+    end
     if params[:pseudonym][:authentication_provider_id]
       @pseudonym.authentication_provider = @context.
           authentication_providers.active.
@@ -2656,7 +2683,7 @@ class UsersController < ApplicationController
         # add session_token to the query
         qs = URI.decode_www_form(uri.query || '')
         qs.delete_if { |(k, _v)| k == 'session_token' }
-        qs << ['session_token', SessionToken.new(@pseudonym.id, current_user_id: @user.id)]
+        qs << ['session_token', SessionToken.new(@pseudonym.id)]
         uri.query = URI.encode_www_form(qs)
 
         data['destination'] = uri.to_s

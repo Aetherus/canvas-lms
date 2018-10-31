@@ -24,12 +24,14 @@ import moment from 'moment-timezone';
 const defaultProps = {
   sidebarLoadInitialItems: () => {},
   sidebarCompleteItem: () => {},
+  loaded: true,
   items: [],
-  courses: []
+  courses: [],
+  changeDashboardView: () => {},
 };
 
-it('displays a spinner when the loading prop is true', () => {
-  const wrapper = shallow(<ToDoSidebar {...defaultProps} loading />);
+it('displays a spinner when the loaded prop is false', () => {
+  const wrapper = shallow(<ToDoSidebar {...defaultProps} loaded={false} />);
   expect(wrapper.find('Spinner').exists()).toBe(true);
 });
 
@@ -38,6 +40,15 @@ it('calls loadItems prop on mount', () => {
   mount(<ToDoSidebar {...defaultProps} sidebarLoadInitialItems={fakeLoadItems} />);
   expect(fakeLoadItems).toHaveBeenCalled();
 });
+
+it('includes course_id in call loadItems prop on mount', () => {
+  const fakeLoadItems = jest.fn();
+  const course_id = "17";
+  mount(<ToDoSidebar {...defaultProps} sidebarLoadInitialItems={fakeLoadItems} forCourse={course_id} />);
+  expect(fakeLoadItems).toHaveBeenCalled();
+  expect(fakeLoadItems.mock.calls[0][1]).toEqual(course_id);
+});
+
 
 it('renders out ToDoItems for each item', () => {
   const items = [{
@@ -107,52 +118,20 @@ it('initially renders out 5 ToDoItems', () => {
   expect(wrapper.find('ToDoItem')).toHaveLength(5);
 });
 
-it('initially renders out all ToDoItems when link is clicked', () => {
+it('invokes change dashboard view when link is clicked', () => {
+  const changeDashboardView = jest.fn();
+  // becasue the show all button is only rendered if there are items
   const items = [{
     uniqueId: '1',
     type: 'Assignment',
     date: moment('2017-07-15T20:00:00Z'),
     title: 'Glory to Rome',
-  }, {
-    uniqueId: '2',
-    type: 'Quiz',
-    date: moment('2017-07-15T20:00:00Z'),
-    title: 'Glory to Orange County',
-  }, {
-    uniqueId: '3',
-    type: 'Assignment',
-    date: moment('2017-07-15T20:00:00Z'),
-    title: 'Glory to China',
-  }, {
-    uniqueId: '4',
-    plannable_type: 'quiz',
-    date: moment('2017-07-15T20:00:00Z'),
-    title: 'Glory to Egypt',
-  }, {
-    uniqueId: '5',
-    type: 'Assignment',
-    date: moment('2017-07-15T20:00:00Z'),
-    title: 'Glory to Sacramento',
-  }, {
-    uniqueId: '6',
-    plannable_type: 'quiz',
-    date: moment('2017-07-15T20:00:00Z'),
-    title: 'Glory to Atlantis',
-  }, {
-    uniqueId: '7',
-    plannable_type: 'quiz',
-    date: moment('2017-07-15T20:00:00Z'),
-    title: 'Glory to Hoboville',
   }];
-
   const wrapper = shallow(
-    <ToDoSidebar
-      {...defaultProps}
-      items={items}
-    />
+    <ToDoSidebar {...defaultProps} items={items} changeDashboardView={changeDashboardView} />
   );
   wrapper.find('Button').simulate('click');
-  expect(wrapper.find('ToDoItem')).toHaveLength(7);
+  expect(changeDashboardView).toHaveBeenCalledWith('planner');
 });
 
 it('does not render out items that are completed', () => {
@@ -176,4 +155,10 @@ it('does not render out items that are completed', () => {
     />
   );
   expect(wrapper.find('ToDoItem')).toHaveLength(0);
+});
+
+it('can handles no items', () => {
+  // suppress Show All button and display "Nothing for now" instead of list
+  const wrapper = shallow(<ToDoSidebar {...defaultProps} changeDashboardView={null} />);
+  expect(wrapper).toMatchSnapshot();
 });

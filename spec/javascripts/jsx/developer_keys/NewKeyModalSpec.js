@@ -19,7 +19,7 @@
 import React from 'react'
 import {mount, shallow} from 'enzyme'
 import DeveloperKeyModal from 'jsx/developer_keys/NewKeyModal'
-import $ from '../../../../app/coffeescripts/jquery.rails_flash_notifications'
+import $ from 'compiled/jquery.rails_flash_notifications'
 
 QUnit.module('NewKeyModal')
 
@@ -49,7 +49,8 @@ const developerKey = {
   user_id: '53532',
   user_name: 'billy bob',
   vendor_code: 'b3w9w9bf',
-  workflow_state: 'active'
+  workflow_state: 'active',
+  test_cluster_only: false
 }
 
 const createDeveloperKeyState = {
@@ -96,7 +97,6 @@ test('it opens the modal if isOpen prop is true', () => {
     />
   )
   equal(wrapper.find('Modal').prop('open'), true)
-  ok(wrapper.find('Modal Heading [level="h2"]').exists())
 })
 
 test('it closes the modal if isOpen prop is false', () => {
@@ -335,7 +335,7 @@ test('it sends the contents of the form saving', () => {
     />
   )
 
-  wrapper.node.submitForm()
+  wrapper.instance().submitForm()
 
   const [[sentFormData]] = createOrEditSpy.args
 
@@ -347,6 +347,7 @@ test('it sends the contents of the form saving', () => {
   equal(sentFormData.get('developer_key[icon_url]'), developerKey.icon_url)
   equal(sentFormData.get('developer_key[notes]'), developerKey.notes)
   equal(sentFormData.get('developer_key[require_scopes]'), 'true')
+  equal(sentFormData.get('developer_key[test_cluster_only]'), 'false')
 
   wrapper.unmount()
 })
@@ -376,7 +377,7 @@ test('sends form content without scopes and require_scopes set to false when not
     />
   )
 
-  wrapper.node.submitForm()
+  wrapper.instance().submitForm()
 
   const [[sentFormData]] = createOrEditSpy.args
 
@@ -412,7 +413,7 @@ test('it adds each selected scope to the form data', () => {
       selectedScopes={selectedScopes}
     />
   )
-  wrapper.node.submitForm()
+  wrapper.instance().submitForm()
   const [[sentFormData]] = createOrEditSpy.args
   deepEqual(sentFormData.getAll('developer_key[scopes][]'), selectedScopes)
 
@@ -440,7 +441,7 @@ test('flashes an error if no scopes are selected', () => {
       selectedScopes={[]}
     />
   )
-  wrapper.node.submitForm()
+  wrapper.instance().submitForm()
   ok(flashStub.calledWith('At least one scope must be selected.'))
   flashStub.restore()
 
@@ -466,7 +467,8 @@ test('allows saving if the key previously had scopes', () => {
     />
   )
 
-  wrapper.node.submitForm()
+  wrapper.instance().submitForm()
   notOk(flashStub.called)
   flashStub.restore()
+  wrapper.unmount()
 })

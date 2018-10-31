@@ -56,8 +56,7 @@ class ObserverAlert < ActiveRecord::Base
 
   def self.create_assignment_missing_alerts
     submissions = Submission.active.
-      eager_load(user: :as_student_observer_alert_thresholds).
-      joins(:assignment).
+      eager_load(:assignment, user: :as_student_observer_alert_thresholds).
       where("observer_alert_thresholds.user_id = submissions.user_id").
       joins("LEFT OUTER JOIN #{ObserverAlert.quoted_table_name} ON observer_alerts.context_id = submissions.id
              AND observer_alerts.context_type = 'Submission'
@@ -66,12 +65,12 @@ class ObserverAlert < ActiveRecord::Base
       missing.
       merge(Assignment.submittable).
       where('cached_due_date > ?', 1.day.ago).
-      where("observer_alerts.id IS NULL").
-      where("observer_alert_thresholds.alert_type = 'assignment_missing'")
+      where("observer_alerts.id IS NULL")
 
     alerts = []
     submissions.find_each do |submission|
-      thresholds = submission.user.as_student_observer_alert_thresholds
+      thresholds = submission.user.as_student_observer_alert_thresholds.
+        where(alert_type: 'assignment_missing')
       thresholds.find_each do |threshold|
         next unless threshold.users_are_still_linked?
         next unless threshold.observer.enrollments.where(course_id: submission.assignment.context_id).first.present?

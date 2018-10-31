@@ -38,12 +38,7 @@ it('renders the label', () => {
   const tree = shallow(<PermissionTray {...props} />)
   const node = tree.find('Heading')
   expect(node.exists()).toBeTruthy()
-  expect(
-    node
-      .dive('Heading')
-      .dive('Container')
-      .text()
-  ).toEqual('Student')
+  expect(node.children().text()).toEqual('Student')
 })
 
 it('renders assigned roles if any are present', () => {

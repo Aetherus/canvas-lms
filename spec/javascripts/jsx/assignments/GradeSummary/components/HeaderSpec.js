@@ -97,6 +97,19 @@ QUnit.module('GradeSummary Header', suiteHooks => {
     notOk(wrapper.text().includes('Moderation is unable to occur'))
   })
 
+  QUnit.module('Graders Table', () => {
+    test('is not displayed when there are no graders', () => {
+      storeEnv.graders = []
+      mountComponent()
+      strictEqual(wrapper.find('GradersTable').length, 0)
+    })
+
+    test('is displayed when there are graders', () => {
+      mountComponent()
+      strictEqual(wrapper.find('GradersTable').length, 1)
+    })
+  })
+
   QUnit.module('"Post" button', hooks => {
     hooks.beforeEach(() => {
       sinon.stub(window, 'confirm').returns(true)
@@ -110,6 +123,17 @@ QUnit.module('GradeSummary Header', suiteHooks => {
       window.confirm.restore()
     })
 
+    test('is not displayed when there are no graders', () => {
+      storeEnv.graders = []
+      mountComponent()
+      strictEqual(wrapper.find('PostButton').length, 0)
+    })
+
+    test('is displayed when there are graders', () => {
+      mountComponent()
+      strictEqual(wrapper.find('PostButton').length, 1)
+    })
+
     test('receives the assignment gradesPublished property as a prop', () => {
       mountComponent()
       strictEqual(wrapper.find('PostButton').prop('gradesPublished'), false)
@@ -118,6 +142,7 @@ QUnit.module('GradeSummary Header', suiteHooks => {
     test('receives the unmuteAssignmentStatus as a prop', () => {
       mountComponent()
       store.dispatch(AssignmentActions.setPublishGradesStatus(AssignmentActions.STARTED))
+      wrapper.update()
       const button = wrapper.find('PostButton')
       equal(button.prop('publishGradesStatus'), AssignmentActions.STARTED)
     })
@@ -156,6 +181,17 @@ QUnit.module('GradeSummary Header', suiteHooks => {
       window.confirm.restore()
     })
 
+    test('is not displayed when there are no graders', () => {
+      storeEnv.graders = []
+      mountComponent()
+      strictEqual(wrapper.find('DisplayToStudentsButton').length, 0)
+    })
+
+    test('is displayed when there are graders', () => {
+      mountComponent()
+      strictEqual(wrapper.find('DisplayToStudentsButton').length, 1)
+    })
+
     test('receives the assignment as a prop', () => {
       mountComponent()
       const button = wrapper.find('DisplayToStudentsButton')
@@ -165,6 +201,7 @@ QUnit.module('GradeSummary Header', suiteHooks => {
     test('receives the unmuteAssignmentStatus as a prop', () => {
       mountComponent()
       store.dispatch(AssignmentActions.setUnmuteAssignmentStatus(AssignmentActions.STARTED))
+      wrapper.update()
       const button = wrapper.find('DisplayToStudentsButton')
       equal(button.prop('unmuteAssignmentStatus'), AssignmentActions.STARTED)
     })

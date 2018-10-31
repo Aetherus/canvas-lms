@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 import * as Actions from '../index';
+import * as SidebarActions from '../sidebar-actions';
 import moxios from 'moxios';
 import moment from 'moment-timezone';
 import {isPromise, moxiosWait, moxiosRespond} from '../../test-utils';
@@ -74,6 +75,7 @@ describe('api actions', () => {
 
   afterEach(() => {
     moxios.uninstall();
+    SidebarActions.maybeUpdateTodoSidebar.reset();
   });
 
   describe('getNextOpportunities', () => {
@@ -203,7 +205,7 @@ describe('api actions', () => {
     Actions.dismissOpportunity('6', plannerOverride)(() => {});
     return moxiosWait((request) => {
       expect(request.config.method).toBe('put');
-      expect(request.url).toBe('api/v1/planner/overrides/10');
+      expect(request.url).toBe('/api/v1/planner/overrides/10');
       expect(JSON.parse(request.config.data)).toMatchObject(plannerOverride);
     });
   });
@@ -217,7 +219,7 @@ describe('api actions', () => {
     Actions.dismissOpportunity('10', plannerOverride)(() => {});
     return moxiosWait((request) => {
       expect(request.config.method).toBe('post');
-      expect(request.url).toBe('api/v1/planner/overrides');
+      expect(request.url).toBe('/api/v1/planner/overrides');
       expect(JSON.parse(request.config.data)).toMatchObject(plannerOverride);
     });
   });
@@ -309,7 +311,7 @@ describe('api actions', () => {
       Actions.savePlannerItem(plannerItem)(() => {}, () => {return {timeZone: 'America/Halifax'};});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('post');
-        expect(request.url).toBe('api/v1/planner_notes');
+        expect(request.url).toBe('/api/v1/planner_notes');
         expect(JSON.parse(request.config.data)).toMatchObject({some: 'data', transformedToApi: true});
       });
     });
@@ -320,7 +322,7 @@ describe('api actions', () => {
       Actions.savePlannerItem(plannerItem)(() => {}, () => {return {timeZone: TZ};});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('post');
-        expect(request.url).toBe('api/v1/planner_notes');
+        expect(request.url).toBe('/api/v1/planner_notes');
         expect(JSON.parse(request.config.data).transformedToApi).toBeTruthy();
         const result = moment(JSON.parse(request.config.data).date).tz(TZ);
         expect(result.hours()).toEqual(23);
@@ -334,7 +336,7 @@ describe('api actions', () => {
       Actions.savePlannerItem(plannerItem, )(() => {}, () => {return {timeZone: 'America/Halifax'};});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('put');
-        expect(request.url).toBe('api/v1/planner_notes/42');
+        expect(request.url).toBe('/api/v1/planner_notes/42');
         expect(JSON.parse(request.config.data)).toMatchObject({id: '42', some: 'data', transformedToApi: true});
       });
     });
@@ -383,7 +385,7 @@ describe('api actions', () => {
   });
 
   describe('deletePlannerItem', () => {
-    it('dispatches deleting, clearUpdateTodo, and deleted actions', () => {
+    it('dispatches deleting, clearUpdateTodo, deleted, and maybe update sidebar actions', () => {
       const mockDispatch = jest.fn();
       const plannerItem = simpleItem();
       const deletePromise = Actions.deletePlannerItem(plannerItem)(mockDispatch, getBasicState);
@@ -391,6 +393,7 @@ describe('api actions', () => {
       expect(mockDispatch).toHaveBeenCalledWith({type: 'DELETING_PLANNER_ITEM', payload: plannerItem});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'CLEAR_UPDATE_TODO'});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'DELETED_PLANNER_ITEM', payload: deletePromise});
+      expect(mockDispatch).toHaveBeenCalledWith(SidebarActions.maybeUpdateTodoSidebar);
     });
 
     it('sends a delete request for the item id', () => {
@@ -398,7 +401,7 @@ describe('api actions', () => {
       Actions.deletePlannerItem(plannerItem, )(() => {});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('delete');
-        expect(request.url).toBe('api/v1/planner_notes/42');
+        expect(request.url).toBe('/api/v1/planner_notes/42');
       });
     });
 
@@ -434,7 +437,7 @@ describe('api actions', () => {
   });
 
   describe('togglePlannerItemCompletion', () => {
-    it('dispatches saving and saved actions', () => {
+    it('dispatches saving, saved, and maybe update sidebar actions', () => {
       const mockDispatch = jest.fn();
       const plannerItem = simpleItem();
       const savingItem = {...plannerItem, show: true, toggleAPIPending: true};
@@ -442,9 +445,11 @@ describe('api actions', () => {
       expect(isPromise(savePromise)).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVING_PLANNER_ITEM', payload: {item: savingItem, isNewItem: false, wasToggled: true}});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVED_PLANNER_ITEM', payload: savePromise});
+      expect(mockDispatch).toHaveBeenCalledWith(SidebarActions.maybeUpdateTodoSidebar);
+      expect(SidebarActions.maybeUpdateTodoSidebar.args()).toEqual([savePromise]);
     });
 
-    it ('updates marked_complete and sends override data in the request', () => {
+    it('updates marked_complete and sends override data in the request', () => {
       const mockDispatch = jest.fn();
       const plannerItem = simpleItem({marked_complete: null});
       Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
@@ -459,7 +464,7 @@ describe('api actions', () => {
       Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       return moxiosWait((request) => {
         expect(request.config.method).toBe('post');
-        expect(request.url).toBe('api/v1/planner/overrides');
+        expect(request.url).toBe('/api/v1/planner/overrides');
         expect(JSON.parse(request.config.data)).toMatchObject({marked_complete: true, transformedToApiOverride: true});
       });
     });
@@ -470,7 +475,7 @@ describe('api actions', () => {
       Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       return moxiosWait((request) => {
         expect(request.config.method).toBe('put');
-        expect(request.url).toBe('api/v1/planner/overrides/5');
+        expect(request.url).toBe('/api/v1/planner/overrides/5');
         expect(JSON.parse(request.config.data)).toMatchObject({id: '5', marked_complete: true, transformedToApiOverride: true});
       });
     });

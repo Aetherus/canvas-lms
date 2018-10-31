@@ -46,13 +46,18 @@ describe "speed grader" do
       f('.toggle_full_rubric').click
       expect(f('#rubric_full')).to be_displayed
       expand_right_pane
-      f('#rubric_full tr.learning_outcome_criterion .criterion_comments img').click
-
-      f('textarea.criterion_comments').send_keys(comment)
-      f('#rubric_criterion_comments_dialog .save_button').click
-      f('#rubric_full input.criterion_points').send_keys(score.to_s)
+      wait_for_ajaximations
+      f('svg[name="IconFeedback"]').find_element(:xpath, '../../parent::button').click
+      f("textarea[data-selenium='criterion_comments_text']").send_keys(comment)
+      fj("button:contains('Update Comment'):visible").click
+      wait_for_ajaximations
+      f('.criterion_points input').send_keys(score.to_s)
+      f('.criterion_points input').send_keys(:tab)
+      sleep 0.5
+      wait_for_ajaximations
       scroll_into_view('.save_rubric_button')
-      f('#rubric_full .save_rubric_button').click
+      save_rubric_button = f('#rubric_full .save_rubric_button')
+      save_rubric_button.click
       wait_for_ajaximations
     end
 
@@ -66,8 +71,9 @@ describe "speed grader" do
 
       time = 5.minutes.from_now
       Timecop.freeze(time) do
-        replace_content f('#grading-box-extended'), "8", tab_out: true
+        replace_content f('#grading-box-extended'), "8", tab_out: false
         wait_for_ajaximations
+        f('.gradebookHeader--rightside').click
       end
       provisional_grade = @submission.provisional_grades.find_by!(scorer: @user)
       expect(provisional_grade.grade).to eq '8'
@@ -94,8 +100,8 @@ describe "speed grader" do
       time = 5.minutes.from_now
       Timecop.freeze(time) do
         add_rubric_assessment(3, comment)
-        expect(f('#rubric_summary_container')).to include_text(@rubric.title)
-        expect(f('#rubric_summary_container')).to include_text(comment)
+        expect(f('#rubric_summary_container caption')).to include_text(@rubric.title)
+        expect(fj('.rating-tier.selected:visible')).to include_text(comment)
       end
 
       @submission.reload
@@ -114,7 +120,7 @@ describe "speed grader" do
 
   context "as a moderator" do
     before do
-      course_with_teacher_logged_in(:course => @course, :active_all => true)
+      course_with_teacher_logged_in(course: @course, active_all: true)
       @moderator = @teacher
       @is_moderator = true
     end
@@ -124,7 +130,7 @@ describe "speed grader" do
 
   context "as a provisional grader" do
     before do
-      course_with_ta_logged_in(:course => @course, :active_all => true)
+      course_with_ta_logged_in(course: @course, active_all: true)
       @is_moderator = false
     end
 
@@ -140,16 +146,15 @@ describe "speed grader" do
     end
 
     it "should lock a provisional grader out if graded by someone else" do
-      other_ta = course_with_ta(:course => @course, :active_all => true).user
-      @assignment.moderation_graders.create!(user: other_ta, anonymous_id: '12345')
-      @submission.find_or_create_provisional_grade!(other_ta, score: 7)
+      other_ta = course_with_ta(course: @course, active_all: true).user
+      @assignment.grade_student(@student, grader: other_ta, provisional: true, score: 7)
 
       get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@assignment.id}"
       expect(driver.current_url).to_not match %r{/courses/#{@course.id}/gradebook/speed_grader}
     end
 
     it "should lock a provisional grader out if graded by someone else while switching students" do
-      other_ta = course_with_ta(:course => @course, :active_all => true).user
+      other_ta = course_with_ta(course: @course, active_all: true).user
       original_sub = @submission
       student_submission
 
@@ -164,8 +169,7 @@ describe "speed grader" do
       wait_for_ajaximations
 
       # create a mark for the first student
-      @assignment.moderation_graders.create!(user: other_ta, anonymous_id: '12345')
-      original_sub.find_or_create_provisional_grade!(other_ta, score: 7)
+      @assignment.grade_student(@student, grader: other_ta, provisional: true, score: 7)
 
       # go back
       f('#prev-student-button').click
@@ -178,7 +182,7 @@ describe "speed grader" do
 
     it "should not lock a provisional grader out if someone else graded but more grader slots are available" do
       @assignment.update_attribute :grader_count, 2
-      other_ta = course_with_ta(:course => @course, :active_all => true).user
+      other_ta = course_with_ta(course: @course, active_all: true).user
       @assignment.moderation_graders.create!(user: other_ta, anonymous_id: '12345')
       @submission.find_or_create_provisional_grade!(other_ta, score: 7)
 
@@ -189,7 +193,7 @@ describe "speed grader" do
 
     it "should not lock a provisional grader out if someone else graded but grader is final grader" do
       @assignment.update_attribute :final_grader, @ta
-      other_ta = course_with_ta(:course => @course, :active_all => true).user
+      other_ta = course_with_ta(course: @course, active_all: true).user
       @assignment.moderation_graders.create!(user: other_ta, anonymous_id: '12345')
       @submission.find_or_create_provisional_grade!(other_ta, score: 7)
 

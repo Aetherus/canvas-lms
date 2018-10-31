@@ -16,33 +16,15 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require File.expand_path(File.dirname(__FILE__) + '/../../api_spec_helper')
+require File.expand_path(File.dirname(__FILE__) + '/../../../lti_1_3_spec_helper')
+
 require_dependency "lti/ims/security_controller"
 
 module Lti::Ims
   RSpec.describe SecurityController, type: :request do
-    before do
-      allow(Canvas::DynamicSettings).to receive(:find).
-        with(any_args).and_call_original
-      allow(Canvas::DynamicSettings).to receive(:find).
-        with('lti').and_return(jwk_set)
-    end
+    include_context 'lti_1_3_spec_helper'
 
     let(:url) { Rails.application.routes.url_helpers.jwks_show_path }
-    let(:jwk) do
-     {
-        "kty"=>"RSA",
-        "e"=>"AQAB",
-        "n"=>"uX1MpfEMQCBUMcj0sBYI-iFaG5Nodp3C6OlN8uY60fa5zSBd83-iIL3n_qzZ8VCluuTLfB7rrV_tiX727XIEqQ",
-        "kid"=>"2018-06-18T22:33:20Z",
-        "d"=>"pYwR64x-LYFtA13iHIIeEvfPTws50ZutyGfpHN-kIZz3k-xVpun2Hgu0hVKZMxcZJ9DkG8UZPqD-zTDbCmCyLQ",
-        "p"=>"6OQ2bi_oY5fE9KfQOcxkmNhxDnIKObKb6TVYqOOz2JM",
-        "q"=>"y-UBef95njOrqMAxJH1QPds3ltYWr8QgGgccmcATH1M",
-        "dp"=>"Ol_xkL7rZgNFt_lURRiJYpJmDDPjgkDVuafIeFTS4Ic",
-        "dq"=>"RtzDY5wXr5TzrwWEztLCpYzfyAuF_PZj1cfs976apsM",
-        "qi"=>"XA5wnwIrwe5MwXpaBijZsGhKJoypZProt47aVCtWtPE"
-      }.to_json
-    end
-    let(:jwk_set) { { 'past' => jwk, 'present' => jwk, 'future' => jwk } }
     let(:json) { JSON.parse(response.body) }
 
     it 'returns ok status' do
@@ -57,7 +39,7 @@ module Lti::Ims
 
     it 'returns well-formed public key jwks' do
       get url
-      expected_keys = %w(kid kty alg e n)
+      expected_keys = %w(kid kty alg e n use)
       json['keys'].each do |key|
         expect(key.keys - expected_keys).to be_empty
       end

@@ -109,7 +109,7 @@ module Context
   end
 
   def active_record_types
-    @active_record_types ||= Rails.cache.fetch(['active_record_types', self].cache_key) do
+    @active_record_types ||= Rails.cache.fetch(['active_record_types2', self].cache_key) do
       res = {}
       ActiveRecord::Base.uncached do
         res[:files] = self.respond_to?(:attachments) && self.attachments.active.exists?
@@ -241,5 +241,14 @@ module Context
 
   def nickname_for(_user, fallback = :name)
     self.send fallback if fallback
+  end
+
+  def self.last_updated_at(klass, ids)
+    raise ArgumentError unless CONTEXT_TYPES.include?(klass.class_name.to_sym)
+    klass.where(id: ids)
+         .where.not(updated_at: nil)
+         .order("updated_at DESC")
+         .limit(1)
+         .pluck(:updated_at)&.first
   end
 end

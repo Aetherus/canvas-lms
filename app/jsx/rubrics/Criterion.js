@@ -95,7 +95,7 @@ const Threshold = ({ threshold }) => (
   <Text size="x-small" weight="normal">
     {
       I18n.t('threshold: %{pts}', {
-        pts: I18n.toNumber(threshold, { precision: 1 } )
+        pts: I18n.toNumber(threshold, { precision: 2, strip_insignificant_zeros: true } )
       })
     }
   </Text>
@@ -131,11 +131,10 @@ export default class Criterion extends React.Component {
     const ignoreForScoring = criterion.ignore_for_scoring
     const assessing = onAssessmentChange !== null && assessment !== null
     const updatePoints = (text) => {
-      let points = numberHelper.parse(text)
-      if(Number.isNaN(points)) { points = null }
+      const value = numberHelper.parse(text)
+      const valid = !Number.isNaN(value)
       onAssessmentChange({
-        points,
-        pointsText: text.toString()
+        points: { text, valid, value: valid ? value : undefined }
       })
     }
     const onPointChange = assessing ? updatePoints : undefined
@@ -181,7 +180,7 @@ export default class Criterion extends React.Component {
         footer={isSummary ? pointsFooter() : null}
         tiers={criterion.ratings}
         onPointChange={onPointChange}
-        points={_.get(assessment, 'points')}
+        points={_.get(assessment, 'points.value')}
         pointsPossible={pointsPossible}
         defaultMasteryThreshold={isOutcome ? criterion.mastery_points : criterion.points}
         isSummary={isSummary}
@@ -256,7 +255,7 @@ export default class Criterion extends React.Component {
         </td>
         {
           hasPointsColumn && (
-            <td>
+            <td className="criterion_points">
               {pointsElement()}
               {assessing && !freeForm ? commentInput : null}
             </td>

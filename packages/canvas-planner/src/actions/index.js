@@ -22,6 +22,7 @@ import { alert } from '../utilities/alertUtils';
 import formatMessage from '../format-message';
 import parseLinkHeader from 'parse-link-header';
 import { makeEndOfDayIfMidnight } from '../utilities/dateUtils';
+import { maybeUpdateTodoSidebar } from './sidebar-actions';
 
 import {
   transformInternalToApiItem,
@@ -73,7 +74,7 @@ export * from './sidebar-actions';
 function saveExistingPlannerItem (apiItem) {
   return axios({
     method: 'put',
-    url: `api/v1/planner_notes/${apiItem.id}`,
+    url: `/api/v1/planner_notes/${apiItem.id}`,
     data: apiItem,
   });
 }
@@ -81,7 +82,7 @@ function saveExistingPlannerItem (apiItem) {
 function saveNewPlannerItem (apiItem) {
   return axios({
     method: 'post',
-    url: 'api/v1/planner_notes',
+    url: '/api/v1/planner_notes',
     data: apiItem,
   });
 }
@@ -181,11 +182,12 @@ export const deletePlannerItem = (plannerItem) => {
     dispatch(deletingPlannerItem(plannerItem));
     const promise = axios({
       method: 'delete',
-      url: `api/v1/planner_notes/${plannerItem.id}`,
+      url: `/api/v1/planner_notes/${plannerItem.id}`,
     }).then(response => transformPlannerNoteApiToInternalItem(response.data, getState().courses, getState().timeZone))
       .catch(() => alert(formatMessage('Failed to delete to do'), true));
     dispatch(clearUpdateTodo());
     dispatch(deletedPlannerItem(promise));
+    dispatch(maybeUpdateTodoSidebar(promise));
     return promise;
   };
 };
@@ -202,7 +204,7 @@ export const cancelEditingPlannerItem = () => {
 function saveExistingPlannerOverride (apiOverride) {
   return axios({
     method: 'put',
-    url: `api/v1/planner/overrides/${apiOverride.id}`,
+    url: `/api/v1/planner/overrides/${apiOverride.id}`,
     data: apiOverride,
   });
 }
@@ -210,7 +212,7 @@ function saveExistingPlannerOverride (apiOverride) {
 function saveNewPlannerOverride (apiOverride) {
   return axios({
     method: 'post',
-    url: 'api/v1/planner/overrides',
+    url: '/api/v1/planner/overrides',
     data: apiOverride,
   });
 }
@@ -237,6 +239,7 @@ export const togglePlannerItemCompletion = (plannerItem) => {
       });
     });
     dispatch(savedPlannerItem(promise));
+    dispatch(maybeUpdateTodoSidebar(promise));
     return promise;
   };
 };

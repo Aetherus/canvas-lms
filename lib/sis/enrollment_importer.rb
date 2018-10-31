@@ -44,10 +44,12 @@ module SIS
       end
       # We batch these up at the end because we don't want to keep touching the same course over and over,
       # and to avoid hitting other callbacks for the course (especially broadcast_policy)
-      i.courses_to_touch_ids.to_a.in_groups_of(1000, false) do |batch|
-        courses = Course.where(id: batch)
-        courses.touch_all
-        courses.each(&:recache_grade_distribution)
+      if Course.method_defined?(:recache_grade_distribution)
+        i.courses_to_touch_ids.to_a.in_groups_of(1000, false) do |batch|
+          courses = Course.where(id: batch)
+          courses.touch_all
+          courses.each(&:recache_grade_distribution)
+        end
       end
       i.courses_to_recache_due_dates.to_a.in_groups_of(1000, false) do |batch|
         batch.each do |course_id, user_ids|
@@ -68,11 +70,12 @@ module SIS
                                            sliced_ids)
       end
       new_data = Enrollment::BatchStateUpdater.destroy_batch(i.enrollments_to_delete, sis_batch: @batch) if i.enrollments_to_delete.any?
+
       i.roll_back_data.push(*new_data)
-      SisBatchRollBackData.bulk_insert_roll_back_data(i.roll_back_data) if @batch.using_parallel_importers?
+      SisBatchRollBackData.bulk_insert_roll_back_data(i.roll_back_data)
 
       @logger.debug("Enrollments with batch operations took #{Time.zone.now - start} seconds")
-      i.success_count
+      i.success_count + i.enrollments_to_delete.count
     end
 
     class Work
@@ -296,7 +299,7 @@ module SIS
             end
           elsif enrollment_info.status =~ /\Acompleted/i
             enrollment.workflow_state = 'completed'
-            enrollment.completed_at ||= Time.now
+            enrollment.completed_at ||= Time.zone.now
           elsif enrollment_info.status =~ /\Ainactive/i
             enrollment.workflow_state = 'inactive'
           end

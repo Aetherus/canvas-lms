@@ -789,10 +789,44 @@ describe ApplicationHelper do
         @current_user = @user
         expect(planner_enabled?).to be true
       end
+
+      it "returns true for past student enrollments" do
+        enrollment = course_with_student
+        enrollment.workflow_state = 'completed'
+        enrollment.save!
+        @current_user = @user
+        expect(planner_enabled?).to be true
+      end
+
+       it "returns true for invited student enrollments" do
+        enrollment = course_with_student
+        enrollment.workflow_state = 'invited'
+        enrollment.save!
+        @current_user = @user
+        expect(planner_enabled?).to be true
+      end
+
+      it "returns true for future student enrollments" do
+        enrollment = course_with_student
+        enrollment.start_at = 2.months.from_now
+        enrollment.end_at = 3.months.from_now
+        enrollment.workflow_state = 'active'
+        enrollment.save!
+        @course.restrict_student_future_view = true
+        @course.restrict_enrollments_to_course_dates = true
+        @course.save!
+        @current_user = @user
+        expect(planner_enabled?).to be true
+      end
+
+      it "returns false with no user" do
+        expect(planner_enabled?).to be false
+      end
     end
 
     context "with student_planner feature flag disabled" do
       it "returns false" do
+        @current_user = user_factory
         expect(planner_enabled?).to be false
       end
     end
@@ -1081,6 +1115,22 @@ describe ApplicationHelper do
         expect(authenticator.acting_as).to be nil
         expect(authenticator.oauth_host).to be nil
       end
+    end
+  end
+
+  describe "#alt_text_for_login_logo" do
+    before :each do
+      @domain_root_account = Account.default
+    end
+
+    it "returns the default value when there is no custom login logo" do
+      allow(helper).to receive(:k12?).and_return(false)
+      expect(helper.send(:alt_text_for_login_logo)).to eql "Canvas by Instructure"
+    end
+
+    it "returns the account short name when the logo is custom" do
+      Account.default.create_brand_config!(variables: {"ic-brand-Login-logo" => "test.jpg"})
+      expect(alt_text_for_login_logo).to eql "Default Account"
     end
   end
 end

@@ -33,12 +33,7 @@ it('renders the title', () => {
   const tree = shallow(<RoleTrayTableRow {...createRowProps('banana', '1')} />)
   const node = tree.find('Text')
   expect(node.exists()).toBeTruthy()
-  expect(
-    node
-      .at(0)
-      .dive()
-      .text()
-  ).toEqual('banana')
+  expect(node.children().text()).toEqual('banana')
 })
 
 it('renders the expandable button if expandable prop is true', () => {
@@ -67,7 +62,7 @@ it('renders the description if provided', () => {
   expect(
     node
       .at(1)
-      .dive()
+      .children()
       .text()
   ).toEqual("it's a fruit")
 })

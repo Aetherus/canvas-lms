@@ -58,8 +58,8 @@ const editView = function(assignmentOpts = {}) {
     assignment_overrides: []
   }
   assignmentOpts = {
-    ...assignmentOpts,
-    ...defaultAssignmentOpts
+    ...defaultAssignmentOpts,
+    ...assignmentOpts
   }
   const assignment = new Assignment(assignmentOpts)
 
@@ -410,7 +410,7 @@ test('disableCheckbox is called for a disabled checkbox', function() {
   $('<input type="checkbox" id="checkbox_fixture"/>').appendTo($(view.$el))
 
   // because we're stubbing so late we must call disableFields() again
-  const disableCheckboxStub = this.stub(view, 'disableCheckbox')
+  const disableCheckboxStub = sandbox.stub(view, 'disableCheckbox')
   view.disableFields()
   equal(disableCheckboxStub.called, true)
 })
@@ -422,7 +422,7 @@ test('ignoreClickHandler is called for a disabled radio', function() {
   $('<input type="radio" id="fixture_radio"/>').appendTo($(view.$el))
 
   // because we're stubbing so late we must call disableFields() again
-  const ignoreClickHandlerStub = this.stub(view, 'ignoreClickHandler')
+  const ignoreClickHandlerStub = sandbox.stub(view, 'ignoreClickHandler')
   view.disableFields()
 
   view.$el.find('#fixture_radio').click()
@@ -438,7 +438,7 @@ test('lockSelectValueHandler is called for a disabled select', function() {
   view.$el.appendTo($('#fixtures'))
 
   // because we're stubbing so late we must call disableFields() again
-  const lockSelectValueHandlerStub = this.stub(view, 'lockSelectValueHandler')
+  const lockSelectValueHandlerStub = sandbox.stub(view, 'lockSelectValueHandler')
   view.disableFields()
   equal(lockSelectValueHandlerStub.calledOnce, true)
 })
@@ -478,6 +478,58 @@ test('rounds points_possible', function() {
   view.$assignmentPointsPossible.val('1.234')
   const data = view.getFormData()
   equal(data.points_possible, 1.23)
+})
+
+test('sets seconds of due_at to 59 if year has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2001-08-28T11:59:23'))
+  strictEqual(view.getFormData().due_at, '2001-08-28T11:59:59.000Z')
+})
+
+test('sets seconds of due_at to 59 if month has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-09-28T11:59:23'))
+  strictEqual(view.getFormData().due_at, '2000-09-28T11:59:59.000Z')
+})
+
+test('sets seconds of due_at to 59 if day has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:23'))
+  strictEqual(view.getFormData().due_at, '2000-08-29T11:59:59.000Z')
+})
+
+test('sets seconds of due_at to 59 if hour has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T10:59:23'))
+  strictEqual(view.getFormData().due_at, '2000-08-28T10:59:59.000Z')
+})
+
+test('sets seconds of due_at to 59 if minute has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:58:23'))
+  strictEqual(view.getFormData().due_at, '2000-08-28T11:58:59.000Z')
+})
+
+test('keeps original due_at seconds if the date has not changed', function () {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().due_at, '2000-08-28T11:59:23.000Z')
+})
+
+// Seems counterintuitive, but the UI doesn't allow updating the seconds
+// value, but the form will always return a seconds value of 00. In the case
+// that the due_at had seconds set to non-00, we should ignore that.
+test('keeps the original due_at seconds even if the seconds value has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:32'))
+  strictEqual(view.getFormData().due_at, '2000-08-28T11:59:23.000Z')
 })
 
 QUnit.module('EditView: handleGroupCategoryChange', {
@@ -747,7 +799,7 @@ QUnit.module('EditView: enableCheckbox', {
 
 test('enables checkbox', function() {
   const view = this.editView()
-  this.stub(view.$('#assignment_peer_reviews'), 'parent').returns(
+  sandbox.stub(view.$('#assignment_peer_reviews'), 'parent').returns(
     view.$('#assignment_peer_reviews')
   )
 
@@ -758,7 +810,7 @@ test('enables checkbox', function() {
 
 test('does nothing if assignment is in closed grading period', function() {
   const view = this.editView()
-  this.stub(view.assignment, 'inClosedGradingPeriod').returns(true)
+  sandbox.stub(view.assignment, 'inClosedGradingPeriod').returns(true)
 
   view.$('#assignment_peer_reviews').prop('disabled', true)
   view.enableCheckbox(view.$('#assignment_peer_reviews'))
@@ -791,21 +843,21 @@ QUnit.module('EditView: setDefaultsIfNew', {
 })
 
 test('returns values from localstorage', function() {
-  this.stub(userSettings, 'contextGet').returns({submission_types: ['foo']})
+  sandbox.stub(userSettings, 'contextGet').returns({submission_types: ['foo']})
   const view = this.editView()
   view.setDefaultsIfNew()
   deepEqual(view.assignment.get('submission_types'), ['foo'])
 })
 
 test('returns string booleans as integers', function() {
-  this.stub(userSettings, 'contextGet').returns({peer_reviews: '1'})
+  sandbox.stub(userSettings, 'contextGet').returns({peer_reviews: '1'})
   const view = this.editView()
   view.setDefaultsIfNew()
   equal(view.assignment.get('peer_reviews'), 1)
 })
 
 test('doesnt overwrite existing assignment settings', function() {
-  this.stub(userSettings, 'contextGet').returns({assignment_group_id: 99})
+  sandbox.stub(userSettings, 'contextGet').returns({assignment_group_id: 99})
   const view = this.editView()
   view.assignment.set('assignment_group_id', 22)
   view.setDefaultsIfNew()
@@ -826,7 +878,7 @@ test('doesnt overwrite assignment submission type', function() {
 })
 
 test('will overwrite empty arrays', function() {
-  this.stub(userSettings, 'contextGet').returns({submission_types: ['foo']})
+  sandbox.stub(userSettings, 'contextGet').returns({submission_types: ['foo']})
   const view = this.editView()
   view.assignment.set('submission_types', [])
   view.setDefaultsIfNew()
@@ -846,7 +898,7 @@ QUnit.module('EditView: setDefaultsIfNew: no localStorage', {
       VALID_DATE_RANGE: {},
       COURSE_ID: 1
     })
-    this.stub(userSettings, 'contextGet').returns(null)
+    sandbox.stub(userSettings, 'contextGet').returns(null)
     this.server = sinon.fakeServer.create()
   },
   teardown() {
@@ -892,7 +944,7 @@ QUnit.module('EditView: cacheAssignmentSettings', {
 
 test('saves valid attributes to localstorage', function() {
   const view = this.editView()
-  this.stub(view, 'getFormData').returns({points_possible: 34})
+  sandbox.stub(view, 'getFormData').returns({points_possible: 34})
   userSettings.contextSet('new_assignment_settings', {})
   view.cacheAssignmentSettings()
   equal(34, userSettings.contextGet('new_assignment_settings').points_possible)
@@ -900,7 +952,7 @@ test('saves valid attributes to localstorage', function() {
 
 test('rejects invalid attributes when caching', function() {
   const view = this.editView()
-  this.stub(view, 'getFormData').returns({invalid_attribute_example: 30})
+  sandbox.stub(view, 'getFormData').returns({invalid_attribute_example: 30})
   userSettings.contextSet('new_assignment_settings', {})
   view.cacheAssignmentSettings()
   equal(null, userSettings.contextGet('new_assignment_settings').invalid_attribute_example)
@@ -944,14 +996,14 @@ test('attaches conditional release editor', function() {
 
 test('calls update on first switch', function() {
   const view = this.editView()
-  const stub = this.stub(view.conditionalReleaseEditor, 'updateAssignment')
+  const stub = sandbox.stub(view.conditionalReleaseEditor, 'updateAssignment')
   view.updateConditionalRelease()
   ok(stub.calledOnce)
 })
 
 test('calls update when modified once', function() {
   const view = this.editView()
-  const stub = this.stub(view.conditionalReleaseEditor, 'updateAssignment')
+  const stub = sandbox.stub(view.conditionalReleaseEditor, 'updateAssignment')
   view.onChange()
   view.updateConditionalRelease()
   ok(stub.calledOnce)
@@ -959,7 +1011,7 @@ test('calls update when modified once', function() {
 
 test('does not call update when not modified', function() {
   const view = this.editView()
-  const stub = this.stub(view.conditionalReleaseEditor, 'updateAssignment')
+  const stub = sandbox.stub(view.conditionalReleaseEditor, 'updateAssignment')
   view.updateConditionalRelease()
   stub.reset()
   view.updateConditionalRelease()
@@ -969,7 +1021,7 @@ test('does not call update when not modified', function() {
 test('validates conditional release', function() {
   const view = this.editView()
   ENV.ASSIGNMENT = view.assignment
-  const stub = this.stub(view.conditionalReleaseEditor, 'validateBeforeSave').returns('foo')
+  const stub = sandbox.stub(view.conditionalReleaseEditor, 'validateBeforeSave').returns('foo')
   const errors = view.validateBeforeSave(view.getFormData(), {})
   ok(errors.conditional_release === 'foo')
 })
@@ -985,7 +1037,7 @@ test('calls save in conditional release', function(assert) {
     .promise()
   const mockSuper = sinon.mock(EditView.__super__)
   mockSuper.expects('saveFormData').returns(superPromise)
-  const stub = this.stub(view.conditionalReleaseEditor, 'save').returns(crPromise)
+  const stub = sandbox.stub(view.conditionalReleaseEditor, 'save').returns(crPromise)
   const finalPromise = view.saveFormData()
   return finalPromise.then(() => {
     mockSuper.verify()
@@ -996,7 +1048,7 @@ test('calls save in conditional release', function(assert) {
 
 test('focuses in conditional release editor if conditional save validation fails', function() {
   const view = this.editView()
-  const focusOnError = this.stub(view.conditionalReleaseEditor, 'focusOnError')
+  const focusOnError = sandbox.stub(view.conditionalReleaseEditor, 'focusOnError')
   view.showErrors({conditional_release: {type: 'foo'}})
   ok(focusOnError.called)
 })
@@ -1027,7 +1079,7 @@ QUnit.module('Editview: Intra-Group Peer Review toggle', {
 })
 
 test('only appears for group assignments', function() {
-  this.stub(userSettings, 'contextGet').returns({
+  sandbox.stub(userSettings, 'contextGet').returns({
     peer_reviews: '1',
     group_category_id: 1,
     automatic_peer_reviews: '1'
@@ -1038,7 +1090,7 @@ test('only appears for group assignments', function() {
 })
 
 test('does not appear when reviews are being assigned manually', function() {
-  this.stub(userSettings, 'contextGet').returns({
+  sandbox.stub(userSettings, 'contextGet').returns({
     peer_reviews: '1',
     group_category_id: 1
   })
@@ -1048,7 +1100,7 @@ test('does not appear when reviews are being assigned manually', function() {
 })
 
 test('toggle does not appear when there is no group', function() {
-  this.stub(userSettings, 'contextGet').returns({peer_reviews: '1'})
+  sandbox.stub(userSettings, 'contextGet').returns({peer_reviews: '1'})
   const view = this.editView()
   view.$el.appendTo($('#fixtures'))
   notOk(view.$('#intra_group_peer_reviews').is(':visible'))
@@ -1129,6 +1181,27 @@ test('it is hidden if the plagiarism_detection_platform flag is disabled', funct
   view.$('#assignment_online_upload').attr('checked', true)
   view.handleSubmissionTypeChange()
   equal(view.$('#similarity_detection_tools').css('display'), 'none')
+})
+
+QUnit.module('EditView: Assignment External Tools', {
+  setup() {
+    fakeENV.setup({})
+    this.server = sinon.fakeServer.create()
+  },
+
+  teardown() {
+    this.server.restore()
+    fakeENV.teardown()
+  },
+
+  editView() {
+    return editView.apply(this, arguments)
+  }
+})
+
+test('it attaches assignment external tools component', function() {
+  const view = this.editView()
+  equal(view.$assignmentExternalTools.children().size(), 1)
 })
 
 QUnit.module('EditView: Quizzes 2', {
@@ -1228,8 +1301,7 @@ QUnit.module('EditView: anonymous grading', (hooks) => {
 QUnit.module('EditView: Anonymous Instructor Annotations', (hooks) => {
   let server
 
-  hooks.beforeEach(() => {
-    fixtures.innerHTML = '<span data-component="ModeratedGradingFormFieldGroup"></span>'
+  function setupFakeEnv(envOptions = {}) {
     fakeENV.setup({
       AVAILABLE_MODERATORS: [],
       current_user_roles: ['teacher'],
@@ -1238,8 +1310,13 @@ QUnit.module('EditView: Anonymous Instructor Annotations', (hooks) => {
       MODERATED_GRADING_ENABLED: true,
       MODERATED_GRADING_MAX_GRADER_COUNT: 2,
       VALID_DATE_RANGE: {},
-      COURSE_ID: 1
+      COURSE_ID: 1,
+      ...envOptions
     })
+  }
+
+  hooks.beforeEach(() => {
+    fixtures.innerHTML = '<span data-component="ModeratedGradingFormFieldGroup"></span>'
     server = sinon.fakeServer.create()
   })
 
@@ -1249,9 +1326,19 @@ QUnit.module('EditView: Anonymous Instructor Annotations', (hooks) => {
     fixtures.innerHTML = ''
   })
 
-  test('shows a checkbox', () => {
-    const view = editView()
-    strictEqual(view.$el.find('input#assignment_anonymous_instructor_annotations').length, 1)
+  test('when environment is not set, does not enable editing the property', function() {
+    setupFakeEnv()
+    strictEqual(editView().$el.find('input#assignment_anonymous_instructor_annotations').length, 0)
+  })
+
+  test('when environment is set to false, does not enable editing the property', function() {
+    setupFakeEnv({ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED: false})
+    strictEqual(editView().$el.find('input#assignment_anonymous_instructor_annotations').length, 0)
+  })
+
+  test('when environment is set to true, enables editing the property', function() {
+    setupFakeEnv({ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED: true})
+    strictEqual(editView().$el.find('input#assignment_anonymous_instructor_annotations').length, 1)
   })
 })
 

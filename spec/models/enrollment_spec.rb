@@ -157,6 +157,21 @@ describe Enrollment do
     expect(e.readable_type).to eql('Student')
   end
 
+  describe "#student_or_fake_student?" do
+    it "returns true for students" do
+      expect(StudentEnrollment.create!(valid_enrollment_attributes).student_or_fake_student?).to be true
+    end
+
+    it "returns true for fake students" do
+      fake_student_enrollment = @course.enroll_user(@enrollment.user, "StudentViewEnrollment")
+      expect(fake_student_enrollment.student_or_fake_student?).to be true
+    end
+
+    it "returns false for non-students" do
+      expect(TaEnrollment.create!(valid_enrollment_attributes).student_or_fake_student?).to be false
+    end
+  end
+
   describe "sis_role" do
     it "should return role_name if present" do
       role = custom_account_role('Assistant Grader', :account => Account.default)
@@ -1056,27 +1071,6 @@ describe Enrollment do
 
     it "should allow the user itself to read its own grades" do
       expect(@enrollment.grants_right?(@user, :read_grades)).to be_truthy
-    end
-  end
-
-  context "recompute_final_score_if_stale" do
-    before(:once) { course_with_student }
-    it "should only call recompute_final_score once within the cache window" do
-      expect(Enrollment).to receive(:recompute_final_score).once
-      enable_cache do
-        Enrollment.recompute_final_score_if_stale @course
-        Enrollment.recompute_final_score_if_stale @course
-      end
-    end
-
-    it "should yield iff it calls recompute_final_score" do
-      expect(Enrollment).to receive(:recompute_final_score).once
-      count = 1
-      enable_cache do
-        Enrollment.recompute_final_score_if_stale(@course, @user){ count += 1 }
-        Enrollment.recompute_final_score_if_stale(@course, @user){ count += 1 }
-      end
-      expect(count).to eql 2
     end
   end
 

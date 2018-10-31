@@ -157,6 +157,23 @@ describe AssignmentsController do
       expect(assigns[:js_env][:QUIZ_LTI_ENABLED]).to be true
     end
 
+    it "should not set QUIZ_LTI_ENABLED in js_env if url is voided" do
+      user_session @teacher
+      @course.context_external_tools.create!(
+        :name => 'Quizzes.Next',
+        :consumer_key => 'test_key',
+        :shared_secret => 'test_secret',
+        :tool_id => 'Quizzes 2',
+        :url => 'http://void.url.inseng.net'
+      )
+      @course.root_account.settings[:provision] = {'lti' => 'lti url'}
+      @course.root_account.save!
+      @course.root_account.enable_feature! :quizzes_next
+      @course.enable_feature! :quizzes_next
+      get 'index', params: {course_id: @course.id}
+      expect(assigns[:js_env][:QUIZ_LTI_ENABLED]).to be false
+    end
+
     it "should not set QUIZ_LTI_ENABLED in js_env if quizzes 2 is not available" do
       user_session @teacher
       get 'index', params: {course_id: @course.id}
@@ -320,8 +337,8 @@ describe AssignmentsController do
       let(:env) { assigns[:js_env] }
 
       before :once do
-        @assignment.moderation_graders.create!(anonymous_id: "abcde", user: grader_1)
-        @assignment.moderation_graders.create!(anonymous_id: "fghij", user: grader_2)
+        @assignment.grade_student(@student, grader: grader_1, provisional: true, score: 10)
+        @assignment.grade_student(@student, grader: grader_2, provisional: true, score: 5)
       end
 
       before :each do
@@ -527,7 +544,7 @@ describe AssignmentsController do
       user_session(@student)
       @assignment.submit_homework(@student, :submission_type => 'online_url', :url => 'http://www.google.com')
       get 'show', params: {:course_id => @course.id, :id => @assignment.id}
-      expect(response).to be_success
+      expect(response).to be_successful
       expect(assigns[:current_user_submission]).not_to be_nil
       expect(assigns[:assigned_assessments]).to eq []
     end
@@ -589,7 +606,7 @@ describe AssignmentsController do
 
       get 'show', params: {:course_id => @course.id, :id => @assignment.id}
       expect(response).not_to be_redirect
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "should not show locked external tool assignments" do
@@ -640,7 +657,7 @@ describe AssignmentsController do
       allow(controller).to receive(:google_drive_connection).and_return(google_drive_mock)
       get 'show', params: {:course_id => @course.id, :id => a.id}
 
-      expect(response).to be_success
+      expect(response).to be_successful
       expect(assigns(:user_has_google_drive)).to be true
     end
 
@@ -670,7 +687,7 @@ describe AssignmentsController do
         @assignment.save!
 
         get 'show', params: {:course_id => @course.id, :id => @assignment.id}
-        expect(response).to be_success
+        expect(response).to be_successful
         aua = AssetUserAccess.where(user_id: @student, context_type: 'Course', context_id: @course).first
         expect(aua.asset_category).to eq 'assignments'
         expect(aua.asset_code).to eq @assignment.asset_string
@@ -743,6 +760,35 @@ describe AssignmentsController do
         put 'toggle_mute', params: { course_id: @course.id, assignment_id: @assignment.id, status: false }, format: 'json'
         @assignment.reload
         expect(@assignment).not_to be_muted
+      end
+
+      describe 'anonymize_students' do
+        it "is included in the response" do
+          put 'toggle_mute', params: { course_id: @course.id, assignment_id: @assignment.id, status: true }, format: 'json'
+          assignment_json = json_parse(response.body)['assignment']
+          expect(assignment_json).to have_key('anonymize_students')
+        end
+
+        it "is true if the assignment is anonymous and muted" do
+          @assignment.update!(anonymous_grading: true)
+          @assignment.unmute!
+          put 'toggle_mute', params: { course_id: @course.id, assignment_id: @assignment.id, status: true }, format: 'json'
+          assignment_json = json_parse(response.body)['assignment']
+          expect(assignment_json.fetch('anonymize_students')).to be true
+        end
+
+        it "is false if the assignment is anonymous and unmuted" do
+          @assignment.update!(anonymous_grading: true)
+          put 'toggle_mute', params: { course_id: @course.id, assignment_id: @assignment.id, status: false }, format: 'json'
+          assignment_json = json_parse(response.body)['assignment']
+          expect(assignment_json.fetch('anonymize_students')).to be false
+        end
+
+        it "is false if the assignment is not anonymous" do
+          put 'toggle_mute', params: { course_id: @course.id, assignment_id: @assignment.id, status: true }, format: 'json'
+          assignment_json = json_parse(response.body)['assignment']
+          expect(assignment_json.fetch('anonymize_students')).to be false
+        end
       end
     end
   end
@@ -969,6 +1015,40 @@ describe AssignmentsController do
       user_session(@teacher)
       get :edit, params: { course_id: @course.id, id: @assignment.id }
       expect(assigns[:js_env][:MODERATED_GRADING_MAX_GRADER_COUNT]).to eq @assignment.moderated_grading_max_grader_count
+    end
+
+    describe 'js_env ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED' do
+      before(:each) do
+        user_session(@teacher)
+      end
+
+      it 'is true when the course has anonymous_instructor_annotations on' do
+        @course.enable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be true
+      end
+
+      it 'is true when the account has anonymous_instructor_annotations on' do
+        @course.account.enable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be true
+      end
+
+      it 'is false when the course has anonymous_instructor_annotations off' do
+        @course.disable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be false
+      end
+
+      it 'is false when the account has anonymous_instructor_annotations off' do
+        @course.account.disable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be false
+      end
     end
 
     context 'plagiarism detection platform' do

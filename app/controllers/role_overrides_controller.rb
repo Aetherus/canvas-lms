@@ -168,12 +168,8 @@ class RoleOverridesController < ApplicationController
         :ACCOUNT_ID => @context.id
       })
 
-      if @context.is_a?(Account) && @context.feature_enabled?(:permissions_v2_ui)
-        js_bundle :permissions_index
-        css_bundle :permissions
-      else
-        js_bundle :roles
-      end
+      js_bundle :permissions_index
+      css_bundle :permissions
       @active_tab = 'permissions'
     end
   end
@@ -278,6 +274,7 @@ class RoleOverridesController < ApplicationController
   #     read_forum                       -- [STADO] View discussions
   #     moderate_forum                   -- [sTADo] Moderate discussions (delete/edit others' posts, lock topics)
   #     post_to_forum                    -- [STADo] Post to discussions
+  #     create_forum                     -- [STADo] Create discussions
   #     read_announcements               -- [STADO] View announcements
   #     read_question_banks              -- [ TADo] View and link to question banks
   #     read_reports                     -- [ TAD ] View usage reports for the course
@@ -363,8 +360,8 @@ class RoleOverridesController < ApplicationController
     json = role_json(@context, role, @current_user, session)
 
     if base_role = RoleOverride.enrollment_type_labels.find{|br| br[:base_role_name] == base_role_type}
-      json["base_role_type_label"] =
-        RoleOverride.v2_labels(@context, base_role.key?(:label_v2)) ? base_role[:label_v2].call : base_role[:label].call
+      # NOTE: p[1][:label_v2].call could eventually be removed if we copied everything over to :label
+      json["base_role_type_label"] = base_role.key?(:label_v2) ? base_role[:label_v2].call : base_role[:label].call
     end
 
     render :json => json
@@ -610,8 +607,9 @@ class RoleOverridesController < ApplicationController
     course = {:group_name => t('course_permissions',  "Course & Account Permissions"), :group_permissions => []}
 
     RoleOverride.manageable_permissions(context).each do |p|
+      # NOTE: p[1][:label_v2].call could eventually be removed if we copied everything over to :label
       hash = {:label =>
-             RoleOverride.v2_labels(@context, p[1].key?(:label_v2)) ? p[1][:label_v2].call : p[1][:label].call, :permission_name => p[0]}
+             p[1].key?(:label_v2) ? p[1][:label_v2].call : p[1][:label].call, :permission_name => p[0]}
 
       # Check to see if the base role name is in the list of other base role names in p[1]
       is_course_permission = !(Role::ENROLLMENT_TYPES & p[1][:available_to]).empty?
@@ -633,8 +631,9 @@ class RoleOverridesController < ApplicationController
     res << course if course[:group_permissions].any?
 
     res.each do |pg|
+      # NOTE: p[1][:label_v2].call could eventually be removed if we copied everything over to :label
       pg[:group_permissions] =
-        pg[:group_permissions].sort_by{|p| RoleOverride.v2_labels(@context, p.key?(:label_v2)) ? p[:label_v2] : p[:label]}
+        pg[:group_permissions].sort_by{|p| p.key?(:label_v2) ? p[:label_v2] : p[:label]}
     end
 
     res
@@ -665,8 +664,8 @@ class RoleOverridesController < ApplicationController
 
     # Add group_permissions
     RoleOverride.manageable_permissions(context).each do |p|
-      hash = {:label =>
-              RoleOverride.v2_labels(@context, p[1].key?(:label_v2)) ? p[1][:label_v2].call : p[1][:label].call, :permission_name => p[0]}
+      # NOTE: p[1][:label_v2].call could eventually be removed if we copied everything over to :label
+      hash = {:label => p[1].key?(:label_v2) ? p[1][:label_v2].call : p[1][:label].call, :permission_name => p[0]}
       if p[1][:account_only]
         if p[1][:account_only] == :site_admin
           site_admin[:group_permissions] << hash
@@ -687,8 +686,9 @@ class RoleOverridesController < ApplicationController
     res << course if course[:group_permissions].any?
 
     res.each do |pg|
+      # NOTE: p[1][:label_v2].call could eventually be removed if we copied everything over to :label
       pg[:group_permissions] =
-        pg[:group_permissions].sort_by{|p| RoleOverride.v2_labels(@context, p.key?(:label_v2)) ? p[:label_v2] : p[:label]}
+        pg[:group_permissions].sort_by{|p| p.key?(:label_v2) ? p[:label_v2] : p[:label]}
     end
 
     res

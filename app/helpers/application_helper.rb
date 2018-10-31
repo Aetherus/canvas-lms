@@ -245,7 +245,7 @@ module ApplicationHelper
   end
 
   def use_rtl?
-    @current_user.try(:feature_enabled?, :force_rtl) || (@domain_root_account.try(:feature_enabled?, :allow_rtl) && I18n.rtl?)
+    I18n.rtl? || @current_user.try(:feature_enabled?, :force_rtl)
   end
 
   # this is exactly the same as our sass helper with the same name
@@ -269,6 +269,17 @@ module ApplicationHelper
 
   def brand_variable(variable_name)
     BrandableCSS.brand_variable_value(variable_name, active_brand_config)
+  end
+
+  # returns the proper alt text for the logo
+  def alt_text_for_login_logo
+    possibly_customized_login_logo = brand_variable('ic-brand-Login-logo')
+    default_login_logo = BrandableCSS.brand_variable_value('ic-brand-Login-logo')
+    if possibly_customized_login_logo == default_login_logo
+      I18n.t("Canvas by Instructure")
+    else
+      @domain_root_account.short_name
+    end
   end
 
   def favicon
@@ -552,8 +563,12 @@ module ApplicationHelper
   end
 
   def map_courses_for_menu(courses, opts={})
+    precalculated_tab_permissions = opts[:include_section_tabs] && @current_user &&
+      Rails.cache.fetch(['precalculated_permissions_for_menu', @current_user, collection_cache_key(courses)]) do
+        @current_user.precalculate_permissions_for_courses(courses, SectionTabHelper::PERMISSIONS_TO_PRECALCULATE)
+      end
     mapped = courses.map do |course|
-      tabs = opts[:include_section_tabs] && available_section_tabs(course)
+      tabs = opts[:include_section_tabs] && available_section_tabs(course, precalculated_tab_permissions&.dig(course.global_id))
       presenter = CourseForMenuPresenter.new(course, tabs, @current_user, @domain_root_account)
       presenter.to_h
     end
@@ -888,10 +903,9 @@ module ApplicationHelper
   end
 
   def link_to_parent_signup(auth_type)
-    template = auth_type.present? ? "#{auth_type.downcase}Dialog" : "parentDialog"
-    path = auth_type.present? ? external_auth_validation_path : users_path
+    data = reg_link_data(auth_type)
     link_to(t("Parents sign up here"), '#', id: "signup_parent", class: "signup_link",
-            data: {template: template, path: path}, title: t("Parent Signup"))
+            data: data, title: t("Parent Signup"))
   end
 
   def tutorials_enabled?
@@ -910,9 +924,8 @@ module ApplicationHelper
   end
 
   def planner_enabled?
-    @domain_root_account&.feature_enabled?(:student_planner) &&
-    @current_user.participating_student_course_ids.present?
-
+    !!(@current_user && @domain_root_account&.feature_enabled?(:student_planner) &&
+      @current_user.has_student_enrollment?)
   end
 
   def generate_access_verifier

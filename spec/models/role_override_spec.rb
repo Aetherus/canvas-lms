@@ -543,7 +543,7 @@ describe RoleOverride do
       let(:permission) { RoleOverride.permissions[:view_audit_trail] }
 
       it 'is enabled by default for teachers, TAs and admins' do
-        expect(permission[:true_for]).to match_array %w(TeacherEnrollment AccountAdmin)
+        expect(permission[:true_for]).to match_array %w(AccountAdmin)
       end
 
       it 'is available to teachers, TAs, admins and account memberships' do
@@ -552,25 +552,4 @@ describe RoleOverride do
     end
   end
 
-  describe 'v2 permissions labels' do
-    before :each do
-      @account = account_model(:parent_account => Account.default)
-    end
-
-    it 'uses original labels when permissions v2 feature flag is off' do
-      @account.root_account.disable_feature!(:permissions_v2_ui)
-      expect(RoleOverride.v2_labels(@account, true)).to be false
-      expect(RoleOverride.v2_labels(@account, false)).to be false
-    end
-
-    it 'uses original labels when feature flag is on and there is no v2 label' do
-      @account.root_account.enable_feature!(:permissions_v2_ui)
-       expect(RoleOverride.v2_labels(@account, false)).to be false
-    end
-
-    it 'uses v2 labels when the feature flag is on and there is a v2 label' do
-      @account.root_account.enable_feature!(:permissions_v2_ui)
-       expect(RoleOverride.v2_labels(@account, true)).to be true
-    end
-  end
 end

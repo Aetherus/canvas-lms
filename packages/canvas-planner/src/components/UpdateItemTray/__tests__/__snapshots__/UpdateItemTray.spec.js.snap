@@ -65,10 +65,12 @@ exports[`renders the item to update if provided 1`] = `
       <Select
         allowEmpty={true}
         closeOnSelect={true}
+        constrain="scroll-parent"
         editable={false}
         emptyOption="---"
         filter={[Function]}
         formatSelectedOption={[Function]}
+        id="to-do-item-course-select"
         inputRef={[Function]}
         label="Course"
         loadingText={null}
@@ -119,6 +121,7 @@ exports[`renders the item to update if provided 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         fluidWidth={false}
         margin="0 x-small 0 0"
         onClick={[Function]}
@@ -131,6 +134,7 @@ exports[`renders the item to update if provided 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         disabled={false}
         fluidWidth={false}
         margin="0 0 0 x-small"
@@ -211,10 +215,12 @@ exports[`updates state when new note is passed in 1`] = `
       <Select
         allowEmpty={true}
         closeOnSelect={true}
+        constrain="scroll-parent"
         editable={false}
         emptyOption="---"
         filter={[Function]}
         formatSelectedOption={[Function]}
+        id="to-do-item-course-select"
         inputRef={[Function]}
         label="Course"
         loadingText={null}
@@ -270,6 +276,7 @@ exports[`updates state when new note is passed in 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         fluidWidth={false}
         margin="0 x-small 0 0"
         onClick={[Function]}
@@ -282,6 +289,7 @@ exports[`updates state when new note is passed in 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         disabled={false}
         fluidWidth={false}
         margin="0 0 0 x-small"
@@ -362,10 +370,12 @@ exports[`updates state when new note is passed in 2`] = `
       <Select
         allowEmpty={true}
         closeOnSelect={true}
+        constrain="scroll-parent"
         editable={false}
         emptyOption="---"
         filter={[Function]}
         formatSelectedOption={[Function]}
+        id="to-do-item-course-select"
         inputRef={[Function]}
         label="Course"
         loadingText={null}
@@ -421,6 +431,7 @@ exports[`updates state when new note is passed in 2`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         fluidWidth={false}
         margin="0 x-small 0 0"
         onClick={[Function]}
@@ -433,6 +444,7 @@ exports[`updates state when new note is passed in 2`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         disabled={false}
         fluidWidth={false}
         margin="0 0 0 x-small"

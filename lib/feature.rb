@@ -116,31 +116,6 @@ class Feature
   # TODO: register built-in features here
   # (plugins may register additional features during application initialization)
   register(
-    'refactor_of_sis_imports' =>
-      {
-        display_name: -> {I18n.t('SIS Import Refactor')},
-        description: -> {I18n.t(<<END
-The engine that processes SIS imports has been refactored to better handle the
-stability of large SIS imports. The functionality of SIS imports has not changed.
-END
-        )},
-        applies_to: 'RootAccount',
-        state: 'allowed'
-      },
-    'section_specific_discussions' =>
-    {
-      display_name: -> { I18n.t('Section Specific Discussions') },
-      description: -> { I18n.t('Allows creating discussions for a specific section') },
-      applies_to: 'Account',
-      state: 'hidden',
-    },
-    'permissions_v2_ui' =>
-    {
-      display_name: -> { I18n.t('Updated Permissions Page') },
-      description: -> { I18n.t('Use the new interface for managing permissions') },
-      applies_to: 'Account',
-      state: 'allowed',
-    },
     'google_docs_domain_restriction' =>
     {
       display_name: -> { I18n.t('features.google_docs_domain_restriction', 'Google Docs Domain Restriction') },
@@ -243,6 +218,17 @@ END
       root_opt_in: true,
       beta: true
     },
+    'anonymous_instructor_annotations' =>
+    {
+      display_name: -> { I18n.t('Anonymous Instructor Annotations') },
+      description:  -> { I18n.t(<<~END) },
+        Anonymous Instructor Annotations is a setting on assignments allowing
+        instructors to leave annotations that are anonymous to students.
+      END
+      applies_to: 'Course',
+      state: 'allowed',
+      root_opt_in: false,
+    },
     'new_gradebook' =>
     {
       display_name: -> { I18n.t('New Gradebook') },
@@ -261,12 +247,9 @@ END
             transitions['off']['locked'] = true if transitions&.dig('off')
           else
             should_lock = context.gradebook_backwards_incompatible_features_enabled?
-            transitions['on']['locked'] = should_lock if transitions&.dig('on')
             transitions['off']['locked'] = should_lock if transitions&.dig('off')
           end
         elsif context.is_a?(Account)
-          transitions['on']['locked'] = true if transitions&.dig('on')
-
           new_gradebook_feature_flag = FeatureFlag.where(feature: :new_gradebook, state: :on)
           all_active_sub_account_ids = Account.sub_account_ids_recursive(context.id)
           relevant_accounts = Account.joins(:feature_flags).where(id: [context.id].concat(all_active_sub_account_ids))
@@ -486,14 +469,6 @@ END
       development: true,
       root_opt_in: false
     },
-    'allow_rtl' =>
-    {
-      display_name: -> { I18n.t('Allow RTL users to see RTL interface') },
-      description: -> { I18n.t('This feature enables users of right-to-left (RTL) languages to see the RTL layout under development. Eventually, this will become the default behavior and this option will be removed.') },
-      applies_to: 'RootAccount',
-      state: 'allowed',
-      beta: true,
-    },
     'force_rtl' =>
     {
       display_name: -> { I18n.t('Turn on RTL Even For Non-RTL Languages') },
@@ -624,9 +599,7 @@ END
       display_name: -> { I18n.t('To Do List Dashboard')},
       description: -> { I18n.t('Provides users with a To Do List Dashboard option.')},
       applies_to: "RootAccount",
-      state: "hidden",
-      beta: true,
-      development: false
+      state: "hidden"
     },
     'rubric_criterion_range' =>
     {
@@ -648,7 +621,6 @@ END
       description: -> { I18n.t('Create assessments with Quizzes.Next and migrate existing Canvas Quizzes.') },
       applies_to: 'Course',
       state: 'allowed',
-      beta: true,
       visible_on: ->(context) do
         root_account = context.root_account
         is_provisioned = Rails.env.development? || root_account.settings&.dig(:provision, 'lti').present?
@@ -667,8 +639,7 @@ END
       display_name: -> { I18n.t('Quizzes.Next Importing') },
       description: -> { I18n.t('Allow importing of QTI and Common Cartridge into Quizzes.Next.') },
       applies_to: 'RootAccount',
-      beta: true,
-      state: 'hidden'
+      state: 'allowed'
     },
     'common_cartridge_page_conversion' => {
       display_name: -> { I18n.t('Common Cartridge HTML File to Page Conversion') },
@@ -687,13 +658,7 @@ END
       display_name: -> { I18n.t('Non-scoring Rubrics')},
       description: -> { I18n.t('If enabled, the option will be presented to have non-scoring rubrics.') },
       applies_to: 'RootAccount',
-      state: 'allowed'
-    },
-    'observer_pairing_code' => {
-      display_name: -> { I18n.t('Use pairing code for parent sign up') },
-      description: -> { I18n.t('If enabled, the parent sign up form will require a student pairing code instead of the child username and password') },
-      applies_to: 'RootAccount',
-      state: 'hidden'
+      state: 'on'
     }
   )
 

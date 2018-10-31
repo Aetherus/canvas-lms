@@ -24,17 +24,18 @@ import I18n from 'i18n!edit_rubric'
 
 import Criterion from './Criterion'
 
+import { getSavedComments } from './helpers'
 import { rubricShape, rubricAssessmentShape, rubricAssociationShape } from './types'
 import { roundIfWhole } from './Points'
 
 const totalString = (score) => I18n.t('Total Points: %{total}', {
-  total: I18n.toNumber(score, { precision: 1 })
+  total: I18n.toNumber(score, { precision: 2, strip_insignificant_zeros: true })
 })
 
 const totalAssessingString = (score, possible) =>
   I18n.t('Total Points: %{total} out of %{possible}', {
     total: roundIfWhole(score),
-    possible: I18n.toNumber(possible, { precision: 1 })
+    possible: I18n.toNumber(possible, { precision: 2, strip_insignificant_zeros: true })
   })
 
 const Rubric = (props) => {
@@ -45,13 +46,13 @@ const Rubric = (props) => {
     rubric,
     rubricAssessment,
     rubricAssociation,
-    isSummary
+    isSummary,
+    flexWidth
   } = props
   const assessing = onAssessmentChange !== null
   const priorData = _.get(rubricAssessment, 'data', [])
   const byCriteria = _.keyBy(priorData, (ra) => ra.criterion_id)
   const criteriaById = _.keyBy(rubric.criteria, (c) => c.id)
-  const allComments = _.get(rubricAssociation, 'summary_data.saved_comments', {})
   const hidePoints = _.get(rubricAssociation, 'hide_points', false)
   const freeForm = rubric.free_form_criterion_comments
 
@@ -63,7 +64,7 @@ const Rubric = (props) => {
     const ignore = (c) => _.isUndefined(c) ? true : c.ignore_for_scoring
     const points = data
       .filter((result) => !ignore(criteriaById[result.criterion_id]))
-      .map((result) => result.points !== null ? result.points : 0)
+      .map((result) => _.get(result, 'points.value', 0))
 
     onAssessmentChange({
       ...rubricAssessment,
@@ -92,7 +93,7 @@ const Rubric = (props) => {
         freeForm={freeForm}
         isSummary={isSummary}
         onAssessmentChange={assessing ? onCriteriaChange(criterion.id) : undefined}
-        savedComments={allComments[criterion.id]}
+        savedComments={getSavedComments(rubricAssociation, criterion.id)}
         hidePoints={hidePoints}
         hasPointsColumn={showPointsColumn()}
       />
@@ -105,17 +106,27 @@ const Rubric = (props) => {
   const hideScoreTotal = _.get(rubricAssociation, 'hide_score_total') === true
   const noScore = _.get(rubricAssociation, 'score') === null
   const showTotalPoints = !hidePoints && !hideScoreTotal
+  const maxRatings = _.max(rubric.criteria.map((c) => c.ratings.length))
+  const minSize = () => {
+    if (isSummary || flexWidth) return {}
+    else {
+      const ratingCorrection = freeForm ? 15 : 7.5 * maxRatings
+      return { 'minWidth': `${15 + ratingCorrection}rem` }
+    }
+  }
 
   return (
-    <div className="react-rubric">
+    <div className="react-rubric" style={minSize()}>
       <Table caption={rubric.title}>
         <thead>
           <tr>
-            <th scope="col">{I18n.t('Criteria')}</th>
-            <th scope="col">{I18n.t('Ratings')}</th>
+            <th scope="col" className="rubric-criteria">
+              {I18n.t('Criteria')}
+            </th>
+            <th scope="col" className="ratings">{I18n.t('Ratings')}</th>
             {
               showPointsColumn() && (
-                <th scope="col">{I18n.t('Pts')}</th>
+                <th className="rubric-points" scope="col">{I18n.t('Pts')}</th>
               )
             }
           </tr>
@@ -126,7 +137,7 @@ const Rubric = (props) => {
             <tr>
               <td colSpan="3">
                 <Flex justifyItems="end">
-                  <FlexItem>
+                  <FlexItem data-selenium="rubric_total">
                     {hideScoreTotal || noScore ? null : total}
                   </FlexItem>
                 </Flex>
@@ -149,7 +160,8 @@ Rubric.propTypes = {
     return PropTypes.checkPropTypes({ rubricAssessment }, props, 'prop', 'Rubric')
   },
   rubricAssociation: PropTypes.shape(rubricAssociationShape),
-  isSummary: PropTypes.bool
+  isSummary: PropTypes.bool,
+  flexWidth: PropTypes.bool
 }
 Rubric.defaultProps = {
   allowExtraCredit: false,
@@ -157,7 +169,8 @@ Rubric.defaultProps = {
   onAssessmentChange: null,
   rubricAssessment: null,
   rubricAssociation: {},
-  isSummary: false
+  isSummary: false,
+  flexWidth: false
 }
 
 export default Rubric

@@ -63,7 +63,7 @@ it('renders the title', () => {
   expect(
     node
       .at(0)
-      .dive()
+      .children()
       .text()
   ).toEqual('fruit')
 })

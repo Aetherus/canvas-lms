@@ -239,6 +239,15 @@
 #           "description": "The ID of the SIS Import that this import was diffed against",
 #           "example": 1,
 #           "type": "integer"
+#         },
+#         "csv_attachments": {
+#           "description": "An array of CSV files for processing",
+#           "example": [],
+#           "type": "array",
+#           "items": {
+#             "type": "array",
+#             "items": {"$ref": "File"}
+#           }
 #         }
 #       }
 #     }
@@ -247,6 +256,7 @@ class SisImportsApiController < ApplicationController
   before_action :get_context
   before_action :check_account
   include Api::V1::SisImport
+  include Api::V1::Progress
 
   def check_account
     return render json: {errors: ["SIS imports can only be executed on root accounts"]}, status: :bad_request unless @account.root_account?
@@ -271,7 +281,8 @@ class SisImportsApiController < ApplicationController
       if (created_since = CanvasTime.try_parse(params[:created_since]))
         scope = scope.where("created_at > ?", created_since)
       end
-      @batches = Api.paginate(scope, self, api_v1_account_sis_imports_url)
+      # we don't need to know how many there are
+      @batches = Api.paginate(scope, self, api_v1_account_sis_imports_url, total_entries: nil)
       render json: {sis_imports: sis_imports_json(@batches, @current_user, session)}
     end
   end
@@ -535,18 +546,26 @@ class SisImportsApiController < ApplicationController
   #   If set, will only restore items that were deleted. This will ignore any
   #   items that were created or modified.
   #
+  # @argument unconclude_only [Boolean]
+  #   If set, will only restore enrollments that were concluded. This will
+  #   ignore any items that were created or deleted.
+  #
   # @example_request
   #   curl https://<canvas>/api/v1/accounts/<account_id>/sis_imports/<sis_import_id>/restore_states \
   #     -H 'Authorization: Bearer <token>'
   #
-  # @returns SisImport
+  # @returns Progress
   def restore_states
     if authorized_action(@account, @current_user, :manage_sis)
       @batch = @account.sis_batches.find(params[:id])
       batch_mode = value_to_boolean(params[:batch_mode])
       undelete_only = value_to_boolean(params[:undelete_only])
-      @batch.restore_states_for_batch(batch_mode: batch_mode, undelete_only: undelete_only)
-      render json: sis_import_json(@batch, @current_user, session, includes: ['errors'])
+      unconclude_only = value_to_boolean(params[:unconclude_only])
+      if undelete_only && unconclude_only
+        return render json: 'cannot set both undelete_only and unconclude_only', status: :bad_request
+      end
+      progress = @batch.restore_states_later(batch_mode: batch_mode, undelete_only: undelete_only, unconclude_only: unconclude_only)
+      render json: progress_json(progress, @current_user, session)
     end
   end
 
@@ -584,5 +603,4 @@ class SisImportsApiController < ApplicationController
       render json: {aborted: true}
     end
   end
-
 end

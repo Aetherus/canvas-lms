@@ -144,7 +144,7 @@ export function groupAndSortDayItems (items) {
 
 // ----- grouping and sorting helpers -----
 const cmpopts = {numeric: true};
-const locale =(window.ENV && window.ENV.LOCALE) || 'en';
+const locale =(window.ENV && window.ENV.MOMENT_LOCALE) || 'en';
 
 // order items by their grouping
 function getItemGroupTitle(item) {
@@ -165,6 +165,13 @@ function orderItemsByGrouping (a, b) {
 
 // order items by time, then title
 export function orderItemsByTimeAndTitle (a, b) {
+  // completed items are grouped at the bottom
+  if (a.originallyCompleted && !b.originallyCompleted) return 1;
+  if (!a.originallyCompleted && b.originallyCompleted) return -1;
+  // all day items are grouped at the top
+  if (a.allDay && !b.allDay) return -1;
+  if (!a.allDay && b.allDay) return 1;
+  // the rest are sorted by time, then title
   if (a.date.valueOf() === b.date.valueOf()) {
     return a.title.localeCompare(b.title, locale, cmpopts);
   }

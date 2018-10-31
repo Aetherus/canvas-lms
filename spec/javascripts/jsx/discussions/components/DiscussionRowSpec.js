@@ -207,6 +207,41 @@ test('renders nothing if currently available and no end date', () => {
   tree.unmount()
 })
 
+test('renders due date if graded with a due date', () => {
+  const props = makeProps({
+    discussion: {
+      assignment: {
+        due_at: '2018-07-01T05:59:00Z',
+      }
+    }
+  })
+  const tree = mount(<DiscussionRow {...props} />)
+  let node = tree.find('.due-date')
+  ok(node.exists())
+  node = tree.find('.todo-date')
+  notOk(node.exists())
+})
+
+test('renders to do date if ungraded with a to do date', () => {
+  const props = makeProps({
+    discussion: {
+      todo_date: '2018-07-01T05:59:00Z',
+    }
+  })
+  const tree = mount(<DiscussionRow {...props} />)
+  let node = tree.find('.todo-date')
+  ok(node.exists())
+  node = tree.find('due-date')
+  notOk(node.exists())
+})
+
+test('renders neither a due or to do date if neither are available', () => {
+  const tree = mount(<DiscussionRow {...makeProps()} />)
+  let node = tree.find('.todo-date')
+  notOk(node.exists())
+  node = tree.find('due-date')
+  notOk(node.exists())
+})
 
 test('renders the SectionsTooltip component', () => {
   const discussion = { user_count: 200 }
@@ -240,13 +275,20 @@ test('does not render the SectionsTooltip component on a group discussion', () =
   notOk(node.exists())
 })
 
-test('does not renders the SectionsTooltip component within a group context', () => {
+test('does not render the SectionsTooltip component within a group context', () => {
   const discussion = { user_count: 200 }
   const tree = mount(<DiscussionRow {...makeProps({ discussion, contextType: "group" })} />)
   const node = tree.find('SectionsTooltip')
   notOk(node.exists())
   tree.unmount()
+})
 
+test('does not render the SectionsTooltip component in a blueprint course', () => {
+  const discussion = { user_count: 200 }
+  const tree = mount(<DiscussionRow {...makeProps({ discussion, isMasterCourse: true})} />)
+  const node = tree.find('SectionsTooltip')
+  notOk(node.exists())
+  tree.unmount()
 })
 
 test('does not render master course lock icon if masterCourseData is not provided', (assert) => {
@@ -313,6 +355,47 @@ test('manage menu items do appear upon click', () => {
   // within the popover menu or even the discussion row
   const menuItemNode = document.querySelector('#moveTo-discussion-menu-option')
   ok(menuItemNode.textContent.includes('Move To'))
+  tree.unmount()
+})
+
+test('renders available date and delayed date on graded discussions', () => {
+  const tree = mount(
+    <DiscussionRow
+      {...makeProps({
+        discussion: {
+          assignment: {
+            lock_at: '2018-07-01T05:59:00Z',
+            unlock_at: '2018-06-21T06:00:00Z'
+          },
+          id: '1',
+          position: 1,
+          published: true,
+          title: 'Hello World',
+          message: 'Foo bar bar baz boop beep bop Foo',
+          posted_at: 'January 10, 2019 at 10:00 AM',
+          can_unpublish: true,
+          author: {
+            id: '5',
+            display_name: 'John Smith',
+            html_url: '',
+            avatar_image_url: null
+          },
+          read_state: 'unread',
+          unread_count: 0,
+          discussion_subentry_count: 5,
+          locked: false,
+          html_url: '',
+          user_count: 10,
+          delayed_post_at: '2018-06-21T06:00:00Z',
+          last_reply_at: new Date(2018, 1, 14, 0, 0, 0, 0)
+        }
+      })}
+    />
+  )
+  let node = tree.find('.discussion-availability')
+  ok(node.exists())
+  node = tree.find('.ic-discussion-row__content')
+  ok(node.exists())
   tree.unmount()
 })
 

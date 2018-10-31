@@ -363,6 +363,7 @@ class ContentMigration < ActiveRecord::Base
   alias_method :export_content, :queue_migration
 
   def blocked_by_current_migration?(plugin, retry_count, expires_at)
+    return false if self.migration_type == "zip_file_importer"
     running_cutoff = Setting.get('content_migration_job_block_hours', '4').to_i.hours.ago # at some point just let the jobs keep going
 
     if self.context && self.context.content_migrations.
@@ -505,7 +506,7 @@ class ContentMigration < ActiveRecord::Base
         end
         self.context.copy_attachments_from_course(source_export.context, :content_export => source_export, :content_migration => self)
         MasterCourses::FolderHelper.recalculate_locked_folders(self.context)
-        MasterCourses::FolderHelper.update_folder_names(self.context, source_export)
+        MasterCourses::FolderHelper.update_folder_names_and_states(self.context, source_export)
 
         data = JSON.parse(self.exported_attachment.open, :max_nesting => 50)
         data = prepare_data(data)
@@ -614,14 +615,15 @@ class ContentMigration < ActiveRecord::Base
     self.migration_type == 'master_course_import'
   end
 
-  def add_skipped_item(child_tag)
+  def add_skipped_item(item)
     @skipped_master_course_items ||= Set.new
-    @skipped_master_course_items << child_tag.migration_id
+    item = item.migration_id if item.is_a?(MasterCourses::ChildContentTag)
+    @skipped_master_course_items << item
   end
 
   def process_master_deletions(deletions)
     deletions.keys.each do |klass|
-      next unless MasterCourses::ALLOWED_CONTENT_TYPES.include?(klass)
+      next unless MasterCourses::CONTENT_TYPES_FOR_DELETIONS.include?(klass)
       mig_ids = deletions[klass]
       item_scope = case klass
       when 'Attachment'

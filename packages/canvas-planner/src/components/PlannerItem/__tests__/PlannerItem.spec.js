@@ -55,6 +55,7 @@ function noteProps (option) {
       toggleCompletion: () => {},
       updateTodo: () => {},
       currentUser: user,
+      dateStyle: "todo",
       ...option
   };
 }
@@ -70,7 +71,6 @@ function groupProps (option) {
       "type": "Group",
       "id": "9",
       "title": "Account-level group 1",
-      "inform_students_of_overdue_submissions": false,
       "color": "#F06291",
       "url": "/groups/9"
     },
@@ -213,6 +213,20 @@ it('renders Assignment correctly with just date', () => {
   expect(wrapper).toMatchSnapshot();
 });
 
+it('renders assignment peer reviews correctly', () => {
+  const wrapper = shallow(
+    <PlannerItem {
+      ...defaultProps(
+        {
+          associated_item: 'Peer Review',
+          title: 'some reviewable assignment',
+        }
+      )
+    } />
+  );
+  expect(wrapper).toMatchSnapshot();
+})
+
 it('renders Discussion correctly with everything', () => {
   const wrapper = shallow(
     <PlannerItem {
@@ -343,6 +357,7 @@ it('renders Calendar Event correctly with everything', () => {
           title: "I am a Calendar Event",
           points: 4,
           date: DEFAULT_DATE,
+          dateStyle: "due"
         })
     } />
   );
@@ -357,6 +372,7 @@ it('renders Calendar Event correctly without right side content', () => {
           associated_item: 'Calendar Event',
           completed: false,
           title: "I am a Calendar Event",
+          dateStyle: "due",
         })
     } />
   );
@@ -372,6 +388,24 @@ it('renders Calendar Event correctly with just date', () => {
           completed: false,
           title: "I am a Calendar Event",
           date: DEFAULT_DATE,
+          dateStyle: "due",
+        })
+    } />
+  );
+  expect(wrapper).toMatchSnapshot();
+});
+
+it('renders Calendar Event correctly with start and end time', () => {
+  const wrapper = shallow(
+    <PlannerItem {
+      ...defaultProps(
+        {
+          associated_item: 'Calendar Event',
+          completed: false,
+          title: "I am a Calendar Event",
+          date: DEFAULT_DATE,
+          endTime: DEFAULT_DATE.clone().add(2, "hours"),
+          dateStyle: "due",
         })
     } />
   );
@@ -462,6 +496,7 @@ it('renders Note correctly with everything', () => {
     <PlannerItem {
       ...noteProps(
         {
+          associated_item: 'To Do',
           completed: true,
           title: "I am a Note",
           date: DEFAULT_DATE,
@@ -477,7 +512,7 @@ it('renders Note correctly without Course', () => {
     <PlannerItem {
       ...noteProps(
         {
-          associated_item: 'Note',
+          associated_item: 'To Do',
           completed: false,
           title: "I am a Note",
         })
@@ -587,8 +622,71 @@ it('renders feedback if available', () => {
   const props = defaultProps({feedback: {
     author_avatar_url: '/avatar/is/here/',
     author_name: 'Boyd Crowder',
-    comment: 'Death will not be the end of your suffering.'
+    comment: 'Death will not be the end of your suffering.',
+    is_media: false,
   }});
   const wrapper = shallow(<PlannerItem {...props} />);
-  expect(wrapper).toMatchSnapshot(); 
+  expect(wrapper).toMatchSnapshot();
 })
+
+it('renders the location if available', () => {
+  const props = defaultProps({
+    location: 'Columbus, OH'
+  });
+  const wrapper = shallow(<PlannerItem {...props} />);
+  expect(wrapper).toMatchSnapshot();
+})
+
+it('renders feedback anonymously according to the assignment settings', () => {
+  const props = defaultProps({
+    feedback: {
+      comment: 'Open the pod bay doors, HAL.'
+    },
+    location: "NYC"
+  });
+  const wrapper = shallow(<PlannerItem {...props} />);
+  expect(wrapper).toMatchSnapshot();
+})
+
+it('prefers to render feedback if it and the location are available', () => {
+  // I don't believe this is possible, but it's how the code handles it.
+  const props = defaultProps({
+    feedback: {
+      author_avatar_url: '/avatar/is/here/',
+      author_name: 'Dr. David Bowman',
+      comment: 'Open the pod bay doors, HAL.'
+    },
+    location: "NYC"
+  });
+  const wrapper = shallow(<PlannerItem {...props} />);
+  expect(wrapper).toMatchSnapshot();
+})
+
+it('renders the end time if available', () => {
+  const props = defaultProps({
+    associated_item: 'Calendar Event',
+    endTime: DEFAULT_DATE.clone().add(2, 'hours')
+  });
+  const wrapper = shallow(<PlannerItem {...props} />);
+  expect(wrapper).toMatchSnapshot();
+});
+
+it('does not render end time if the same as start time', () => {
+  const props = defaultProps({
+    associated_item: 'Calendar Event',
+    endTime: DEFAULT_DATE.clone()
+  });
+  const wrapper = shallow(<PlannerItem {...props} />);
+  expect(wrapper).toMatchSnapshot();
+});
+
+it('renders media feedback if available', () => {
+  const props = defaultProps({feedback: {
+    author_avatar_url: '/avatar/is/here/',
+    author_name: 'Howard Stern',
+    comment: 'This is a media comment.',
+    is_media: true,
+  }});
+  const wrapper = shallow(<PlannerItem {...props} />);
+  expect(wrapper).toMatchSnapshot();
+});

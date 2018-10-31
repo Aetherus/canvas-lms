@@ -53,7 +53,7 @@
           </span>
         </button>
 
-        <span id="speedgrader-settings"></span>
+        <span id="speed_grader_settings_mount_point"></span>
       </div>
       <div class="assignmentDetails">
         <a id="assignment_url" href="<%= context_url(@context, :context_assignment_url, @assignment.id) %>">
@@ -207,8 +207,8 @@
             <div id="submission_files_list">
               <div id="submission_file_hidden"  class="submission-file" style='display:none;'>
                 <%
-                  resource = anonymous_grading ?  :context_assignment_anonymous_submission_url : :context_assignment_submission_url
-                  submission_id_or_anonymous_id = anonymous_grading ? "{{anonymousId}}" : "{{submissionId}}"
+                  resource = anonymize_students ? :context_assignment_anonymous_submission_url : :context_assignment_submission_url
+                  submission_id_or_anonymous_id = anonymize_students ? "{{anonymousId}}" : "{{submissionId}}"
                   download_url = context_url(@context, resource, @assignment.id, submission_id_or_anonymous_id, download: "{{attachmentId}}")
                   preview_url = context_url(@context, resource, @assignment.id, submission_id_or_anonymous_id, download: "{{attachmentId}}", inline: 1)
                 %>
@@ -274,7 +274,7 @@
               <div id="rubric_summary_holder">
                 <div id="rubric_assessments_list_and_edit_button_holder">
                   <span id="rubric_assessments_list">
-                    <%= before_label(:show_assessment_by, "Show Assessment By") %>
+                    <h2><%= t("Select Rubric") %></h2>
                     <select id="rubric_assessments_select"></select>
                   </span>
                 </div>
@@ -319,7 +319,7 @@
 
           <% if @can_comment_on_submission %>
             <form id="add_a_comment">
-              <div id="speedgrader_comment_textarea_mount_point"></div>
+              <div id="speed_grader_comment_textarea_mount_point"></div>
               <div id="media_media_recording" style="display: none;">
                 <div class="media_recording"></div>
               </div>
@@ -386,6 +386,8 @@
               </div>
             </form>
           <% end %>
+
+          <div id="speed_grader_submission_comments_download_mount_point"></div>
         </div>
       </div>
     </div>
@@ -405,20 +407,23 @@
       [t('sort_by.status', "by submission status (needs grading, not submitted, etc)"), "submission_status"]], cookies[:eg_sort_by]) %>
   </p>
 
-  <p>
-    <input type="checkbox" id="hide_student_names" name="hide_student_names"
-      <% if force_anonymous_grading?(@assignment) %>disabled<% end %>
-    />
-    <label for="hide_student_names">
-      <%= t('labels.hide_names', "Hide student names in the SpeedGrader") %>
-    </label>
-    <% if force_anonymous_grading?(@assignment) %>
-      <i class="icon-info" aria-hidden="true"
-        data-tooltip='{"tooltipClass":"popover popover-padded", "position":"top"}'
-        title="<%= force_anonymous_grading_reason(@assignment) %>"></i>
-      <span class="screenreader-only"><%= force_anonymous_grading_reason(@assignment) %></span>
-    <% end %>
-  </p>
+  <% unless @assignment.anonymous_grading? %>
+    <p>
+      <input type="checkbox" id="hide_student_names" name="hide_student_names"
+        <% if force_anonymous_grading?(@assignment) %>disabled<% end %>
+      />
+      <label for="hide_student_names">
+        <%= t('labels.hide_names', "Hide student names in the SpeedGrader") %>
+      </label>
+      <% if force_anonymous_grading?(@assignment) %>
+        <i class="icon-info" aria-hidden="true"
+          data-tooltip='{"tooltipClass":"popover popover-padded", "position":"top"}'
+          title="<%= force_anonymous_grading_reason(@assignment) %>"></i>
+        <span class="screenreader-only"><%= force_anonymous_grading_reason(@assignment) %></span>
+      <% end %>
+    </p>
+  <% end %>
+
   <p <% unless @assignment.quiz %>class=hidden<% end %>>
     <%= check_box_tag :enable_speedgrader_grade_by_question, "1",
       @current_user.preferences[:enable_speedgrader_grade_by_question] %>

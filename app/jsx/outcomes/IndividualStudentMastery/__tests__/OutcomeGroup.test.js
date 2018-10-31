@@ -24,9 +24,11 @@ import OutcomeGroup from '../OutcomeGroup'
 const outcome = (id, title) => ({
   id,
   title,
+  assignments: [],
   mastered: false,
   mastery_points: 3,
   points_possible: 5,
+  calculation_method: 'highest',
   ratings: [
     { description: 'My first rating' },
     { description: 'My second rating' }
@@ -58,6 +60,7 @@ const defaultProps = (props = {}) => (
         mastered: false,
         mastery_points: 3,
         points_possible: 5,
+        calculation_method: 'highest',
         ratings: [
           { description: 'My first rating' },
           { description: 'My second rating' }

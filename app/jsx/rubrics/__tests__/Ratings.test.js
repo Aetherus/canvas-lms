@@ -51,6 +51,18 @@ describe('The Ratings component', () => {
       .forEach((el) => expect(el.shallow().debug()).toMatchSnapshot())
   })
 
+  it('properly selects ratings when two tiers have the same point value', () => {
+    const tiers = [
+      { description: 'Superb', points: 10 },
+      { description: 'Meh', points: 5 },
+      { description: 'Meh 2, The Sequel', points: 5 },
+      { description: 'Subpar', points: 1 }
+    ]
+    const selected = component({ tiers }).find('Rating').map((el) =>
+      el.prop('selected'))
+    expect(selected).toEqual([false, true, true, false])
+  })
+
   it('highlights the right rating', () => {
     const ratings = (points, useRange = false) =>
       component({ points, useRange }).find('Rating').map((el) => el.shallow().hasClass('selected'))
@@ -130,13 +142,15 @@ describe('The Ratings component', () => {
     })
   })
 
-  it('does not scale points if points possible is 0', () => {
 
-  })
+  const ratingComponent = (overrides) => (
+    // eslint-disable-next-line react/prop-types
+    <Rating {...props.tiers[0]} isSummary={false} assessing {...overrides} />
+  )
 
   it('is navigable and clickable when assessing', () => {
     const onClick = sinon.spy()
-    const wrapper = shallow(<Rating {...props.tiers[0]} assessing onClick={onClick} />)
+    const wrapper = shallow(ratingComponent({ onClick }))
     const div = wrapper.find('div').at(0)
     expect(div.prop('tabIndex')).toEqual(0)
     div.simulate('click')
@@ -145,7 +159,7 @@ describe('The Ratings component', () => {
 
   it('is not navigable or clickable when not assessing', () => {
     const onClick = sinon.spy()
-    const wrapper = shallow(<Rating {...props.tiers[0]} assessing={false} onClick={onClick} />)
+    const wrapper = shallow(ratingComponent({ assessing: false, onClick }))
     const div = wrapper.find('div').at(0)
     expect(div.prop('tabIndex')).toBeNull()
     expect(div.prop('role')).toBeNull()

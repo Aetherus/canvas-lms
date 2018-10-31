@@ -31,6 +31,7 @@ import './jquery.templateData'
 import './vendor/jquery.scrollTo'
 import 'compiled/jquery.rails_flash_notifications' // eslint-disable-line
 import Rubric from 'jsx/rubrics/Rubric'
+import { fillAssessment, updateAssociationData } from 'jsx/rubrics/helpers'
 
 // TODO: stop managing this in the view and get it out of the global scope submissions/show.html.erb
 /*global rubricAssessment*/
@@ -219,7 +220,7 @@ window.rubricAssessment = {
       assessment.data.forEach((criteriaAssessment) => {
         const pre = `rubric_assessment[criterion_${criteriaAssessment.criterion_id}]`
         const section = (key) => `${pre}${key}`
-        const points = numberHelper.parse(criteriaAssessment.points)
+        const points = criteriaAssessment.points.value
         data[section("[points]")] = !Number.isNaN(points) ? points : undefined
         data[section("[description]")] = criteriaAssessment.description
         data[section("[comments]")] = criteriaAssessment.comments || ''
@@ -257,7 +258,10 @@ window.rubricAssessment = {
 
   updateRubricAssociation: function($rubric, data) {
     var summary_data = data.summary_data;
-    if (summary_data && summary_data.saved_comments) {
+    if (ENV.nonScoringRubrics && this.currentAssessment !== undefined) {
+      const assessment = this.currentAssessment
+      updateAssociationData(this.currentAssociation, assessment)
+    } else if (summary_data && summary_data.saved_comments) {
       for(var id in summary_data.saved_comments) {
         var comments = summary_data.saved_comments[id],
             $holder = $rubric.find("#criterion_" + id).find(".saved_custom_rating_holder").hide(),
@@ -275,19 +279,7 @@ window.rubricAssessment = {
     }
   },
 
-  fillAssessment: function(rubric, partialAssessment) {
-    const fillText = (c) => ({
-      pointsText: _.isNil(c.points) && _.isUndefined(c.pointsText) ? '--' : c.pointsText,
-      ...c
-    })
-    const defaultCriteria = (id) => ({ criterion_id: id, pointsText: '' })
-    const prior = _.keyBy(_.cloneDeep(partialAssessment.data), (c) => c.criterion_id)
-    return {
-      score: 0,
-      ...partialAssessment,
-      data: rubric.criteria.map((c) => fillText(prior[c.id] || defaultCriteria(c.id)))
-    }
-  },
+  fillAssessment,
 
   populateNewRubric: function(container, assessment, rubricAssociation) {
     if (ENV.nonScoringRubrics && ENV.rubric) {
@@ -297,15 +289,19 @@ window.rubricAssessment = {
         render(currentAssessment)
       }
 
+      const association = rubricAssessment.currentAssociation || rubricAssociation
+      rubricAssessment.currentAssociation = association
+
       const render = (currentAssessment) => {
-        ReactDOM.render(React.createElement(Rubric, {
-          allowExtraCredit: ENV.outcome_extra_credit_enabled,
-          onAssessmentChange: assessing ? setCurrentAssessment : null,
-          rubric: ENV.rubric,
-          rubricAssessment: currentAssessment,
-          customRatings: ENV.outcome_proficiency ? ENV.outcome_proficiency.ratings : [],
-          rubricAssociation
-        }, null), container.get(0))
+        ReactDOM.render(<Rubric
+          allowExtraCredit={ENV.outcome_extra_credit_enabled}
+          onAssessmentChange={assessing ? setCurrentAssessment : null}
+          rubric={ENV.rubric}
+          rubricAssessment={currentAssessment}
+          customRatings={ENV.outcome_proficiency ? ENV.outcome_proficiency.ratings : []}
+          rubricAssociation={rubricAssociation}>
+          {null}
+        </Rubric>, container.get(0))
       }
 
       setCurrentAssessment(rubricAssessment.fillAssessment(ENV.rubric, assessment || {}))
@@ -386,13 +382,14 @@ window.rubricAssessment = {
     if (ENV.nonScoringRubrics && ENV.rubric) {
       if(assessment) {
         const filled = rubricAssessment.fillAssessment(ENV.rubric, assessment || {})
-        ReactDOM.render(React.createElement(Rubric, {
-          customRatings: ENV.outcome_proficiency ? ENV.outcome_proficiency.ratings : [],
-          rubric: ENV.rubric,
-          rubricAssessment: filled,
-          rubricAssociation,
-          isSummary: true
-        }, null), container.get(0))
+        ReactDOM.render(<Rubric
+          customRatings={ENV.outcome_proficiency ? ENV.outcome_proficiency.ratings : []}
+          rubric={ENV.rubric}
+          rubricAssessment={filled}
+          rubricAssociation={rubricAssociation}
+          isSummary={true}>
+          {null}
+        </Rubric>, container.get(0))
       } else {
         container.get(0).innerHTML = ''
       }
@@ -413,7 +410,7 @@ window.rubricAssessment = {
       var assessment = data;
       var total = 0;
       let $criterion = null;
-      for(var idx in assessment.data) {
+      for (let idx = 0; idx < assessment.data.length; idx++) {
         var rating = assessment.data[idx];
         $criterion = $rubricSummary.find("#criterion_" + rating.criterion_id);
         if (editing_data && $criterion.hasClass('learning_outcome_criterion')) {

@@ -447,7 +447,7 @@ class Quizzes::Quiz < ActiveRecord::Base
         unless deleted?
           a.workflow_state = self.published? ? 'published' : 'unpublished'
         end
-        @notify_of_update ||= a.workflow_state_changed? && a.published?
+        @notify_of_update = a.will_save_change_to_workflow_state? && a.published? unless defined?(@notify_of_update)
         a.notify_of_update = @notify_of_update
         a.mark_as_importing!(@importing_migration) if @importing_migration
         a.with_versioning(false) do
@@ -926,10 +926,11 @@ class Quizzes::Quiz < ActiveRecord::Base
     end
   end
 
-  def statistics(include_all_versions = true)
+  def statistics(include_all_versions = true, includes_sis_ids = true)
     quiz_statistics.build(
       :report_type => 'student_analysis',
-      :includes_all_versions => include_all_versions
+      :includes_all_versions => include_all_versions,
+      :includes_sis_ids => includes_sis_ids
     ).report.generate
   end
 
@@ -940,9 +941,13 @@ class Quizzes::Quiz < ActiveRecord::Base
     # most recent), thus we say it always cares about all versions
     options[:includes_all_versions] = true if report_type == 'item_analysis'
 
+    # item analysis doesn't include sis ids
+    options[:includes_sis_ids] = false if report_type == 'item_analysis'
+
     quiz_stats_opts = {
       :report_type => report_type,
       :includes_all_versions => !!options[:includes_all_versions],
+      :includes_sis_ids => !!options[:includes_sis_ids],
       :anonymous => anonymous_submissions?
     }
 
@@ -1097,24 +1102,24 @@ class Quizzes::Quiz < ActiveRecord::Base
     from("(WITH overrides AS (
           SELECT DISTINCT ON (o.quiz_id, o.user_id) *
           FROM (
-            SELECT ao.quiz_id, aos.user_id, ao.due_at, ao.due_at_overridden, 1 AS priority, ao.id AS override_id
+            SELECT ao.quiz_id, aos.user_id, ao.due_at, ao.due_at_overridden, 1 AS priority
             FROM #{AssignmentOverride.quoted_table_name} ao
             INNER JOIN #{AssignmentOverrideStudent.quoted_table_name} aos ON ao.id = aos.assignment_override_id AND ao.set_type = 'ADHOC'
             WHERE aos.user_id = #{User.connection.quote(user)}
               AND ao.workflow_state = 'active'
               AND aos.workflow_state <> 'deleted'
             UNION
-            SELECT ao.quiz_id, e.user_id, ao.due_at, ao.due_at_overridden, 1 AS priority, ao.id AS override_id
+            SELECT ao.quiz_id, e.user_id, ao.due_at, ao.due_at_overridden, 1 AS priority
             FROM #{AssignmentOverride.quoted_table_name} ao
             INNER JOIN #{Enrollment.quoted_table_name} e ON e.course_section_id = ao.set_id AND ao.set_type = 'CourseSection'
             WHERE e.user_id = #{User.connection.quote(user)}
-              AND e.workflow_state NOT IN ('rejected', 'deleted')
+              AND e.workflow_state NOT IN ('rejected', 'deleted', 'inactive')
               AND ao.workflow_state = 'active'
             UNION
-            SELECT q.id, e.user_id, q.due_at, FALSE as due_at_overridden, 2 AS priority, NULL as override_id
+            SELECT q.id, e.user_id, q.due_at, FALSE as due_at_overridden, 2 AS priority
             FROM #{Quizzes::Quiz.quoted_table_name} q
             INNER JOIN #{Enrollment.quoted_table_name} e ON e.course_id = q.context_id
-            WHERE e.workflow_state NOT IN ('rejected', 'deleted')
+            WHERE e.workflow_state NOT IN ('rejected', 'deleted', 'inactive')
               AND e.type in ('StudentEnrollment', 'StudentViewEnrollment')
               AND e.user_id = #{User.connection.quote(user)}
               AND q.assignment_id IS NULL
@@ -1418,6 +1423,10 @@ class Quizzes::Quiz < ActiveRecord::Base
     end
 
     filters
+  end
+
+  def anonymize_students?
+    assignment.present? && assignment.anonymize_students?
   end
 
   def self.class_names

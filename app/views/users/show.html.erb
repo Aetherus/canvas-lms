@@ -16,6 +16,9 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 %>
 
+<%
+  js_env ga_page_title: "User"
+%>
 <% content_for :page_title do %><%= @user.short_name %><% end %>
 
 <% content_for :right_side do %>
@@ -29,7 +32,10 @@
         <%= t('buttons.faculty_journal_for', 'Faculty Journal for %{user}', :user => context_user_name(@context, @user)) %>
       </a>
     <% end %>
-    <% if @context_account.is_a?(Account) && @context_account.grants_right?(@current_user, :generate_observer_pairing_code) && @user.has_student_enrollment? %>
+    <% if @context_account.is_a?(Account) &&
+          @user.grants_right?(@current_user, :generate_observer_pairing_code) &&
+          @user.has_student_enrollment? &&
+          @context_account.root_account.self_registration? %>
       <div id="pairing-code"></div>
     <% end %>
   </div>

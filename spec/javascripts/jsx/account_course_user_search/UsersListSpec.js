@@ -62,11 +62,11 @@ const usersProps = {
 
 test('displays users that are passed in as props', () => {
   const wrapper = shallow(<UsersList {...usersProps} />)
-  const renderedList = wrapper.find(UsersListRow)
+  const nodes = wrapper.find(UsersListRow).getElements()
 
-  equal(renderedList.nodes[0].props.user.name, 'UserA')
-  equal(renderedList.nodes[1].props.user.name, 'UserB')
-  equal(renderedList.nodes[2].props.user.name, 'UserC')
+  equal(nodes[0].props.user.name, 'UserA')
+  equal(nodes[1].props.user.name, 'UserB')
+  equal(nodes[2].props.user.name, 'UserC')
 });
 
 Object.entries({
@@ -107,7 +107,7 @@ Object.entries({
     })
 
     test(`clicking the ${label} column header calls onChangeSort with ${columnID}`, function() {
-      const sortSpy = this.spy()
+      const sortSpy = sinon.spy()
       const wrapper = mount(<UsersList {...{
         ...props,
         onUpdateFilters: sortSpy

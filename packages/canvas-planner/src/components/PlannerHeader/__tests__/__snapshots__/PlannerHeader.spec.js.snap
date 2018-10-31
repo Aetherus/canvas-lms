@@ -1,10 +1,13 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`new activity button does not show when there is no new activity 1`] = `
-<div>
+<div
+  className="undefined PlannerHeader"
+>
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
     id="planner-today-btn"
     margin="0 medium 0 0"
@@ -18,14 +21,15 @@ exports[`new activity button does not show when there is no new activity 1`] = `
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
+    icon={[Function]}
     margin="0 medium 0 0"
     onClick={[Function]}
     size="medium"
     type="button"
     variant="icon"
   >
-    <IconPlus />
     <ScreenReaderContent
       as="span"
     >
@@ -35,14 +39,15 @@ exports[`new activity button does not show when there is no new activity 1`] = `
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
+    icon={[Function]}
     margin="0 medium 0 0"
     onClick={[Function]}
     size="medium"
     type="button"
     variant="icon"
   >
-    <IconGradebook />
     <ScreenReaderContent
       as="span"
     >
@@ -89,6 +94,7 @@ exports[`new activity button does not show when there is no new activity 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         fluidWidth={false}
         margin="0 medium 0 0"
         onClick={[Function]}
@@ -99,6 +105,7 @@ exports[`new activity button does not show when there is no new activity 1`] = `
         <Badge
           count={1}
           elementRef={[Function]}
+          formatOutput={[Function]}
           formatOverflowText={[Function]}
           placement="top end"
           pulse={false}
@@ -106,12 +113,11 @@ exports[`new activity button does not show when there is no new activity 1`] = `
           type="count"
           variant="primary"
         >
-          <IconAlerts />
-          <ScreenReaderContent
-            as="span"
+          <View
+            display="auto"
           >
-            1 opportunity
-          </ScreenReaderContent>
+            <IconAlerts />
+          </View>
         </Badge>
       </Button>
     </PopoverTrigger>
@@ -121,14 +127,28 @@ exports[`new activity button does not show when there is no new activity 1`] = `
           Array [
             Object {
               "id": "1",
-              "informStudentsOfOverdueSubmissions": true,
+              "longName": "Course Long Name",
               "shortName": "Course Short Name",
             },
           ]
         }
         dismiss={[Function]}
+        dismissedOpportunities={
+          Array [
+            Object {
+              "course_id": "1",
+              "due_at": "2017-03-09T20:40:35Z",
+              "html_url": "http://www.non_default_url.com",
+              "id": "2",
+              "name": "learning object title",
+              "planner_override": Object {
+                "dismissed": true,
+              },
+            },
+          ]
+        }
         maxHeight="none"
-        opportunities={
+        newOpportunities={
           Array [
             Object {
               "course_id": "1",
@@ -145,9 +165,7 @@ exports[`new activity button does not show when there is no new activity 1`] = `
     </PopoverContent>
   </Popover>
   <Tray
-    applicationElement={[Function]}
     border={false}
-    closeButtonLabel="Close"
     contentRef={[Function]}
     defaultFocusElement={null}
     insertAt="bottom"
@@ -171,12 +189,23 @@ exports[`new activity button does not show when there is no new activity 1`] = `
     shouldReturnFocus={false}
     size="small"
   >
+    <CloseButton
+      buttonRef={[Function]}
+      margin="0"
+      offset="x-small"
+      onClick={[Function]}
+      placement="start"
+      size="small"
+      variant="icon"
+    >
+      Close
+    </CloseButton>
     <UpdateItemTray
       courses={
         Array [
           Object {
             "id": "1",
-            "informStudentsOfOverdueSubmissions": true,
+            "longName": "Course Long Name",
             "shortName": "Course Short Name",
           },
         ]
@@ -233,7 +262,7 @@ exports[`new activity button does not show when there is no new activity 1`] = `
           Array [
             Object {
               "id": "1",
-              "informStudentsOfOverdueSubmissions": true,
+              "longName": "Course Long Name",
               "shortName": "Course Short Name",
             },
           ]
@@ -252,8 +281,9 @@ exports[`new activity button does not show when there is no new activity 1`] = `
     <StickyButton
       buttonRef={[Function]}
       className="StickyButton-styles__newActivityButton"
+      description="Scrolls up to the previous item with new activity."
       direction="up"
-      hidden={true}
+      id="new_activity_button"
       offset="0"
       onClick={[Function]}
       zIndex={3}
@@ -265,10 +295,13 @@ exports[`new activity button does not show when there is no new activity 1`] = `
 `;
 
 exports[`new activity button shows when there is new activity 1`] = `
-<div>
+<div
+  className="undefined PlannerHeader"
+>
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
     id="planner-today-btn"
     margin="0 medium 0 0"
@@ -282,14 +315,15 @@ exports[`new activity button shows when there is new activity 1`] = `
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
+    icon={[Function]}
     margin="0 medium 0 0"
     onClick={[Function]}
     size="medium"
     type="button"
     variant="icon"
   >
-    <IconPlus />
     <ScreenReaderContent
       as="span"
     >
@@ -299,14 +333,15 @@ exports[`new activity button shows when there is new activity 1`] = `
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
+    icon={[Function]}
     margin="0 medium 0 0"
     onClick={[Function]}
     size="medium"
     type="button"
     variant="icon"
   >
-    <IconGradebook />
     <ScreenReaderContent
       as="span"
     >
@@ -353,6 +388,7 @@ exports[`new activity button shows when there is new activity 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         fluidWidth={false}
         margin="0 medium 0 0"
         onClick={[Function]}
@@ -363,6 +399,7 @@ exports[`new activity button shows when there is new activity 1`] = `
         <Badge
           count={1}
           elementRef={[Function]}
+          formatOutput={[Function]}
           formatOverflowText={[Function]}
           placement="top end"
           pulse={false}
@@ -370,12 +407,11 @@ exports[`new activity button shows when there is new activity 1`] = `
           type="count"
           variant="primary"
         >
-          <IconAlerts />
-          <ScreenReaderContent
-            as="span"
+          <View
+            display="auto"
           >
-            1 opportunity
-          </ScreenReaderContent>
+            <IconAlerts />
+          </View>
         </Badge>
       </Button>
     </PopoverTrigger>
@@ -385,14 +421,28 @@ exports[`new activity button shows when there is new activity 1`] = `
           Array [
             Object {
               "id": "1",
-              "informStudentsOfOverdueSubmissions": true,
+              "longName": "Course Long Name",
               "shortName": "Course Short Name",
             },
           ]
         }
         dismiss={[Function]}
+        dismissedOpportunities={
+          Array [
+            Object {
+              "course_id": "1",
+              "due_at": "2017-03-09T20:40:35Z",
+              "html_url": "http://www.non_default_url.com",
+              "id": "2",
+              "name": "learning object title",
+              "planner_override": Object {
+                "dismissed": true,
+              },
+            },
+          ]
+        }
         maxHeight="none"
-        opportunities={
+        newOpportunities={
           Array [
             Object {
               "course_id": "1",
@@ -409,9 +459,7 @@ exports[`new activity button shows when there is new activity 1`] = `
     </PopoverContent>
   </Popover>
   <Tray
-    applicationElement={[Function]}
     border={false}
-    closeButtonLabel="Close"
     contentRef={[Function]}
     defaultFocusElement={null}
     insertAt="bottom"
@@ -435,12 +483,23 @@ exports[`new activity button shows when there is new activity 1`] = `
     shouldReturnFocus={false}
     size="small"
   >
+    <CloseButton
+      buttonRef={[Function]}
+      margin="0"
+      offset="x-small"
+      onClick={[Function]}
+      placement="start"
+      size="small"
+      variant="icon"
+    >
+      Close
+    </CloseButton>
     <UpdateItemTray
       courses={
         Array [
           Object {
             "id": "1",
-            "informStudentsOfOverdueSubmissions": true,
+            "longName": "Course Long Name",
             "shortName": "Course Short Name",
           },
         ]
@@ -497,7 +556,7 @@ exports[`new activity button shows when there is new activity 1`] = `
           Array [
             Object {
               "id": "1",
-              "informStudentsOfOverdueSubmissions": true,
+              "longName": "Course Long Name",
               "shortName": "Course Short Name",
             },
           ]
@@ -516,8 +575,9 @@ exports[`new activity button shows when there is new activity 1`] = `
     <StickyButton
       buttonRef={[Function]}
       className="StickyButton-styles__newActivityButton"
+      description="Scrolls up to the previous item with new activity."
       direction="up"
-      hidden={true}
+      id="new_activity_button"
       offset="0"
       onClick={[Function]}
       zIndex={3}
@@ -529,10 +589,13 @@ exports[`new activity button shows when there is new activity 1`] = `
 `;
 
 exports[`renders the base component correctly with buttons and trays 1`] = `
-<div>
+<div
+  className="undefined PlannerHeader"
+>
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
     id="planner-today-btn"
     margin="0 medium 0 0"
@@ -546,14 +609,15 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
+    icon={[Function]}
     margin="0 medium 0 0"
     onClick={[Function]}
     size="medium"
     type="button"
     variant="icon"
   >
-    <IconPlus />
     <ScreenReaderContent
       as="span"
     >
@@ -563,14 +627,15 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
   <Button
     as="button"
     buttonRef={[Function]}
+    cursor="pointer"
     fluidWidth={false}
+    icon={[Function]}
     margin="0 medium 0 0"
     onClick={[Function]}
     size="medium"
     type="button"
     variant="icon"
   >
-    <IconGradebook />
     <ScreenReaderContent
       as="span"
     >
@@ -617,6 +682,7 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
       <Button
         as="button"
         buttonRef={[Function]}
+        cursor="pointer"
         fluidWidth={false}
         margin="0 medium 0 0"
         onClick={[Function]}
@@ -627,6 +693,7 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
         <Badge
           count={1}
           elementRef={[Function]}
+          formatOutput={[Function]}
           formatOverflowText={[Function]}
           placement="top end"
           pulse={false}
@@ -634,12 +701,11 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
           type="count"
           variant="primary"
         >
-          <IconAlerts />
-          <ScreenReaderContent
-            as="span"
+          <View
+            display="auto"
           >
-            1 opportunity
-          </ScreenReaderContent>
+            <IconAlerts />
+          </View>
         </Badge>
       </Button>
     </PopoverTrigger>
@@ -649,14 +715,28 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
           Array [
             Object {
               "id": "1",
-              "informStudentsOfOverdueSubmissions": true,
+              "longName": "Course Long Name",
               "shortName": "Course Short Name",
             },
           ]
         }
         dismiss={[Function]}
+        dismissedOpportunities={
+          Array [
+            Object {
+              "course_id": "1",
+              "due_at": "2017-03-09T20:40:35Z",
+              "html_url": "http://www.non_default_url.com",
+              "id": "2",
+              "name": "learning object title",
+              "planner_override": Object {
+                "dismissed": true,
+              },
+            },
+          ]
+        }
         maxHeight="none"
-        opportunities={
+        newOpportunities={
           Array [
             Object {
               "course_id": "1",
@@ -673,9 +753,7 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
     </PopoverContent>
   </Popover>
   <Tray
-    applicationElement={[Function]}
     border={false}
-    closeButtonLabel="Close"
     contentRef={[Function]}
     defaultFocusElement={null}
     insertAt="bottom"
@@ -699,12 +777,23 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
     shouldReturnFocus={false}
     size="small"
   >
+    <CloseButton
+      buttonRef={[Function]}
+      margin="0"
+      offset="x-small"
+      onClick={[Function]}
+      placement="start"
+      size="small"
+      variant="icon"
+    >
+      Close
+    </CloseButton>
     <UpdateItemTray
       courses={
         Array [
           Object {
             "id": "1",
-            "informStudentsOfOverdueSubmissions": true,
+            "longName": "Course Long Name",
             "shortName": "Course Short Name",
           },
         ]
@@ -761,7 +850,7 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
           Array [
             Object {
               "id": "1",
-              "informStudentsOfOverdueSubmissions": true,
+              "longName": "Course Long Name",
               "shortName": "Course Short Name",
             },
           ]
@@ -780,8 +869,9 @@ exports[`renders the base component correctly with buttons and trays 1`] = `
     <StickyButton
       buttonRef={[Function]}
       className="StickyButton-styles__newActivityButton"
+      description="Scrolls up to the previous item with new activity."
       direction="up"
-      hidden={true}
+      id="new_activity_button"
       offset="0"
       onClick={[Function]}
       zIndex={3}

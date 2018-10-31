@@ -20,11 +20,57 @@
 
 PactConfig::Consumers::ALL.each do |consumer|
   Pact.provider_states_for consumer do
+
+    # Student ID: 5 || Student Name: Student1
+    # Course ID: 1
+    # Assignment ID: 1
     provider_state 'a student in a course with an assignment' do
       set_up do
-        course_with_student(active_all: true)
-        Assignment.create!(context: @course, title: "Assignment1")
-        Pseudonym.create!(user: @student, unique_id: 'testuser@instructure.com')
+        course = Pact::Canvas.base_state.course
+        course.assignments.create({
+                                   name: 'Assignment 1',
+                                   due_at: Time.zone.now + 1.day,
+                                   submission_types: 'online_text_entry'
+                                 })
+      end
+    end
+
+    provider_state 'a migrated quiz assignment' do
+      set_up do
+        course = Pact::Canvas.base_state.course
+        assignment = assignment_model(context: course, title: 'Assignment1')
+        assignment.submission_types = 'external_tool'
+        assignment.external_tool_tag_attributes = {
+          resource_link_id: '9b4ef1eea0eb4c3498983e09a6ef88f1'
+        }
+        assignment.save!
+      end
+    end
+
+    provider_state 'a cloned quiz assignment' do
+      set_up do
+        course = Pact::Canvas.base_state.course
+        assignment = assignment_model(context: course, title: 'Assignment1')
+        assignment.submission_types = 'external_tool'
+        assignment.external_tool_tag_attributes = {
+          resource_link_id: '9b4ef1eea0eb4c3498983e09a6ef88f1'
+        }
+        assignment.save!
+      end
+    end
+
+    provider_state 'an assignment with overrides' do
+      set_up do
+        course = Pact::Canvas.base_state.course
+        student = Pact::Canvas.base_state.students.first
+        assignment = course.assignments.create({
+                                   name: 'Assignment Override',
+                                   due_at: Time.zone.now + 1.day,
+                                   submission_types: 'online_text_entry'
+                                 })
+
+        override = assignment.assignment_overrides.create!
+        override.assignment_override_students.create!(:user => student)
       end
     end
   end

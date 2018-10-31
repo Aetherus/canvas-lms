@@ -1,4 +1,7 @@
 {
+  "add_to_do_7537af64": {
+    "message": "Bæta við Verkefni"
+  },
   "add_to_do_7def3c37": {
     "message": "Bæta við Verkefni"
   },
@@ -8,17 +11,35 @@
   "all_items_loaded_aa256183": {
     "message": "Öllum atriðum hefur verið hlaðið"
   },
+  "an_error_occurred_attempting_to_dismiss_the_opport_f86e0667": {
+    "message": "Villa kom upp við að reyna að hafna tækifærinu."
+  },
+  "announcement_fb4cb645": {
+    "message": "Tilkynning"
+  },
   "are_you_sure_you_want_to_delete_this_planner_item_b71e330c": {
     "message": "Ertu viss um að þú viljir eyða þessu skipulagi?"
+  },
+  "assignment_976578a8": {
+    "message": "Verkefni"
   },
   "assignmenttype_title_6612d008": {
     "message": "{ assignmentType } { title }."
   },
+  "assignmenttype_title_all_day_on_datetime_9768903c": {
+    "message": "{ assignmentType } { title }, allan daginn þann { datetime }."
+  },
   "assignmenttype_title_at_datetime_478f0709": {
     "message": "{ assignmentType } { title }, klukkan { datetime }."
   },
+  "assignmenttype_title_at_datetime_until_endtime_a5900e38": {
+    "message": "{ assignmentType } { title }, klukkan { datetime } þangað til { endTime }"
+  },
   "assignmenttype_title_due_datetime_a112d8ff": {
     "message": "{ assignmentType } { title }, skilafrestur { datetime }."
+  },
+  "assignmenttype_title_has_a_to_do_time_at_datetime_e07310e8": {
+    "message": "{ assignmentType } { title } er með skiladag á verkefni klukkan { datetime }."
   },
   "assignmenttype_title_is_marked_as_done_a8dc46ef": {
     "message": "{ assignmentType } { title } er merkt sem lokið."
@@ -26,23 +47,20 @@
   "assignmenttype_title_is_not_marked_as_done_ba80ba66": {
     "message": "{ assignmentType } { title } er ekki merkt sem lokið."
   },
-  "assignmenttype_title_on_datetime_446013fb": {
-    "message": "{ assignmentType } { title }, þann { datetime }."
+  "assignmenttype_title_posted_datetime_cab69444": {
+    "message": "{ assignmentType } { title } birti { datetime }."
   },
   "beginning_of_your_to_do_history_61ef2dce": {
     "message": "Upphaf verkefnasögu þinnar"
+  },
+  "calendar_event_89aadc1c": {
+    "message": "Dagatalsviðburður"
   },
   "canvas_planner_98ed106": {
     "message": "Canvas-skipuleggjari"
   },
   "close_d634289d": {
     "message": "Loka"
-  },
-  "close_opportunities_popover_f4e50551": {
-    "message": "Loka sprettiglugga yfir kostum"
-  },
-  "count_plural_0_opportunities_one_opportunity_other_765e27fa": {
-    "message": "{ count, plural,\n     =0 {# kostir}\n    one {# kostur}\n  other {# kostir}\n}"
   },
   "count_plural_one_show_completed_item_other_show_co_8d0d0ae5": {
     "message": "{ count, plural,\n    one {Sýna # fullklárað atriði}\n  other {Sýna # fullkláruð atriði}\n}"
@@ -71,14 +89,23 @@
   "details_98a31b68": {
     "message": "Upplýsingar"
   },
+  "discussion_6719c51d": {
+    "message": "Umræða"
+  },
+  "dismiss_itemtitle_a9fae1b3": {
+    "message": "Hafna { itemTitle }"
+  },
   "dismiss_opportunityname_5995176f": {
     "message": "Hafna { opportunityName }"
   },
   "due_5d7267be": {
     "message": "Skil:"
   },
-  "due_date_8ce289b6": {
-    "message": "SKILADAGSETNING { date }"
+  "due_date_124fdd99": {
+    "message": "Skil: { date }"
+  },
+  "edit_c5fbea07": {
+    "message": "Breyta"
   },
   "edit_title_72e5a21e": {
     "message": "Breyta { title }"
@@ -110,8 +137,8 @@
   "feedback_6dcc1991": {
     "message": "Endurgjöf"
   },
-  "go_to_dashboard_card_view_10398ef6": {
-    "message": "Fara í sýn skjáborðskorts"
+  "go_to_card_view_dashboard_9d03970e": {
+    "message": "Fara í kortaskoðunarstjórnborð"
   },
   "graded_25cd3fcd": {
     "message": "Metið"
@@ -179,20 +206,35 @@
   "no_grade_3b4d7f3e": {
     "message": "Engin einkunn"
   },
+  "nothing_for_now_e3e3ce2a": {
+    "message": "Ekkert núna"
+  },
+  "nothing_more_to_do_b665da42": {
+    "message": "Ekkert annað á dagskrá"
+  },
   "nothing_new_needs_attention_3ac548d4": {
     "message": "Ekkert nýtt sem krefst athygli."
   },
-  "nothing_planned_today_next_item_loaded_5a199868": {
-    "message": "Ekkert skipulagt í dag. Næsta atriði hlaðið inn."
+  "nothing_planned_today_selecting_most_recent_item_ffd71bff": {
+    "message": "Ekkert skipulagt í dag. Vel nýlegasta atriðið."
+  },
+  "nothing_planned_today_selecting_next_item_f6718aa": {
+    "message": "Ekkert skipulagt í dag. Vel næsta atriði."
   },
   "nothing_planned_yet_8675ffe9": {
     "message": "Ekkert tímasett enn"
+  },
+  "numpoints_points_8621a43b": {
+    "message": "{ numPoints } punktar"
   },
   "only_most_recent_grading_period_shown_f1ad6458": {
     "message": "*Aðeins nýjasta einkunnatímabil sýnt."
   },
   "optional_add_course_ef0d70fc": {
     "message": "Valkvætt: Bæta við námskeiði"
+  },
+  "page_50c4823d": {
+    "message": "Síða"
   },
   "points_bceb5005": {
     "message": "punktar"
@@ -206,17 +248,32 @@
   "pts_699bd9aa": {
     "message": "Punktar"
   },
+  "quiz_e0dcce8f": {
+    "message": "Próf"
+  },
   "replies_4a8577c8": {
     "message": "Svör"
   },
   "save_11a80ec3": {
     "message": "Vista"
   },
+  "scroll_up_to_see_your_history_19b14cad": {
+    "message": "Skruna upp til að sjá sögu þína!"
+  },
+  "scrolls_up_to_the_previous_item_with_new_activity_99717459": {
+    "message": "Skruna upp að fyrra atriði með nýrri virkni."
+  },
+  "show_all_ae37d610": {
+    "message": "Sýna allt"
+  },
   "show_my_grades_ebd08684": {
     "message": "Sýna einkunnir mínar"
   },
   "startdate_to_enddate_d245175b": {
     "message": "{ startDate } til { endDate }"
+  },
+  "starttime_to_endtime_d7cc249d": {
+    "message": "{ startTime } til { endTime }"
   },
   "submitted_318fad53": {
     "message": "Skilað"
@@ -242,6 +299,12 @@
   "to_do_1d554f36": {
     "message": "Verkefni"
   },
+  "to_do_date_4b211ad0": {
+    "message": "Verkefni: { date }"
+  },
+  "to_do_items_loading_d1cdfcd5": {
+    "message": "Hleð inn verkefnalista"
+  },
   "today_76e10f9c": {
     "message": "Í dag"
   },
@@ -262,6 +325,9 @@
   },
   "yesterday_c6bd6abf": {
     "message": "Í gær"
+  },
+  "you_have_media_feedback_f5f9aba8": {
+    "message": "Þú er með margmiðlunarsvörun."
   },
   "you_must_provide_a_date_and_time_a86839d2": {
     "message": "Þú þarft að gefa upp dagsetningu og tíma."

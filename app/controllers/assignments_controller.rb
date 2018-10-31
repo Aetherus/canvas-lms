@@ -62,7 +62,7 @@ class AssignmentsController < ApplicationController
         MAX_NAME_LENGTH_REQUIRED_FOR_ACCOUNT: max_name_length_required_for_account,
         MAX_NAME_LENGTH: max_name_length,
         HAS_ASSIGNMENTS: @context.active_assignments.count > 0,
-        QUIZ_LTI_ENABLED: @context.feature_enabled?(:quizzes_next) && @context.quiz_lti_tool.present?,
+        QUIZ_LTI_ENABLED: quiz_lti_tool_enabled?,
         DUE_DATE_REQUIRED_FOR_ACCOUNT: due_date_required_for_account,
       }
       js_env(hash)
@@ -79,6 +79,7 @@ class AssignmentsController < ApplicationController
   def show
     rce_js_env(:highrisk)
     @assignment ||= @context.assignments.find(params[:id])
+    @assignment_presenter = AssignmentPresenter.new(@assignment)
     if @assignment.deleted?
       respond_to do |format|
         flash[:notice] = t 'notices.assignment_delete', "This assignment has been deleted"
@@ -338,7 +339,11 @@ class AssignmentsController < ApplicationController
       ).to_a
       @syllabus_body = syllabus_user_content
 
-      hash = { :CONTEXT_ACTION_SOURCE => :syllabus }
+      hash = {
+        CONTEXT_ACTION_SOURCE: :syllabus,
+        # don't check for student enrollments because we want this to show for the teacher as well
+        STUDENT_PLANNER_ENABLED: @domain_root_account&.feature_enabled?(:student_planner)
+      }
       append_sis_data(hash)
       js_env(hash)
       set_tutorial_js_env
@@ -358,10 +363,11 @@ class AssignmentsController < ApplicationController
     return render_unauthorized_action if !toggle_value && !@assignment.grades_published?
 
     method = toggle_value ? :mute! : :unmute!
+    @assignment.updating_user = @current_user
 
     respond_to do |format|
       if @assignment && @assignment.send(method)
-        format.json { render :json => @assignment }
+        format.json { render json: @assignment.as_json(methods: :anonymize_students) }
       else
         format.json { render :json => @assignment, :status => :bad_request }
       end
@@ -516,12 +522,12 @@ class AssignmentsController < ApplicationController
       end
 
       hash[:ANONYMOUS_GRADING_ENABLED] = @context.feature_enabled?(:anonymous_marking)
-
       hash[:MODERATED_GRADING_ENABLED] = @context.feature_enabled?(:moderated_grading)
+      hash[:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED] = @context.feature_enabled?(:anonymous_instructor_annotations)
 
       append_sis_data(hash)
       if context.is_a?(Course)
-        hash[:allow_self_signup] = true  # for group creation
+        hash[:allow_self_signup] = true # for group creation
         hash[:group_user_type] = 'student'
       end
       js_env(hash)
@@ -556,20 +562,19 @@ class AssignmentsController < ApplicationController
   protected
 
   def show_moderate_env
-    current_grader_id = @current_user.id
-    final_grader_id = @assignment.final_grader_id
     can_view_grader_identities = @assignment.can_view_other_grader_identities?(@current_user)
 
-    unless @assignment.can_view_other_grader_identities?(@current_user)
-      moderation_graders_by_id = @assignment.moderation_graders.index_by(&:user_id)
-
+    if can_view_grader_identities
+      current_grader_id = @current_user.id
+      final_grader_id = @assignment.final_grader_id
+    else
       # When the user cannot view other grader identities, the moderation page
       # will be loaded with grader data that has been anonymized. This includes
       # the current user's grader information. The relevant id must be provided
       # to the front end in this case.
 
-      current_grader_id = moderation_graders_by_id[current_grader_id]&.anonymous_id
-      final_grader_id = moderation_graders_by_id[final_grader_id]&.anonymous_id
+      current_grader_id = @assignment.grader_ids_to_anonymous_ids[@current_user.id.to_s]
+      final_grader_id = @assignment.grader_ids_to_anonymous_ids[@assignment.final_grader_id&.to_s]
     end
 
     {
@@ -634,5 +639,18 @@ class AssignmentsController < ApplicationController
     (@assignment.turnitin_enabled? && @context.turnitin_pledge) ||
     (@assignment.vericite_enabled? && @context.vericite_pledge) ||
     @assignment.course.account.closest_turnitin_pledge
+  end
+
+  def quiz_lti_tool_enabled?
+    quiz_lti_tool = @context.quiz_lti_tool
+
+    # The void url here is the default voided url as set by the beta refresh.
+    # Rather than using the rails env (beta/test) to determine whether or not
+    # the tool should be enabled, this URL was chosen because we sometimes
+    # want the tool enabled in beta or test. NOTE: This is a stop-gap until
+    # Quizzes.Next has a beta env.
+    @context.feature_enabled?(:quizzes_next) &&
+      quiz_lti_tool.present? &&
+      quiz_lti_tool.url != 'http://void.url.inseng.net'
   end
 end

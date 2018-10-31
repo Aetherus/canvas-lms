@@ -22,8 +22,16 @@ import I18n from 'i18n!gradebook'
 import './jquery.instructure_date_and_time'
 import './jquery.instructure_misc_helpers'
 
-export function setupIsAnonymous ({anonymous_grading}) {
-  return anonymous_grading
+export function setupIsModerated ({moderated_grading}) {
+  return moderated_grading
+}
+
+export function setupIsAnonymous ({anonymize_students}) {
+  return anonymize_students
+}
+
+export function setupAnonymousGraders ({anonymize_graders}) {
+  return anonymize_graders
 }
 
 export function setupAnonymizableId (isAnonymous) {
@@ -42,7 +50,8 @@ export function setupAnonymizableAuthorId (isAnonymous) {
   return isAnonymous ? 'anonymous_id' : 'author_id'
 }
 
-  const speedgraderHelpers = {
+
+  const speedGraderHelpers = {
     urlContainer: function(submission, defaultEl, originalityReportEl) {
       if (submission.has_originality_report) {
         return originalityReportEl
@@ -93,7 +102,7 @@ export function setupAnonymizableAuthorId (isAnonymous) {
     },
 
     setRightBarDisabled: function(isDisabled){
-      var elements = ['#grading-box-extended', '#speedgrader_comment_textarea', '#add_attachment',
+      var elements = ['#grading-box-extended', '#speed_grader_comment_textarea', '#add_attachment',
                       '#media_comment_button', '#comment_submit_button',
                       '#speech_recognition_button'];
 
@@ -154,12 +163,13 @@ export function setupAnonymizableAuthorId (isAnonymous) {
         return "not_submitted";
       }
     },
-    plagiarismResubmitHandler: (event, resubmitUrl) => {
+    plagiarismResubmitHandler: (event, resubmitUrl, anonymizableUserId = "") => {
       event.preventDefault();
-      $(event.target).attr('disabled', true).text(I18n.t('turnitin.resubmitting', 'Resubmitting...'));
+      const params = anonymizableUserId === 'anonymous_id' ? { anonymous: true } : {}
 
-      $.ajaxJSON(resubmitUrl, "POST", {}, () => {
-        window.location.reload();
+      $(event.target).attr('disabled', true).text(I18n.t('turnitin.resubmitting', 'Resubmitting...'));
+      $.ajaxJSON(resubmitUrl, "POST", params, () => {
+        speedGraderHelpers.reloadPage();
       });
     },
 
@@ -167,11 +177,17 @@ export function setupAnonymizableAuthorId (isAnonymous) {
       return $.replaceTags($('#assignment_submission_resubmit_to_turnitin_url').attr('href'), { user_id: submission[anonymizableUserId] })
     },
 
+    reloadPage() {
+      window.location.reload();
+    },
+
+    setupIsModerated,
     setupIsAnonymous,
+    setupAnonymousGraders,
     setupAnonymizableId,
     setupAnonymizableUserId,
     setupAnonymizableStudentId,
     setupAnonymizableAuthorId
   }
 
-export default speedgraderHelpers
+export default speedGraderHelpers

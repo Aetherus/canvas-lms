@@ -23,6 +23,7 @@ module InstFS
     end
 
     def login_pixel(user, session, oauth_host)
+      return if session[:oauth2] # don't stomp an existing oauth flow in progress
       if !session[:shown_instfs_pixel] && user && enabled?
         session[:shown_instfs_pixel] = true
         pixel_url = login_pixel_url(token: session_jwt(user, oauth_host))
@@ -70,7 +71,9 @@ module InstFS
       end
     end
 
-    def upload_preflight_json(context:, root_account:, user:, acting_as:, access_token:, folder:, filename:, content_type:, quota_exempt:, on_duplicate:, capture_url:, target_url: nil, progress_json: nil, include_param: nil)
+    def upload_preflight_json(context:, root_account:, user:, acting_as:, access_token:, folder:, filename:,
+                              content_type:, quota_exempt:, on_duplicate:, capture_url:, target_url: nil,
+                              progress_json: nil, include_param: nil, additional_capture_params: {})
       raise ArgumentError unless !!target_url == !!progress_json # these params must both be present or both absent
 
       token = upload_jwt(
@@ -79,7 +82,7 @@ module InstFS
         access_token: access_token,
         root_account: root_account,
         capture_url: capture_url,
-        capture_params: {
+        capture_params: additional_capture_params.merge(
           context_type: context.class.to_s,
           context_id: context.global_id.to_s,
           user_id: acting_as.global_id.to_s,
@@ -89,7 +92,7 @@ module InstFS
           on_duplicate: on_duplicate,
           progress_id: progress_json && progress_json[:id],
           include: include_param
-        }
+        )
       )
 
       upload_params = {
@@ -111,7 +114,6 @@ module InstFS
     def direct_upload(file_name:, file_object:)
       # example of a call to direct_upload:
       # > res = InstFS.direct_upload(
-      # >   host: "canvas.docker",
       # >   file_name: "a.png",
       # >   file_object: File.open("public/images/a.png")
       # > )
@@ -122,12 +124,12 @@ module InstFS
       data = {}
       data[file_name] = file_object
 
-      response = CanvasHttp.post(url, form_data: data, multipart:true)
+      response = CanvasHttp.post(url, form_data: data, multipart: true, streaming: true)
       if response.class == Net::HTTPCreated
         json_response = JSON.parse(response.body)
-        return json_response["uuid"] if json_response.key?("uuid")
+        return json_response["instfs_uuid"] if json_response.key?("instfs_uuid")
 
-        raise InstFS::DirectUploadError, "upload succeeded, but response did not containe a \"uuid\" key"
+        raise InstFS::DirectUploadError, "upload succeeded, but response did not containe an \"instfs_uuid\" key"
       end
       raise InstFS::DirectUploadError, "received code \"#{response.code}\" from service"
     end

@@ -46,6 +46,11 @@
 #           "example": 1578941,
 #           "type": "integer"
 #         },
+#         "assignment_id": {
+#           "description": "The id of the plannable's associated assignment, if it has one",
+#           "example": 1578941,
+#           "type": "integer"
+#         },
 #         "workflow_state": {
 #           "description": "The current published state of the item, synced with the associated object",
 #           "example": "published",
@@ -124,6 +129,7 @@ class PlannerOverridesController < ApplicationController
     planner_override = PlannerOverride.find(params[:id])
     planner_override.marked_complete = value_to_boolean(params[:marked_complete])
     planner_override.dismissed = value_to_boolean(params[:dismissed])
+    sync_module_requirement_done(planner_override.plannable, @current_user, value_to_boolean(params[:marked_complete]))
 
     if planner_override.save
       Rails.cache.delete(planner_meta_cache_key)
@@ -155,9 +161,9 @@ class PlannerOverridesController < ApplicationController
   def create
     plannable_type = PLANNABLE_TYPES[params[:plannable_type]]
     plannable = plannable_type.constantize.find(params[:plannable_id])
-    planner_override = PlannerOverride.new(plannable_type: plannable_type,
-      plannable_id: params[:plannable_id], marked_complete: value_to_boolean(params[:marked_complete]),
+    planner_override = PlannerOverride.new(plannable: plannable, marked_complete: value_to_boolean(params[:marked_complete]),
       user: @current_user, dismissed: value_to_boolean(params[:dismissed]))
+    sync_module_requirement_done(plannable, @current_user, value_to_boolean(params[:marked_complete]))
 
     if planner_override.save
       Rails.cache.delete(planner_meta_cache_key)

@@ -20,12 +20,12 @@ import React from 'react'
 import { shallow } from 'enzyme'
 import Comments from '../Comments'
 
-import { freeFormAssessment } from './fixtures'
+import { assessments } from './fixtures'
 
 describe('The Comments component', () => {
   const props = {
     assessing: true,
-    assessment: freeFormAssessment.data[1],
+    assessment: assessments.freeForm.data[1],
     savedComments: [
       'I award you no points',
       'May god have mercy on your soul'
@@ -65,6 +65,17 @@ describe('The Comments component', () => {
     expect(setComments.args).toEqual([
       [option.text()]
     ])
+  })
+
+  it('truncates long saved comments', () => {
+    const long = `
+    this is the song that never ends, yes it goes on and on my friends
+    some people started singing it not knowing what it was
+    and they'll continue singing it forever just because
+    `.trim().repeat(50)
+    const el = editor({ savedComments: [long] })
+    const option = el.find('option').last()
+    expect(option.text()).toHaveLength(100) // includes the trailing '…'
   })
 
   it('can check / uncheck save for later', () => {

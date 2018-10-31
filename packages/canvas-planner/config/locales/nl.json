@@ -1,4 +1,7 @@
 {
+  "add_to_do_7537af64": {
+    "message": "To-do-lijst toevoegen"
+  },
   "add_to_do_7def3c37": {
     "message": "To-do lijst toevoegen"
   },
@@ -8,17 +11,35 @@
   "all_items_loaded_aa256183": {
     "message": "Alle items geladen"
   },
+  "an_error_occurred_attempting_to_dismiss_the_opport_f86e0667": {
+    "message": "Er is een fout opgetreden bij het afwijzen van de mogelijkheid."
+  },
+  "announcement_fb4cb645": {
+    "message": "Aankondiging"
+  },
   "are_you_sure_you_want_to_delete_this_planner_item_b71e330c": {
     "message": "Weet je zeker dat je dit planneritem wilt verwijderen?"
+  },
+  "assignment_976578a8": {
+    "message": "Opdracht"
   },
   "assignmenttype_title_6612d008": {
     "message": "{ assignmentType } { title }."
   },
+  "assignmenttype_title_all_day_on_datetime_9768903c": {
+    "message": "{ assignmentType } { title }, de hele dag om { datetime }."
+  },
   "assignmenttype_title_at_datetime_478f0709": {
     "message": "{ assignmentType } { title }, om { datetime }."
   },
+  "assignmenttype_title_at_datetime_until_endtime_a5900e38": {
+    "message": "{ assignmentType } { title }, om { datetime } tot { endTime }"
+  },
   "assignmenttype_title_due_datetime_a112d8ff": {
     "message": "{ assignmentType } { title }, in te leveren op { datetime }."
+  },
+  "assignmenttype_title_has_a_to_do_time_at_datetime_e07310e8": {
+    "message": "{ assignmentType } { title } heeft iets te doen om { datetime }."
   },
   "assignmenttype_title_is_marked_as_done_a8dc46ef": {
     "message": "{ assignmentType } { title } is gemarkeerd als gereed."
@@ -26,23 +47,20 @@
   "assignmenttype_title_is_not_marked_as_done_ba80ba66": {
     "message": "{ assignmentType } { title } is niet gemarkeerd als gereed."
   },
-  "assignmenttype_title_on_datetime_446013fb": {
-    "message": "{ assignmentType } { title }, op { datetime }."
+  "assignmenttype_title_posted_datetime_cab69444": {
+    "message": "{ assignmentType } { title } geplaatst { datetime }."
   },
   "beginning_of_your_to_do_history_61ef2dce": {
     "message": "Begin van je To-do-historie"
+  },
+  "calendar_event_89aadc1c": {
+    "message": "Gebeurtenis op kalender"
   },
   "canvas_planner_98ed106": {
     "message": "Canvas planner"
   },
   "close_d634289d": {
     "message": "Sluiten"
-  },
-  "close_opportunities_popover_f4e50551": {
-    "message": "Sluit de pop-up voor mogelijkheden"
-  },
-  "count_plural_0_opportunities_one_opportunity_other_765e27fa": {
-    "message": "{ count, plural,\n     =0 {# mogelijkheden}\n    one {# mogelijkheid}\n  other {# mogelijkheden}\n}"
   },
   "count_plural_one_show_completed_item_other_show_co_8d0d0ae5": {
     "message": "{ count, plural,\n    one {Toon # voltooid item}\n  other {Toon # voltooide items}\n}"
@@ -71,14 +89,23 @@
   "details_98a31b68": {
     "message": "Details"
   },
+  "discussion_6719c51d": {
+    "message": "Discussie"
+  },
+  "dismiss_itemtitle_a9fae1b3": {
+    "message": "{ itemTitle } afwijzen"
+  },
   "dismiss_opportunityname_5995176f": {
     "message": "{ opportunityName } afwijzen"
   },
   "due_5d7267be": {
     "message": "Inleverdatum:"
   },
-  "due_date_8ce289b6": {
-    "message": "VERVALDATUM: { date }"
+  "due_date_124fdd99": {
+    "message": "Inleverdatum: { date }"
+  },
+  "edit_c5fbea07": {
+    "message": "Bewerken"
   },
   "edit_title_72e5a21e": {
     "message": "{ title } bewerken"
@@ -110,8 +137,8 @@
   "feedback_6dcc1991": {
     "message": "Feedback"
   },
-  "go_to_dashboard_card_view_10398ef6": {
-    "message": "Ga naar de weergave Dashboardkaarten"
+  "go_to_card_view_dashboard_9d03970e": {
+    "message": "Ga naar dashboard Kaartweergave"
   },
   "graded_25cd3fcd": {
     "message": "Beoordeeld"
@@ -179,20 +206,35 @@
   "no_grade_3b4d7f3e": {
     "message": "Geen cijfer"
   },
+  "nothing_for_now_e3e3ce2a": {
+    "message": "Momenteel niets"
+  },
+  "nothing_more_to_do_b665da42": {
+    "message": "Niets meer te doen"
+  },
   "nothing_new_needs_attention_3ac548d4": {
     "message": "Er is niets nieuws waarnaar gekeken moet worden."
   },
-  "nothing_planned_today_next_item_loaded_5a199868": {
-    "message": "Niks gepland voor vandaag. Volgend item geladen."
+  "nothing_planned_today_selecting_most_recent_item_ffd71bff": {
+    "message": "Niks gepland voor vandaag. Meest recente item wordt geselecteerd."
+  },
+  "nothing_planned_today_selecting_next_item_f6718aa": {
+    "message": "Niks gepland voor vandaag. Volgend item wordt geselecteerd."
   },
   "nothing_planned_yet_8675ffe9": {
     "message": "Nog niets gepland"
+  },
+  "numpoints_points_8621a43b": {
+    "message": "{ numPoints } punten"
   },
   "only_most_recent_grading_period_shown_f1ad6458": {
     "message": "*Alleen meest recente beoordelingsperiode wordt weergegeven."
   },
   "optional_add_course_ef0d70fc": {
     "message": "Optioneel: Cursus toevoegen"
+  },
+  "page_50c4823d": {
+    "message": "Pagina"
   },
   "points_bceb5005": {
     "message": "punten"
@@ -206,17 +248,32 @@
   "pts_699bd9aa": {
     "message": "ptn"
   },
+  "quiz_e0dcce8f": {
+    "message": "Toets"
+  },
   "replies_4a8577c8": {
     "message": "Antwoorden"
   },
   "save_11a80ec3": {
     "message": "Opslaan"
   },
+  "scroll_up_to_see_your_history_19b14cad": {
+    "message": "Scroll omhoog om je geschiedenis weer te geven!"
+  },
+  "scrolls_up_to_the_previous_item_with_new_activity_99717459": {
+    "message": "Scrollt omhoog naar het vorige item met nieuwe activiteit."
+  },
+  "show_all_ae37d610": {
+    "message": "Alles tonen"
+  },
   "show_my_grades_ebd08684": {
     "message": "Mijn cijfers tonen"
   },
   "startdate_to_enddate_d245175b": {
     "message": "{ startDate } tot { endDate }"
+  },
+  "starttime_to_endtime_d7cc249d": {
+    "message": "{ startTime } tot { endTime }"
   },
   "submitted_318fad53": {
     "message": "Ingediend"
@@ -242,6 +299,12 @@
   "to_do_1d554f36": {
     "message": "To-do lijst"
   },
+  "to_do_date_4b211ad0": {
+    "message": "To-do: { date }"
+  },
+  "to_do_items_loading_d1cdfcd5": {
+    "message": "To-do-items laden"
+  },
   "today_76e10f9c": {
     "message": "Vandaag"
   },
@@ -262,6 +325,9 @@
   },
   "yesterday_c6bd6abf": {
     "message": "Gisteren"
+  },
+  "you_have_media_feedback_f5f9aba8": {
+    "message": "Er is feedback via media."
   },
   "you_must_provide_a_date_and_time_a86839d2": {
     "message": "Je moet een datum en tijd opgeven."

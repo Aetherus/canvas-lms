@@ -46,12 +46,13 @@ const nextUrl = handleActions({
 
 const loading = handleActions({
   SIDEBAR_ITEMS_LOADING: () => true,
-  SIDEBAR_ALL_ITEMS_LOADED: () => false,
+  SIDEBAR_ITEMS_LOADED: () => false,
+  SIDEBAR_ENOUGH_ITEMS_LOADED: () => false,
   SIDEBAR_ITEMS_LOADING_FAILED: () => false
 }, false);
 
 const loaded = handleActions({
-  SIDEBAR_ALL_ITEMS_LOADED: () => true
+  SIDEBAR_ENOUGH_ITEMS_LOADED: () => true
 }, false);
 
 const range = handleActions({
@@ -76,6 +77,7 @@ function sortItems (items) {
 function savedItemReducer (state, action) {
   if (!state) return undefined;
   if (!state.loaded || action.type !== 'SAVED_PLANNER_ITEM') return state;
+  if (!action.payload.item || !action.payload.item.uniqueId) return state;
 
   const newItem = action.payload.item;
   let newItems = state.items.slice();

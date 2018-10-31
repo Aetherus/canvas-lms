@@ -574,7 +574,7 @@ describe 'Submissions API', type: :request do
 
       it 'works' do
         put_comment_attachment
-        expect(response).to be_success
+        expect(response).to be_successful
         expect(@assignment.submission_for_student(@student)
         .submission_comments.first
         .attachment_ids).to eq @attachment.id.to_s
@@ -820,7 +820,7 @@ describe 'Submissions API', type: :request do
     expect(Rack::Utils.parse_query(URI(preview_url).query)['version'].to_i).to eq sub.quiz_submission_version
     get preview_url
     follow_redirect! while response.redirect?
-    expect(response).to be_success
+    expect(response).to be_successful
     expect(response.body).to match(/#{@quiz.quiz_title} Results/)
   end
 
@@ -999,7 +999,7 @@ describe 'Submissions API', type: :request do
     url = json[0]['attachments'][0]['url']
     get(url)
     follow_redirect! while response.redirect?
-    expect(response).to be_success
+    expect(response).to be_successful
     expect(response[content_type_key]).to eq 'image/png'
   end
 
@@ -1092,6 +1092,7 @@ describe 'Submissions API', type: :request do
              "url" => "http://www.example.com/files/#{sub1.attachments.first.id}/download?download_frd=1&verifier=#{sub1.attachments.first.uuid}",
              "filename" => "unknown.loser",
              "display_name" => "unknown.loser",
+             "workflow_state" => "pending_upload",
              "id" => sub1.attachments.first.id,
              "uuid" => sub1.attachments.first.uuid,
              "folder_id" => sub1.attachments.first.folder_id,
@@ -1186,6 +1187,7 @@ describe 'Submissions API', type: :request do
                 "url" => "http://www.example.com/files/#{sub1.attachments.first.id}/download?download_frd=1&verifier=#{sub1.attachments.first.uuid}",
                 "filename" => "unknown.loser",
                 "display_name" => "unknown.loser",
+                "workflow_state" => "pending_upload",
                 "id" => sub1.attachments.first.id,
                 "uuid" => sub1.attachments.first.uuid,
                 "folder_id" => sub1.attachments.first.folder_id,
@@ -1295,6 +1297,7 @@ describe 'Submissions API', type: :request do
               {"content-type" => "image/png",
                "display_name" => "snapshot.png",
                "filename" => "snapshot.png",
+               "workflow_state" => "pending_upload",
                "url" => "http://www.example.com/files/#{sub2a1.id}/download?download_frd=1&verifier=#{sub2a1.uuid}",
                "id" => sub2a1.id,
                "uuid" => sub2a1.uuid,
@@ -1331,6 +1334,7 @@ describe 'Submissions API', type: :request do
          [{"content-type" => "image/png",
            "display_name" => "snapshot.png",
            "filename" => "snapshot.png",
+           "workflow_state" => "pending_upload",
            "url" => "http://www.example.com/files/#{sub2a1.id}/download?download_frd=1&verifier=#{sub2a1.uuid}",
            "id" => sub2a1.id,
            "uuid" => sub2a1.uuid,
@@ -1737,7 +1741,7 @@ describe 'Submissions API', type: :request do
       @provisional_grade.save!
     end
 
-    context "when teacher has moderate_grades rights" do
+    context "when teacher can view provisional grades" do
       it "displays grades" do
         json = api_call(:get,
           "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/submissions.json",
@@ -1787,7 +1791,7 @@ describe 'Submissions API', type: :request do
       end
     end
 
-    context "when a TA does not have moderate_grades rights" do
+    context "when a TA cannot view provisional grades" do
       before do
         course_with_ta(course: @course)
         user_session(@ta)
@@ -3823,10 +3827,23 @@ describe 'Submissions API', type: :request do
       include_examples "file uploads api"
       include_examples "file uploads api without quotas"
 
-      def preflight(preflight_params)
-        api_call(:post, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/submissions/#{@student1.id}/files",
-          { :controller => "submissions_api", :action => "create_file", :format => "json", :course_id => @course.to_param, :assignment_id => @assignment.to_param, :user_id => @student1.to_param },
-          preflight_params)
+      # preflight_params has to be first and nameless to keep backwards compat with the include_examples
+      def preflight(preflight_params, request_params: {}, api_url: nil)
+        api_url ||= "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/submissions/#{@student1.id}/files"
+
+        api_call(
+          :post,
+          api_url,
+          {
+            controller: "submissions_api",
+            action: "create_file",
+            format: "json",
+            course_id: @course.to_param,
+            assignment_id: @assignment.to_param,
+            user_id: @student1.to_param,
+          }.merge(request_params),
+          preflight_params
+        )
       end
 
       def has_query_exemption?
@@ -3834,8 +3851,13 @@ describe 'Submissions API', type: :request do
       end
 
       it "rejects uploading files to other students' submissions" do
-        api_call(:post, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/submissions/#{@student2.id}/files",
-                        { :controller => "submissions_api", :action => "create_file", :format => "json", :course_id => @course.to_param, :assignment_id => @assignment.to_param, :user_id => @student2.to_param }, {}, {}, { :expected_status => 401 })
+        preflight(
+          {},
+          api_url: "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/submissions/#{@student2.id}/files",
+          request_params: { user_id: @student2.to_param }
+        )
+
+        assert_status(401)
       end
 
       it "uploads to a student's Submissions folder" do
@@ -3844,25 +3866,98 @@ describe 'Submissions API', type: :request do
         expect(f.submission_context_code).to eq @course.asset_string
       end
 
-      context 'when InstFS is disabled' do
+      context 'for url upload using DelayedJob' do
+        let(:json_response) do
+          preflight(url: 'http://example.com/test', filename: 'test.txt')
+          JSON.parse(response.body)
+        end
+
         before { allow(InstFS).to receive(:enabled?).and_return(false) }
 
-        context "for a url submission" do
-          let(:url) { 'http://test.test/path' }
-          let(:result) { JSON.parse(response.body) }
+        it "returns progress json" do
+          progress_json = {
+            "context_id" => @assignment.id,
+            "context_type" =>"Assignment",
+            "user_id" => @student1.id,
+            "tag" => "upload_via_url"
+          }
+          expect(json_response['progress']).to include progress_json
+        end
+      end
 
-          before { preflight(name: 'test.txt', url: url) }
+      context 'for url upload using InstFS' do
+        let(:json_response) do
+          preflight(url: 'http://example.com/test')
+          JSON.parse(response.body)
+        end
 
-          it "creates a Progress" do
-            expect(Progress.find(result['progress']['id'])).to be
+        before { allow(InstFS).to receive(:enabled?).and_return(true) }
+
+        context 'returns an upload_url with a token' do
+          let(:token) { json_response['upload_url'].match(/\?token=(.+)&?/)[1] }
+          let(:jwt) { Canvas::Security.decode_jwt(token) }
+
+          it 'encodes capture_params in the token' do
+            capture_params = {
+              "submit_assignment" => nil,
+              "eula_agreement_timestamp" => nil,
+              "context_type" => "User",
+              "context_id" => @student1.id.to_s,
+              "user_id" => @student1.id.to_s,
+              "quota_exempt" => true,
+              "on_duplicate" => "overwrite",
+              "include" => nil
+            }
+            expect(jwt['capture_params']).to include capture_params
           end
 
-          it "creates a Progress worker" do
-            job = Delayed::Job.last
-            expect(job.tag).to eq 'Attachment#clone_url'
-            expect(job.priority).to eq Delayed::HIGH_PRIORITY
-            expect(job.handler).to match url
+          it "returns a valid upload url" do
+            expect(json_response['upload_url']).to match(/files\?token=.+&?/)
           end
+        end
+
+        it "returns upload_params" do
+          upload_json = {
+            "filename" => nil,
+            "content_type" => "unknown/unknown",
+            "target_url" => "http://example.com/test"
+          }
+          expect(json_response['upload_params']).to eq upload_json
+        end
+
+        it 'returns progress json' do
+          progress_json = {
+            "context_id" => @assignment.id,
+            "context_type" =>"Assignment",
+            "user_id" => @student1.id,
+            "tag" => "upload_via_url"
+          }
+          expect(json_response['progress']).to include progress_json
+        end
+      end
+
+      context 'for url upload using DelayedJob' do
+        let(:json_response) do
+          preflight(url: 'http://example.com/test', filename: 'test.txt', submit_assignment: true)
+          JSON.parse(response.body)
+        end
+
+        before { allow(InstFS).to receive(:enabled?).and_return(false) }
+
+        it 'returns progress json' do
+          progress_json = {
+            "context_id" => @assignment.id,
+            "context_type" =>"Assignment",
+            "user_id" => @student1.id,
+            "tag" => "upload_via_url"
+          }
+          expect(json_response['progress']).to include progress_json
+        end
+
+        it 'should enqueue the submit job' do
+          json_response
+          job = Delayed::Job.order(:id).last
+          expect(job.handler).to include Services::SubmitHomeworkService::SubmitWorker.name
         end
       end
     end
@@ -4021,6 +4116,7 @@ describe 'Submissions API', type: :request do
     assignment.moderated_grading_selections.
       where(student_id: @student.id).first.
       update_attribute(:provisional_grade, provisional_grade)
+    provisional_grade.publish!
     assignment.update(grades_published_at: 1.hour.ago)
     submission.reload
     submission.attachments.first.create_crocodoc_document(uuid: '1234',
@@ -4407,14 +4503,12 @@ describe 'Submissions API', type: :request do
 
     describe "include[]=provisional_grades" do
       before(:once) do
+        @course.root_account.enable_service(:avatars)
+        @course.root_account.save!
         @path = "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/gradeable_students?include[]=provisional_grades"
         @params = { :controller => 'submissions_api', :action => 'gradeable_students',
                     :format => 'json', :course_id => @course.to_param, :assignment_id => @assignment.to_param,
                     :include => [ 'provisional_grades' ] }
-      end
-
-      it "requires :moderate_grades permission" do
-        api_call_as_user(@ta, :get, @path, @params, {}, {}, { :expected_status => 401 })
       end
 
       it "is unauthorized when the user is not the assigned final grader" do
