@@ -40,6 +40,7 @@ class GradebooksController < ApplicationController
   def grade_summary
     set_current_grading_period if grading_periods?
     @presenter = grade_summary_presenter
+    student_enrollment = @presenter.student_enrollment
     # do this as the very first thing, if the current user is a
     # teacher in the course and they are not trying to view another
     # user's grades, redirect them to the gradebook
@@ -47,12 +48,12 @@ class GradebooksController < ApplicationController
       return redirect_to polymorphic_url([@context, 'gradebook'])
     end
 
-    if !@presenter.student || !@presenter.student_enrollment
+    if !@presenter.student || !student_enrollment
       return render_unauthorized_action
     end
 
     return unless authorized_action(@context, @current_user, :read) &&
-      authorized_action(@presenter.student_enrollment, @current_user, :read_grades)
+      authorized_action(student_enrollment, @current_user, :read_grades)
 
     log_asset_access([ "grades", @context ], "grades", "other")
 
@@ -104,7 +105,7 @@ class GradebooksController < ApplicationController
 
     ags_json = light_weight_ags_json(@presenter.groups, {student: @presenter.student})
 
-    js_env(
+    js_hash = {
       submissions: submissions_json,
       assignment_groups: ags_json,
       assignment_sort_options: @presenter.sort_options,
@@ -127,7 +128,19 @@ class GradebooksController < ApplicationController
       student_id: @presenter.student_id,
       students: @presenter.students.as_json(include_root: false),
       outcome_proficiency: outcome_proficiency
-    )
+    }
+
+    if @context.feature_enabled?(:final_grades_override)
+      total_score = if grading_periods? && !view_all_grading_periods?
+        student_enrollment.find_score(grading_period_id: @current_grading_period_id)
+      else
+        student_enrollment.find_score(course_score: true)
+      end
+
+      js_hash[:effective_final_grade] = total_score.effective_final_grade if total_score.overridden?
+    end
+
+    js_env(js_hash)
   end
 
   def save_assignment_order
@@ -181,8 +194,15 @@ class GradebooksController < ApplicationController
       if context
         @rubric_context = Context.find_by_asset_string(params[:context_code])
       end
-      @rubric_associations = @context.sorted_rubrics(@current_user, @rubric_context)
-      render :json => @rubric_associations.map{ |r| r.as_json(methods: [:context_name], include: {:rubric => {:include_root => false}}) }
+      @rubric_associations = @rubric_context.shard.activate { Context.sorted_rubrics(@current_user, @rubric_context) }
+      data = @rubric_associations.map{ |ra|
+        json = ra.as_json(methods: [:context_name], include: {:rubric => {:include_root => false}})
+        # return shard-aware context codes
+        json["rubric_association"]["context_code"] = ra.context.asset_string
+        json["rubric_association"]["rubric"]["context_code"] = ra.rubric.context.asset_string
+        json
+      }
+      render :json => StringifyIds.recursively_stringify_ids(data)
     else
       render :json => @rubric_contexts
     end
@@ -648,7 +668,6 @@ class GradebooksController < ApplicationController
           show_help_menu_item: show_help_link?,
           help_url: help_link_url,
           outcome_proficiency: outcome_proficiency,
-          ARC_RECORDING_FEATURE_ENABLED: @context.root_account.feature_enabled?(:integrate_arc_rce),
         }
         if grading_role(assignment: @assignment) == :moderator
           env[:provisional_copy_url] = api_v1_copy_to_final_mark_path(@context.id, @assignment.id, "{{provisional_grade_id}}")
@@ -745,6 +764,13 @@ class GradebooksController < ApplicationController
     end
   end
 
+  def final_grade_overrides
+    return unless authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
+
+    final_grade_overrides = ::Gradebook::FinalGradeOverrides.new(@context, @current_user)
+    render json: { final_grade_overrides: final_grade_overrides.to_h }
+  end
+
   def user_ids
     return unless authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
 
@@ -794,11 +820,12 @@ class GradebooksController < ApplicationController
     {
       GRADEBOOK_OPTIONS: {
         colors: gradebook_settings.fetch(:colors, {}),
+        final_grade_override_enabled: @context.feature_enabled?(:final_grades_override),
         graded_late_submissions_exist: graded_late_submissions_exist,
-        grading_schemes: GradingStandard.for(@context).as_json(include_root: false),
         gradezilla: true,
-        new_gradebook_development_enabled: new_gradebook_development_enabled?,
-        late_policy: @context.late_policy.as_json(include_root: false)
+        grading_schemes: GradingStandard.for(@context).as_json(include_root: false),
+        late_policy: @context.late_policy.as_json(include_root: false),
+        new_gradebook_development_enabled: new_gradebook_development_enabled?
       }
     }
   end

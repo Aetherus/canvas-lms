@@ -252,6 +252,27 @@ describe AssignmentsApiController, type: :request do
                           assignment8)
     end
 
+    it "returns assignments by assignment group" do
+      group1 = @course.assignment_groups.create!(:name => 'group1')
+      group2 = @course.assignment_groups.create!(:name => 'group2')
+      @course.assignments.create!(:title => 'assignment1',
+                                  :assignment_group => group2)
+      @course.assignments.create!(:title => 'assignment2',
+                                  :assignment_group => group2)
+      @course.assignments.create!(:title => 'assignment3',
+                                  :assignment_group => group1)
+      json = api_call(:get,
+                      "/api/v1/courses/#{@course.id}/assignment_groups/#{group2.id}/assignments",
+                      {
+                        controller: 'assignments_api',
+                        action: 'index',
+                        format: 'json',
+                        course_id: @course.to_param,
+                        assignment_group_id: group2.to_param
+                      })
+      expect(json.map { |a| a['name'] }).to match_array(['assignment1', 'assignment2'])
+    end
+
     it "should search for assignments by title" do
       2.times {|i| @course.assignments.create!(:title => "First_#{i}") }
       ids = @course.assignments.map(&:id)
@@ -1304,7 +1325,8 @@ describe AssignmentsApiController, type: :request do
         'group_category_id' => group_category.id,
         'turnitin_enabled' => true,
         'vericite_enabled' => true,
-        'grading_type' => 'points'
+        'grading_type' => 'points',
+        'allowed_attempts' => 2
       }
     end
 
@@ -1439,6 +1461,7 @@ describe AssignmentsApiController, type: :request do
       expect(@json['due_at']).to eq @assignment.due_at.iso8601
       expect(@json['html_url']).to eq course_assignment_url(@course,@assignment)
       expect(@json['needs_grading_count']).to eq 0
+      expect(@json['allowed_attempts']).to eq 2
 
       expect(Assignment.count).to eq 1
     end
@@ -1611,6 +1634,50 @@ describe AssignmentsApiController, type: :request do
         })
         new_assignment = Assignment.find(JSON.parse(response.body)['id'])
         expect(new_assignment.tool_settings_tool).to eq message_handler
+      end
+
+      context 'when no tool association exists' do
+        let(:assignment) { assignment_model(course: @course) }
+        let(:update_response) do
+          put "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}", params: {
+            assignment: { name: 'banana' }
+          }
+        end
+
+        it 'does not attempt to clear tool associations' do
+          expect(assignment).not_to receive(:clear_tool_settings_tools)
+          update_response
+        end
+      end
+
+      context 'when a tool association already exists' do
+        let(:assignment) do
+          a = assignment_model(course: @course)
+          a.tool_settings_tool = message_handler
+          a.save!
+          a
+        end
+        let(:update_response) do
+          put "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}", params: {
+            assignment: { name: 'banana' }
+          }
+        end
+        let(:lookups) { assignment.assignment_configuration_tool_lookups }
+
+        before do
+          allow_any_instance_of(AssignmentConfigurationToolLookup).to(
+            receive(:create_subscription).and_return(SecureRandom.uuid)
+          )
+          user_session(@user)
+        end
+
+        context 'when switching to unsupported submission type' do
+          it 'destroys tool associations' do
+            expect do
+              update_response
+            end.to change(lookups, :count).from(1).to(0)
+          end
+        end
       end
 
       context 'sets the configuration LTI 2 tool' do
@@ -2873,7 +2940,8 @@ describe AssignmentsApiController, type: :request do
           'grading_type' => 'letter_grade',
           'due_at' => '2011-01-01T00:00:00Z',
           'position' => 1,
-          'muted' => true
+          'muted' => true,
+          'allowed_attempts' => 10
         })
         @assignment.reload
       end
@@ -2970,6 +3038,10 @@ describe AssignmentsApiController, type: :request do
       it "updates the grading standard" do
         expect(@assignment.grading_standard_id).to eq @new_grading_standard.id
         expect(@json['grading_standard_id']).to eq @new_grading_standard.id
+      end
+
+      it "updates the allowed_attempts" do
+        expect(@json['allowed_attempts']).to eq 10
       end
     end
 
@@ -4040,6 +4112,7 @@ describe AssignmentsApiController, type: :request do
           'assignment_id' => @assignment.id,
           'delayed_post_at' => nil,
           'lock_at' => nil,
+          'created_at' => @topic.created_at.iso8601,
           'user_name' => @topic.user_name,
           'pinned' => !!@topic.pinned,
           'position' => @topic.position,
@@ -4823,7 +4896,8 @@ describe AssignmentsApiController, type: :request do
          "points_deducted" => nil,
          "seconds_late" => 0,
          "preview_url" =>
-         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0"
+         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0",
+         "extra_attempts" => nil
        }]
     end
 
@@ -4861,7 +4935,8 @@ describe AssignmentsApiController, type: :request do
          "points_deducted" => nil,
          "seconds_late" => 0,
          "preview_url" =>
-         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0"
+         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0",
+         "extra_attempts" => nil
        }]
     end
   end

@@ -177,6 +177,20 @@ module Types
       end
     end
 
+    field :group_sets_connection, GroupSetType.connection_type, <<~DOC, null: true
+      Project group sets for this course.
+    DOC
+    def group_sets_connection
+      if course.grants_right? current_user, :manage_groups
+        course.group_categories.where(role: nil)
+      end
+    end
+
+    field :term, TermType, null: true
+    def term
+      load_association(:enrollment_term)
+    end
+
     field :permissions, CoursePermissionsType,
       "returns permission information for the current user in this course",
       null: true

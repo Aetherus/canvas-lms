@@ -41,13 +41,13 @@ _.toPairs(rubrics).forEach(([key, rubric]) => {
         const component = (mods) => shallow(<Criterion {...{ ...props, ...mods }} />)
 
         it('renders the root component as expected', () => {
-          expect(component().debug()).toMatchSnapshot()
+          expect(component()).toMatchSnapshot()
         })
 
         subComponents.forEach((name) => {
           it(`renders the ${name} sub-component(s) as expected`, () => {
             component().find(name)
-              .forEach((el) => expect(el.shallow().debug()).toMatchSnapshot())
+              .forEach((el) => expect(el.shallow()).toMatchSnapshot())
           })
         })
       }
@@ -120,6 +120,18 @@ describe('Criterion', () => {
     expect(comments({ isSummary: true })).toHaveLength(0)
   })
 
+  it('does not have a threshold when mastery_points is null / there is no outcome', () => {
+    const nullified = { ...rubrics.points.criteria[1], mastery_points: null }
+    const el = shallow(
+      <Criterion
+        criterion={nullified}
+        freeForm={false}
+      />
+    )
+
+    expect(el.find('Threshold')).toHaveLength(0)
+  })
+
   it('does not have a points column when hasPointsColumn is false', () => {
     const el = shallow(
       <Criterion
@@ -165,6 +177,24 @@ describe('Criterion', () => {
     expect(onAssessmentChange.args[0][0].comments).toEqual('up')
   })
 
+  it('can save empty comments', () => {
+    const onAssessmentChange = sinon.spy()
+    const newComments = { ...assessments.points.data[1], partialComments: '' }
+    const comments = shallow(
+      <Criterion
+        assessment={newComments}
+        criterion={rubrics.points.criteria[1]}
+        onAssessmentChange={onAssessmentChange}
+        freeForm={false}
+      />
+    )
+
+    const button = comments.find('CommentButton')
+    button.prop('finalize')(true)
+
+    expect(onAssessmentChange.args[0][0].comments).toEqual('')
+  })
+
   it('saves prior comments from the dialog if unchanged', () => {
     const onAssessmentChange = sinon.spy()
     const comments = shallow(
@@ -202,13 +232,13 @@ describe('Criterion', () => {
       const el = points({ criterion, onAssessmentChange })
       const onPointChange = el.find('Points').prop('onPointChange')
 
-      onPointChange('10')
-      onPointChange('10.245')
-      onPointChange('blergh')
+      onPointChange({points: '10', description: 'good', id: '1'})
+      onPointChange({points: '10.245', description: 'better', id: '2'})
+      onPointChange({points: 'blergh', description: 'invalid', id: '3'})
       expect(onAssessmentChange.args).toEqual([
-        [{ points: { text: '10', valid: true, value: 10 } }],
-        [{ points: { text: '10.245', valid: true, value: 10.245 } } ],
-        [{ points: { text: 'blergh', valid: false, value: undefined } }],
+        [{description: 'good', id: '1', points: { text: '10', valid: true, value: 10 } }],
+        [{description: 'better', id: '2', points: { text: '10.245', valid: true, value: 10.245 } } ],
+        [{description: 'invalid', id: '3', points: { text: 'blergh', valid: false, value: undefined } }]
       ])
     })
 

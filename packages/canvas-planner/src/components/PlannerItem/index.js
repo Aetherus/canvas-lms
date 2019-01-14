@@ -358,7 +358,7 @@ export class PlannerItem extends Component {
     }
     if (this.props.associated_item === 'To Do') {
       return (
-        <div>
+        <div className={styles.editButton}>
           <ApplyTheme theme={{
             [Button.theme]: {iconColor: this.props.color}
           }}>
@@ -396,7 +396,7 @@ export class PlannerItem extends Component {
     if (!this.props.associated_item) {
       return formatMessage('{course} TO DO', { course: this.props.courseName || '' });
     } else {
-      return `${this.props.courseName || ''} ${this.props.associated_item}`;
+      return `${this.props.courseName || ''} ${this.assignmentType()}`;
     }
   }
 
@@ -427,7 +427,7 @@ export class PlannerItem extends Component {
     if (newItem || missing) {
       const IndicatorComponent = newItem ? NewActivityIndicator : MissingIndicator;
       return (
-        <NotificationBadge>
+        <NotificationBadge responsiveSize={this.props.responsiveSize}>
           <div className={styles.activityIndicator}>
             <IndicatorComponent
             title={this.props.title}
@@ -438,7 +438,7 @@ export class PlannerItem extends Component {
         </NotificationBadge>
       );
     } else {
-      return <NotificationBadge/>;
+      return <NotificationBadge responsiveSize={this.props.responsiveSize} />;
     }
   }
 

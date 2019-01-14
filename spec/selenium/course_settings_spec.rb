@@ -44,8 +44,7 @@ describe "course settings" do
       fj('.grading_standard_select:visible a').click
       fj('button.select_grading_standard_link:visible').click
       f('.done_button').click
-      submit_form('#course_form')
-      wait_for_ajaximations
+      wait_for_new_page_load(submit_form('#course_form'))
 
       @course.reload
       expect(@course.grading_standard).to eq(@standard)
@@ -144,6 +143,17 @@ describe "course settings" do
   end
 
   describe "course items" do
+
+    def admin_cog(id)
+      f(id).find_element(:css, '.admin-links').displayed?
+      rescue Selenium::WebDriver::Error::NoSuchElementError
+        false
+    end
+
+    it 'should not show cog menu for disabling or moving on home nav item' do
+      get "/courses/#{@course.id}/settings#tab-navigation"
+      expect(admin_cog('#nav_edit_tab_id_0')).to be_falsey
+    end
 
     it "should change course details" do
       course_name = 'new course name'
@@ -388,9 +398,9 @@ describe "course settings" do
       wait_for_ajaximations
       expect(f("#all-results")).to be_displayed
 
-      expect(f("#all-results .alert")).to include_text("Found 17 unresponsive links")
+      expect(f("#all-results .alert")).to include_text("Found 17 broken links")
 
-      result_links = ff("#all-results .result a")
+      result_links = ff("#all-results .result h2 a")
       expect(result_links.map{|link| link.text.strip}).to match_array([
         'Course Syllabus',
         aq.question_data[:question_name],
@@ -398,7 +408,7 @@ describe "course settings" do
         assmnt.title,
         event.title,
         topic.title,
-        tag.title,
+        mod.name,
         quiz.title,
         page.title
       ])
@@ -419,11 +429,11 @@ describe "course settings" do
 
       @course.syllabus_body = %{
         <a href='#{active_link}'>link</a>
-        <a href='#{unpublished_link}'>link</a>
-        <a href='#{deleted_link}'>link</a>
+        <a href='#{unpublished_link}'>unpublished link</a>
+        <a href='#{deleted_link}'>deleted link</a>
       }
       @course.save!
-      page = @course.wiki_pages.create!(:title => "wikiii", :body => %{<a href='#{unpublished_link}'>link</a>})
+      page = @course.wiki_pages.create!(:title => "wikiii", :body => %{<a href='#{unpublished_link}'>unpublished link</a>})
 
       get "/courses/#{@course.id}/link_validator"
       wait_for_ajaximations
@@ -434,29 +444,29 @@ describe "course settings" do
       wait_for_ajaximations
       expect(f("#all-results")).to be_displayed
 
-      expect(f("#all-results .alert")).to include_text("Found 3 unresponsive links")
+      expect(f("#all-results .alert")).to include_text("Found 3 broken links")
       syllabus_result = ff('#all-results .result').detect{|r| r.text.include?("Course Syllabus")}
-      expect(syllabus_result).to include_text(unpublished_link)
-      expect(syllabus_result).to include_text(deleted_link)
+      expect(syllabus_result).to include_text('unpublished link')
+      expect(syllabus_result).to include_text('deleted link')
       page_result = ff('#all-results .result').detect{|r| r.text.include?(page.title)}
-      expect(page_result).to include_text(unpublished_link)
+      expect(page_result).to include_text('unpublished link')
 
       # hide the unpublished results
       move_to_click('label[for=show_unpublished]')
       wait_for_ajaximations
 
-      expect(f("#all-results .alert")).to include_text("Found 1 unresponsive link")
-      expect(ff("#all-results .result a").count).to eq 1
+      expect(f("#all-results .alert")).to include_text("Found 1 broken link")
+      expect(ff("#all-results .result h2 a").count).to eq 1
       result = f("#all-results .result")
       expect(result).to include_text("Course Syllabus")
-      expect(result).to include_text(deleted_link)
+      expect(result).to include_text('deleted link')
 
       # show them again
       move_to_click('label[for=show_unpublished]')
 
-      expect(f("#all-results .alert")).to include_text("Found 3 unresponsive links")
+      expect(f("#all-results .alert")).to include_text("Found 3 broken links")
       page_result = ff('#all-results .result').detect{|r| r.text.include?(page.title)}
-      expect(page_result).to include_text(unpublished_link)
+      expect(page_result).to include_text('unpublished link')
     end
   end
 end

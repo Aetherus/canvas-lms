@@ -58,6 +58,20 @@ export default class DeveloperKeyModal extends React.Component {
     return this.newForm && this.newForm.testClusterOnly
   }
 
+  saveCustomizations = () => {
+    const customFields = new FormData(this.submissionForm).get('custom_fields')
+    const { store, actions, createLtiKeyState, createOrEditDeveloperKeyState } = this.props
+
+    store.dispatch(actions.ltiKeysUpdateCustomizations(
+      createLtiKeyState.enabledScopes,
+      createLtiKeyState.disabledPlacements,
+      createOrEditDeveloperKeyState.developerKey.id,
+      createLtiKeyState.toolConfiguration,
+      customFields
+    ))
+    this.closeModal()
+  }
+
   submitForm = () => {
     const method = this.developerKey() ? 'put' : 'post'
     const formData = new FormData(this.submissionForm)
@@ -77,7 +91,9 @@ export default class DeveloperKeyModal extends React.Component {
       formData.append('developer_key[require_scopes]', true)
     }
 
-    formData.append('developer_key[test_cluster_only]', this.testClusterOnly)
+    if (this.testClusterOnly !== undefined) {
+      formData.append('developer_key[test_cluster_only]', this.testClusterOnly)
+    }
 
     this.props.store.dispatch(
       this.props.actions.createOrEditDeveloperKey(formData, this.developerKeyUrl(), method)
@@ -86,15 +102,27 @@ export default class DeveloperKeyModal extends React.Component {
 
   saveLtiToolConfiguration = () => {
     const formData = new FormData(this.submissionForm)
+    let settings
+    try {
+      settings = JSON.parse(formData.get("tool_configuration"))
+    } catch(e) {
+      if (e instanceof SyntaxError) {
+        $.flashError(I18n.t('Json is not valid. Please submit properly formatted json.'))
+        return
+      }
+    }
+
     this.props.store.dispatch(this.props.actions.saveLtiToolConfiguration({
       account_id: this.props.ctx.params.contextId,
       developer_key: {
         name: formData.get("developer_key[name]"),
         email: formData.get("developer_key[email]"),
         notes: formData.get("developer_key[notes]"),
-        test_cluster_only: this.testClusterOnly
+        redirect_uris: formData.get("developer_key[redirect_uris]"),
+        test_cluster_only: this.testClusterOnly,
+        access_token_count: 0
       },
-      settings: JSON.parse(formData.get("tool_configuration")),
+      settings,
       settings_url: formData.get("tool_configuration_url"),
     }))
   }
@@ -103,12 +131,12 @@ export default class DeveloperKeyModal extends React.Component {
     return this.props.createLtiKeyState.isLtiKey
   }
 
+  get isSaving() {
+    return this.props.createOrEditDeveloperKeyState.developerKeyCreateOrEditPending || this.props.createLtiKeyState.saveToolConfigurationPending
+  }
+
   modalBody() {
-    const isSavingDeveloperKey = this.props.createOrEditDeveloperKeyState.developerKeyCreateOrEditPending
-    const isSavingLtiToolConfig = this.props.createLtiKeyState.saveToolConfigurationPending
-    if (
-      isSavingDeveloperKey || isSavingLtiToolConfig
-    ) {
+    if (this.isSaving) {
       return this.spinner()
     }
     return this.developerKeyForm()
@@ -116,19 +144,22 @@ export default class DeveloperKeyModal extends React.Component {
 
   modalFooter() {
     if (this.isLtiKey) {
+      const { createLtiKeyState, store, actions } = this.props
       return(
         <LtiKeyFooter
           onCancelClick={this.closeModal}
-          onSaveClick={this.submitForm}
+          onSaveClick={this.saveCustomizations}
           onAdvanceToCustomization={this.saveLtiToolConfiguration}
-          customizing={this.props.createLtiKeyState.customizing}
-          ltiKeysSetCustomizing={this.props.actions.ltiKeysSetCustomizing}
-          dispatch={this.props.store.dispatch}
+          customizing={createLtiKeyState.customizing}
+          disable={this.isSaving}
+          ltiKeysSetCustomizing={actions.ltiKeysSetCustomizing}
+          dispatch={store.dispatch}
         />
       )
     }
     return(
       <NewKeyFooter
+        disable={this.isSaving}
         onCancelClick={this.closeModal}
         onSaveClick={this.submitForm}
       />

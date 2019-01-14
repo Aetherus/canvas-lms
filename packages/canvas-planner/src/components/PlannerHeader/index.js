@@ -35,8 +35,8 @@ import Badge from '@instructure/ui-elements/lib/components/Badge';
 import Opportunities from '../Opportunities';
 import GradesDisplay from '../GradesDisplay';
 import StickyButton from '../StickyButton';
-import { isFutureEmpty } from '../../utilities/statusUtils';
-
+import responsiviser from '../responsiviser';
+import { sizeShape } from '../plannerPropTypes';
 import {
   savePlannerItem, deletePlannerItem, cancelEditingPlannerItem, openEditingPlannerItem, getNextOpportunities,
   getInitialOpportunities, dismissOpportunity, clearUpdateTodo, startLoadingGradesSaga, scrollToToday,
@@ -102,13 +102,16 @@ export class PlannerHeader extends Component {
       gradesLoadingError: PropTypes.string,
     }).isRequired,
     ariaHideElement: PropTypes.instanceOf(Element).isRequired,
-    auxElement: PropTypes.instanceOf(Element).isRequired
+    auxElement: PropTypes.instanceOf(Element).isRequired,
+    stickyButtonId: PropTypes.string.isRequired,
+    responsiveSize: sizeShape,
   };
 
   static defaultProps = {
     triggerDynamicUiUpdates: () => {},
     preTriggerDynamicUiUpdates: () => {},
-    stickyZIndex: 0
+    stickyZIndex: 0,
+    responsiveSize: 'large',
   }
 
   constructor (props) {
@@ -299,7 +302,7 @@ export class PlannerHeader extends Component {
     return (
       <Portal mountNode={this.props.auxElement} open={this.newActivityAboveView()}>
         <StickyButton
-          id="new_activity_button"
+          id={this.props.stickyButtonId}
           direction="up"
           onClick={this.handleNewActivityClick}
           zIndex={this.props.stickyZIndex}
@@ -313,7 +316,7 @@ export class PlannerHeader extends Component {
     );
   }
 
-  renderToday () {
+  renderToday (buttonMargin) {
     // if we're not displaying any items, don't show the today button
     // this is true if the planner is completely empty, or showing the balloons
     // because everything is in the past when first loaded
@@ -322,7 +325,7 @@ export class PlannerHeader extends Component {
         <Button
           id="planner-today-btn"
           variant="light"
-          margin="0 medium 0 0"
+          margin={buttonMargin}
           onClick={this.handleTodayClick}
         >
           {formatMessage("Today")}
@@ -359,14 +362,21 @@ export class PlannerHeader extends Component {
 
   render () {
     const verticalRoom = this.getPopupVerticalRoom();
+    let buttonMarginRight = 'medium';
+    if (this.props.responsiveSize === 'medium') {
+      buttonMarginRight = 'small'
+    } else if (this.props.responsiveSize === 'small') {
+      buttonMarginRight = 'x-small'
+    }
+    const buttonMargin = `0 ${buttonMarginRight} 0 0`;
 
     return (
       <div className={`${styles.root} PlannerHeader`}>
-        {this.renderToday()}
+        {this.renderToday(buttonMargin)}
         <Button
           variant="icon"
           icon={IconPlusLine}
-          margin="0 medium 0 0"
+          margin={buttonMargin}
           onClick={this.handleToggleTray}
           ref={(b) => { this.addNoteBtn = b; }}
         >
@@ -375,7 +385,7 @@ export class PlannerHeader extends Component {
         <Button
           variant="icon"
           icon={IconGradebookLine}
-          margin="0 medium 0 0"
+          margin={buttonMargin}
           onClick={this.toggleGradesTray}
         >
           <ScreenReaderContent>{formatMessage("Show My Grades")}</ScreenReaderContent>
@@ -384,14 +394,14 @@ export class PlannerHeader extends Component {
           onDismiss={this.closeOpportunitiesDropdown}
           show={this.state.opportunitiesOpen}
           on="click"
-          constrain="none"
+          constrain="window"
           placement="bottom end"
         >
           <PopoverTrigger>
             <Button
               onClick={this.toggleOpportunitiesDropdown}
               variant="icon"
-              margin="0 medium 0 0"
+              margin={buttonMargin}
               ref={(b) => { this.opportunitiesButton = b; }}
               buttonRef={(b) => { this.opportunitiesHtmlButton = b; }}
             >
@@ -455,7 +465,8 @@ export class PlannerHeader extends Component {
   }
 }
 
-export const ThemedPlannerHeader = themeable(theme, styles)(PlannerHeader);
+export const ResponsivePlannerHeader = responsiviser()(PlannerHeader);
+export const ThemedPlannerHeader = themeable(theme, styles)(ResponsivePlannerHeader);
 export const NotifierPlannerHeader = notifier(ThemedPlannerHeader);
 
 const mapStateToProps = ({opportunities, loading, courses, todo, days, timeZone, ui, firstNewActivityDate}) =>

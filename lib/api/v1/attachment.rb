@@ -28,7 +28,7 @@ module Api::V1::Attachment
   end
 
   def attachments_json(files, user, url_options = {}, options = {})
-    if options[:can_view_hidden_files] && options[:context] && master_courses?
+    if options[:can_view_hidden_files] && options[:context]
       options[:master_course_status] = setup_master_course_restrictions(files, options[:context])
     end
     files.map do |f|
@@ -234,7 +234,10 @@ module Api::V1::Attachment
     # no permission check required to use the preferred folder
 
     folder ||= opts[:folder]
-    progress_context = opts[:assignment] || @current_user
+    progress_context =
+      opts[:assignment] ||
+      (opts[:assignment_id] && Assignment.where(:id => params[:assignment_id]).first) ||
+      @current_user
     if InstFS.enabled?
       additional_capture_params = {}
       progress_json_result = if params[:url]

@@ -59,15 +59,15 @@ const createLtiKeyState = {
   isLtiKey: false,
   customizing: false,
   toolConfiguration: {},
-  enabledScopes: [],
-  disabledPlacements: [],
+  enabledScopes: ['https://www.test.com/lineitem'],
+  disabledPlacements: ['account_navigation'],
 }
 
 const createDeveloperKeyState = {
   developerKeyCreateOrEditSuccessful: false,
   developerKeyCreateOrEditFailed: false,
   developerKeyModalOpen: true,
-  developerKey: undefined
+  developerKey: {id: 22}
 }
 
 const editDeveloperKeyState = {
@@ -243,6 +243,35 @@ test('it adds each selected scope to the form data', () => {
   wrapper.unmount()
 })
 
+test('it removes testClusterOnly from the form data if it is undefined', () => {
+  const createOrEditSpy = sinon.spy()
+  const dispatchSpy = sinon.spy()
+  const fakeActions = { createOrEditDeveloperKey: createOrEditSpy }
+  const fakeStore = { dispatch: dispatchSpy }
+  const developerKey2 = Object.assign({}, developerKey, { require_scopes: true, scopes: ['test'] })
+  delete developerKey2.test_cluster_only
+  const editDeveloperKeyState2 = Object.assign({}, editDeveloperKeyState, { developerKey: developerKey2 })
+  const wrapper = mount(
+    <DeveloperKeyModal
+      createLtiKeyState={createLtiKeyState}
+      availableScopes={{}}
+      availableScopesPending={false}
+      closeModal={() => {}}
+      createOrEditDeveloperKeyState={editDeveloperKeyState2}
+      listDeveloperKeyScopesState={listDeveloperKeyScopesState}
+      actions={fakeActions}
+      store={fakeStore}
+      mountNode={modalMountNode}
+      selectedScopes={selectedScopes}
+    />
+  )
+  wrapper.instance().submitForm()
+  const [[sentFormData]] = createOrEditSpy.args
+  notOk(sentFormData.has('test_cluster_only'))
+
+  wrapper.unmount()
+})
+
 test('flashes an error if no scopes are selected', () => {
   const flashStub = sinon.stub($, 'flashError')
   const createOrEditSpy = sinon.spy()
@@ -373,5 +402,29 @@ test('clears the lti key state when modal is closed', () => {
   )
   wrapper.instance().closeModal()
   ok(ltiStub.called)
+  wrapper.unmount()
+})
+
+test('saves customizations', () => {
+  const ltiStub = sinon.spy()
+  const actions = Object.assign(fakeActions, {
+    ltiKeysUpdateCustomizations: ltiStub
+  })
+
+  const wrapper = mount(
+    <DeveloperKeyModal
+      createLtiKeyState={createLtiKeyState}
+      availableScopes={{}}
+      availableScopesPending={false}
+      closeModal={() => {}}
+      createOrEditDeveloperKeyState={createDeveloperKeyState}
+      actions={actions}
+      store={{dispatch: () => {}}}
+      mountNode={modalMountNode}
+      selectedScopes={selectedScopes}
+    />
+  )
+  wrapper.instance().saveCustomizations()
+  ok(ltiStub.calledWith(['https://www.test.com/lineitem'], ['account_navigation'], 22, {}, null))
   wrapper.unmount()
 })

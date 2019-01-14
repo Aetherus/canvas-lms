@@ -249,10 +249,8 @@ class User < ActiveRecord::Base
     end
   }
 
-  scope :linked_through_root_accounts, lambda {|root_accounts|
-    root_accounts = Array(root_accounts)
-    root_accounts << nil # TODO: remove after root_account_id is populated and is not-nulled (a)
-    where(UserObservationLink.table_name => {:root_account_id => root_accounts})
+  scope :linked_through_root_account, lambda {|root_account|
+    where(UserObservationLink.table_name => {:root_account_id => [root_account.id, nil] + root_account.trusted_account_ids})
   }
 
   def reload(*)
@@ -760,7 +758,7 @@ class User < ActiveRecord::Base
   end
 
   def set_default_feature_flags
-    self.enable_feature!(:new_user_tutorial_on_off)
+    self.enable_feature!(:new_user_tutorial_on_off) unless Rails.env.test?
   end
 
   def sortable_name
@@ -918,6 +916,7 @@ class User < ActiveRecord::Base
         pseudonym_scope = self.pseudonyms.active.shard(self)
         account_users = self.account_users.active.shard(self)
         has_other_root_accounts = false
+        group_memberships_scope = self.group_memberships.active.shard(self)
       else
         # make sure to do things on the root account's shard. but note,
         # root_account.enrollments won't include the student view user's
@@ -932,9 +931,11 @@ class User < ActiveRecord::Base
         account_users = root_account.account_users.where(user_id: self).to_a +
           self.account_users.shard(root_account).where(:account_id => root_account.all_accounts).to_a
         has_other_root_accounts = self.associated_accounts.shard(self).where('accounts.id <> ?', root_account).exists?
+        group_memberships_scope = self.group_memberships.active.shard(root_account.shard).joins(:group).where(:groups => {:root_account_id => root_account})
       end
 
       self.delete_enrollments(enrollment_scope, updating_user: updating_user)
+      group_memberships_scope.destroy_all
       user_observer_scope.destroy_all
       user_observee_scope.destroy_all
       pseudonym_scope.each(&:destroy)
@@ -1117,7 +1118,7 @@ class User < ActiveRecord::Base
     end
     can :reset_mfa
 
-    given { |user| user && (user.as_observer_observation_links.where(user_id: self.id).exists? || self.check_courses_right?(user, :read, user.observer_enrollments)) }
+    given { |user| user && user.as_observer_observation_links.where(user_id: self.id).exists? }
     can :read and can :read_as_parent
   end
 
@@ -1462,6 +1463,10 @@ class User < ActiveRecord::Base
     preferences[:send_scores_in_emails] == true && root_account.settings[:allow_sending_scores_in_emails] != false
   end
 
+  def send_observed_names_in_notifications?
+    preferences[:send_observed_names_in_notifications] == true
+  end
+
   def close_announcement(announcement)
     preferences[:closed_notifications] ||= []
     # serialize ids relative to the user
@@ -1758,52 +1763,50 @@ class User < ActiveRecord::Base
   end
 
   def participating_student_current_and_concluded_course_ids
-    @participating_student_current_and_concluded_course_ids ||=
-      participating_course_ids('student_current_and_concluded') do |enrollments|
-        enrollments.current_and_concluded.not_inactive_by_date_ignoring_access
-      end
+    cached_course_ids('student_current_and_concluded') do |enrollments|
+      enrollments.current_and_concluded.not_inactive_by_date_ignoring_access.where(type: %w{StudentEnrollment StudentViewEnrollment})
+    end
   end
 
   def participating_student_course_ids
-    @participating_student_course_ids ||=
-      participating_course_ids('student') do |enrollments|
-        enrollments.current.active_by_date
-      end
-  end
-
-  def participating_course_ids(cache_qualifier)
-    self.shard.activate do
-      cache_path = [self, "participating_#{cache_qualifier}_course_ids", ApplicationController.region]
-      Rails.cache.fetch(cache_path.cache_key) do
-        enrollments = yield self.enrollments.
-          shard(in_region_associated_shards).
-          where(type: %w{StudentEnrollment StudentViewEnrollment})
-        enrollments.distinct.pluck(:course_id)
-      end
+    cached_course_ids('participating_student') do |enrollments|
+      enrollments.current.active_by_date.where(type: %w{StudentEnrollment StudentViewEnrollment})
     end
   end
-  private :participating_course_ids
 
   def participating_instructor_course_ids
-    @participating_instructor_course_ids ||= self.shard.activate do
-      Rails.cache.fetch([self, 'participating_instructor_course_ids', ApplicationController.region].cache_key) do
-        self.enrollments.shard(in_region_associated_shards).of_instructor_type.current.active_by_date.distinct.pluck(:course_id)
-      end
+    cached_course_ids('participating_instructor') do |enrollments|
+      enrollments.of_instructor_type.current.active_by_date
     end
   end
+
+  def participating_course_ids
+    cached_course_ids('participating') do |enrollments|
+      enrollments.current.active_by_date
+    end
+  end
+
+  def all_course_ids
+    cached_course_ids('all') do |enrollments|
+      enrollments.where.not(:workflow_state => ['rejected', 'deleted', 'inactive'])
+    end
+  end
+
+  def cached_course_ids(type)
+    @cached_course_ids ||= {}
+    @cached_course_ids[type] ||=
+      self.shard.activate do
+        Rails.cache.fetch([self, "cached_course_ids", type, ApplicationController.region].cache_key) do
+          yield(self.enrollments.shard(in_region_associated_shards)).distinct.pluck(:course_id)
+        end
+      end
+  end
+  private :cached_course_ids
 
   def participating_enrollments
     @participating_enrollments ||= self.shard.activate do
       Rails.cache.fetch([self, 'participating_enrollments', ApplicationController.region].cache_key) do
         self.enrollments.shard(in_region_associated_shards).current.active_by_date.to_a
-      end
-    end
-  end
-
-  def participated_course_ids
-    @participated_course_ids ||= self.shard.activate do
-      Rails.cache.fetch([self, 'participated_course_ids', ApplicationController.region].cache_key) do
-        self.not_removed_enrollments.shard(in_region_associated_shards).distinct.pluck(:course_id)
       end
     end
   end
@@ -1867,6 +1870,8 @@ class User < ActiveRecord::Base
       instances = instances.polymorphic_where('stream_item_instances.context' => opts[:contexts])
     elsif opts[:context]
       instances = instances.where(:context_type => opts[:context].class.base_class.name, :context_id => opts[:context])
+    elsif opts[:only_active_courses]
+      instances = instances.where(:context_type => "Course", :context_id => self.participating_course_ids)
     end
 
     instances
@@ -1975,7 +1980,7 @@ class User < ActiveRecord::Base
   def select_available_assignments(assignments, include_concluded: false)
     return [] if assignments.empty?
     available_course_ids = if include_concluded
-                            participated_course_ids
+                            all_course_ids
                           else
                             Shard.partition_by_shard(assignments.map(&:context_id).uniq) do |course_ids|
                               self.enrollments.shard(Shard.current).where(course_id: course_ids).active_by_date.pluck(:course_id)

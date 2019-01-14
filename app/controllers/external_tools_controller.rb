@@ -30,8 +30,8 @@ class ExternalToolsController < ApplicationController
   before_action :get_context, :only => [:retrieve, :show, :resource_selection]
   skip_before_action :verify_authenticity_token, only: :resource_selection
   include Api::V1::ExternalTools
+  include Lti::RedisMessageClient
 
-  REDIS_PREFIX = 'external_tool:sessionless_launch:'.freeze
   WHITELISTED_QUERY_PARAMS = [
     :platform
   ].freeze
@@ -242,9 +242,11 @@ class ExternalToolsController < ApplicationController
 
   def sessionless_launch
     if Canvas.redis_enabled?
-      redis_key = "#{@context.class.name}:#{REDIS_PREFIX}#{params[:verifier]}"
-      launch_settings = Canvas.redis.get(redis_key)
-      Canvas.redis.del(redis_key)
+      launch_settings = fetch_and_delete_launch(
+        @context,
+        params[:verifier],
+        prefix: Lti::RedisMessageClient::SESSIONLESS_LAUNCH_PREFIX
+      )
     end
     unless launch_settings
       render :plain => t(:cannot_locate_launch_request, 'Cannot locate launch request, please try again.'), :status => :not_found
@@ -486,7 +488,8 @@ class ExternalToolsController < ApplicationController
 
     default_opts = {
         resource_type: selection_type,
-        selected_html: params[:selection]
+        selected_html: params[:selection],
+        domain: @domain_root_account&.domain
     }
     opts = default_opts.merge(opts)
 
@@ -503,11 +506,11 @@ class ExternalToolsController < ApplicationController
         opts: opts
       )
     else
-       Lti::LtiOutboundAdapter.new(tool, @current_user, @context).prepare_tool_launch(
-         @return_url,
-         expander,
-         opts
-       )
+      Lti::LtiOutboundAdapter.new(tool, @current_user, @context).prepare_tool_launch(
+        @return_url,
+        expander,
+        opts
+      )
     end
 
     lti_launch.params = if selection_type == 'homework_submission' && assignment
@@ -515,7 +518,6 @@ class ExternalToolsController < ApplicationController
                         else
                           adapter.generate_post_payload
                         end
-
     lti_launch.resource_url = opts[:launch_url] || adapter.launch_url
     lti_launch.link_text = selection_type ? tool.label_for(selection_type.to_sym, I18n.locale) : tool.default_label
     lti_launch.analytics_id = tool.tool_id
@@ -923,6 +925,7 @@ class ExternalToolsController < ApplicationController
   end
 
   # @API Create Tool from ToolConfiguration
+  # @internal
   # Creates context_external_tool from attached tool_configuration of
   # the provided developer_key if not already present in context.
   # DeveloperKey must have a ToolConfiguration to create tool or 404 will be raised.
@@ -945,6 +948,26 @@ class ExternalToolsController < ApplicationController
       invalidate_nav_tabs_cache(cet)
     end
     render json: external_tool_json(cet, @context, @current_user, session)
+  end
+
+  # @API Delete Tool from ToolConfiguration
+  # @internal
+  #
+  # Deletes the tool given the context and the developer_key_id.
+  #
+  # @argument account_id [String]
+  #    if account
+  #
+  # @argument course_id [String]
+  #    if course
+  #
+  # @argument developer_key_id [String]
+  #
+  # @returns ContextExternalTool
+  def delete_tool_from_tool_config
+    cet = @context.context_external_tools.active.where(developer_key: developer_key).take
+    raise ActiveRecord::RecordNotFound if cet.nil?
+    delete_tool(cet)
   end
 
   # @API Edit an external tool
@@ -991,20 +1014,7 @@ class ExternalToolsController < ApplicationController
   #        -H "Authorization: Bearer <token>"
   def destroy
     @tool = @context.context_external_tools.active.find(params[:id] || params[:external_tool_id])
-    if authorized_action(@tool, @current_user, :delete)
-      respond_to do |format|
-        if @tool.destroy
-          if api_request?
-            invalidate_nav_tabs_cache(@tool)
-            format.json { render :json => external_tool_json(@tool, @context, @current_user, session) }
-          else
-            format.json { render :json => @tool.as_json(:methods => [:readable_state, :custom_fields_string], :include_root => false) }
-          end
-        else
-          format.json { render :json => @tool.errors, :status => :bad_request }
-        end
-      end
-    end
+    delete_tool(@tool)
   end
 
   def jwt_token
@@ -1149,8 +1159,7 @@ class ExternalToolsController < ApplicationController
                                        end
 
     # store the launch settings and return to the user
-    verifier = SecureRandom.hex(64)
-    Canvas.redis.setex("#{@context.class.name}:#{REDIS_PREFIX}#{verifier}", 5.minutes, launch_settings.to_json)
+    verifier = cache_launch(launch_settings, @context, prefix: Lti::RedisMessageClient::SESSIONLESS_LAUNCH_PREFIX)
 
     uri = if @context.is_a?(Account)
             URI(account_external_tools_sessionless_launch_url(@context))
@@ -1220,6 +1229,23 @@ class ExternalToolsController < ApplicationController
 
   def developer_key
     @_developer_key = DeveloperKey.nondeleted.find(params[:developer_key_id])
+  end
+
+  def delete_tool(tool)
+    if authorized_action(tool, @current_user, :delete)
+      respond_to do |format|
+        if tool.destroy
+          if api_request?
+            invalidate_nav_tabs_cache(tool)
+            format.json { render :json => external_tool_json(tool, @context, @current_user, session) }
+          else
+            format.json { render :json => tool.as_json(:methods => [:readable_state, :custom_fields_string], :include_root => false) }
+          end
+        else
+          format.json { render :json => tool.errors, :status => :bad_request }
+        end
+      end
+    end
   end
 
   def placement_from_params

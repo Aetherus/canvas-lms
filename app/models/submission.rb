@@ -24,7 +24,6 @@ class Submission < ActiveRecord::Base
   include CustomValidations
   include SendToStream
   include Workflow
-  include PlannerHelper
 
   GRADE_STATUS_MESSAGES_MAP = {
     success: {
@@ -58,6 +57,8 @@ class Submission < ActiveRecord::Base
       message: I18n.t('This assignment is currently being moderated')
     }.freeze
   }.freeze
+
+  SUBMISSION_TYPES_GOVERNED_BY_ALLOWED_ATTEMPTS = %w[online_upload online_url online_text_entry].freeze
 
   attr_readonly :assignment_id
   attr_accessor :visible_to_user,
@@ -116,8 +117,11 @@ class Submission < ActiveRecord::Base
   validates_as_url :url
   validates :points_deducted, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :seconds_late_override, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
+  validates :extra_attempts, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :late_policy_status, inclusion: ['none', 'missing', 'late'], allow_nil: true
   validate :ensure_grader_can_grade
+  validate :extra_attempts_can_only_be_set_on_online_uploads
+  validate :ensure_attempts_are_in_range
 
   scope :active, -> { where("submissions.workflow_state <> 'deleted'") }
   scope :for_enrollments, -> (enrollments) { where(user_id: enrollments.select(:user_id)) }
@@ -365,10 +369,10 @@ class Submission < ActiveRecord::Base
     if self.submission_type == "online_quiz" && self.workflow_state == "graded"
       # unless it's an auto-graded quiz
       return unless self.workflow_state_before_last_save == "unsubmitted"
-      complete_planner_override_for_submission(self)
+      PlannerHelper.complete_planner_override_for_submission(self)
     else
       return unless self.workflow_state == "submitted"
-      complete_planner_override_for_submission(self)
+      PlannerHelper.complete_planner_override_for_submission(self)
     end
   end
 
@@ -467,7 +471,7 @@ class Submission < ActiveRecord::Base
         user &&
         self.assessment_requests.map(&:assessor_id).include?(user.id)
     end
-    can :read and can :comment
+    can :read and can :comment and can :make_group_comment
 
     given { |user, session|
       can_view_plagiarism_report('turnitin', user, session)
@@ -1515,6 +1519,28 @@ class Submission < ActiveRecord::Base
     false
   end
 
+  def extra_attempts_can_only_be_set_on_online_uploads
+    return true unless changes.key?("extra_attempts") && assignment
+    return true if (assignment.submission_types.split(",") & SUBMISSION_TYPES_GOVERNED_BY_ALLOWED_ATTEMPTS).any?
+
+    error_msg = 'can only be set on submissions for an assignment with a type of online_upload, online_url, or online_text_entry'
+    errors.add(:extra_attempts, error_msg)
+    false
+  end
+
+  def attempts_left
+    return nil if self.assignment.allowed_attempts.nil? || self.assignment.allowed_attempts < 0
+    [0, self.assignment.allowed_attempts + (self.extra_attempts || 0) - (self.attempt || 0)].max
+  end
+
+  def ensure_attempts_are_in_range
+    return true unless changes.key?("submitted_at") && assignment
+    return true unless (assignment.submission_types.split(",") & SUBMISSION_TYPES_GOVERNED_BY_ALLOWED_ATTEMPTS).any?
+    return true if attempts_left.nil? || attempts_left > 0
+    errors.add(:attempt, 'you have reached the maximum number of allowed attempts for this assignment')
+    false
+  end
+
   def can_autograde?
     result = GRADE_STATUS_MESSAGES_MAP[can_autograde_symbolic_status]
     result ||= { status: false, message: I18n.t('Cannot autograde at this time') }
@@ -1879,8 +1905,10 @@ class Submission < ActiveRecord::Base
   def last_teacher_comment
     if association(:submission_comments).loaded?
       submission_comments.reverse.detect{ |com| !com.draft && com.author_id != user_id }
+    elsif association(:visible_submission_comments).loaded?
+      visible_submission_comments.reverse.detect{ |com| com.author_id != user_id }
     else
-      submission_comments.published.where.not(:author_id => user_id).order(:created_at => :desc).first
+      submission_comments.published.where.not(:author_id => user_id).reorder(:created_at => :desc).first
     end
   end
 
@@ -2078,11 +2106,16 @@ class Submission < ActiveRecord::Base
   end
 
   def visible_submission_comments_for(current_user)
-    return all_submission_comments.for_groups if assignment.grade_as_group?
+    if assignment.grade_as_group?
+      return all_submission_comments.for_groups.select { |comment| comment.grants_right?(current_user, :read) }
+    end
+
     visible_users = users_with_visible_submission_comments(current_user)
 
     all_submission_comments.select do |submission_comment|
-      if assignment.muted? && user == current_user
+      if assignment.peer_reviews && !submission_comment.grants_right?(current_user, :read)
+        false
+      elsif assignment.muted? && user == current_user
         submission_comment.author == user
       elsif assignment.grades_published? && grader == submission_comment.author
         submission_comment.provisional_grade_id.nil?
@@ -2415,7 +2448,7 @@ class Submission < ActiveRecord::Base
     return true if new_state == self.read_state(current_user)
 
     StreamItem.update_read_state_for_asset(self, new_state, current_user.id)
-    clear_planner_cache(current_user)
+    PlannerHelper.clear_planner_cache(current_user)
 
     ContentParticipation.create_or_update({
       :content => self,
@@ -2594,10 +2627,16 @@ class Submission < ActiveRecord::Base
   end
 
   def update_provisional_grade(pg, scorer, attrs = {})
+    # Adding a comment calls update_provisional_grade, but will not have the
+    # grade or score keys included.
+    if (attrs.key?(:grade) || attrs.key?(:score)) && pg.selection.present?
+      raise Assignment::GradeError, error_code: Assignment::GradeError::PROVISIONAL_GRADE_MODIFY_SELECTED
+    end
+
     pg.scorer = pg.current_user = scorer
     pg.final = !!attrs[:final]
-    pg.grade = attrs[:grade] unless attrs[:grade].nil?
-    pg.score = attrs[:score] unless attrs[:score].nil?
+    pg.grade = attrs[:grade] if attrs.key?(:grade)
+    pg.score = attrs[:score] if attrs.key?(:score)
     pg.source_provisional_grade = attrs[:source_provisional_grade] if attrs.key?(:source_provisional_grade)
     pg.graded_anonymously = attrs[:graded_anonymously] unless attrs[:graded_anonymously].nil?
     pg.force_save = !!attrs[:force_save]

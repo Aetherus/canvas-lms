@@ -115,6 +115,7 @@ export default class Criterion extends React.Component {
   render () {
     const {
       allowExtraCredit,
+      allowSavedComments,
       assessment,
       criterion,
       customRatings,
@@ -130,11 +131,20 @@ export default class Criterion extends React.Component {
     const useRange = criterion.criterion_use_range
     const ignoreForScoring = criterion.ignore_for_scoring
     const assessing = onAssessmentChange !== null && assessment !== null
-    const updatePoints = (text) => {
+    const updatePoints = (tier) => {
+      // Tier will be a string if entered directly from the point input field. In those situations,
+      // the tier description and ID will be added based off the point value upon saving in the
+      // rubric_association model
+      if (typeof tier === "string") {
+        tier = _.find(criterion.ratings, (rating) => rating.points.toString() === tier) || {points: tier}
+      }
+      const text = tier.points
       const value = numberHelper.parse(text)
       const valid = !Number.isNaN(value)
       onAssessmentChange({
-        points: { text, valid, value: valid ? value : undefined }
+        points: { text, valid, value: valid ? value : undefined },
+        description: tier.description,
+        id: tier.id
       })
     }
     const onPointChange = assessing ? updatePoints : undefined
@@ -164,6 +174,7 @@ export default class Criterion extends React.Component {
 
     const commentRating = (
       <Comments
+        allowSaving={allowSavedComments}
         assessing={assessing}
         assessment={assessment}
         footer={isSummary ? pointsElement() : null}
@@ -181,6 +192,7 @@ export default class Criterion extends React.Component {
         tiers={criterion.ratings}
         onPointChange={onPointChange}
         points={_.get(assessment, 'points.value')}
+        selectedRatingId={_.get(assessment, 'id')}
         pointsPossible={pointsPossible}
         defaultMasteryThreshold={isOutcome ? criterion.mastery_points : criterion.points}
         isSummary={isSummary}
@@ -192,9 +204,11 @@ export default class Criterion extends React.Component {
     const finalize = (update) => {
       const common = { commentsOpen: false }
       if (update) {
+        const { comments, partialComments } = assessment
+        const saved = _.isNil(partialComments) ? comments : partialComments
         onAssessmentChange({
           ...common,
-          comments: assessment.partialComments || assessment.comments
+          comments: saved
         })
       } else {
         onAssessmentChange({ ...common, partialComments: undefined })
@@ -242,7 +256,7 @@ export default class Criterion extends React.Component {
               />
           </div>
           {
-            !hidePoints && threshold !== undefined ? <Threshold threshold={threshold} /> : null
+            !(hidePoints || _.isNil(threshold)) ? <Threshold threshold={threshold} /> : null
           }
           {
             (freeForm || assessing || isSummary || noComments) ? null : (
@@ -270,6 +284,7 @@ export default class Criterion extends React.Component {
 }
 Criterion.propTypes = {
   allowExtraCredit: PropTypes.bool,
+  allowSavedComments: PropTypes.bool,
   assessment: PropTypes.shape(assessmentShape),
   customRatings: PropTypes.arrayOf(PropTypes.object),
   criterion: PropTypes.shape(criterionShape).isRequired,
@@ -283,6 +298,7 @@ Criterion.propTypes = {
 
 Criterion.defaultProps = {
   allowExtraCredit: false,
+  allowSavedComments: true,
   assessment: null,
   customRatings: [],
   onAssessmentChange: null,

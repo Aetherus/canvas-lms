@@ -41,7 +41,20 @@ module Lti
         false
       )
       tool.developer_key = developer_key
+      tool.custom_fields_string = tool.custom_fields_string + "\n#{custom_fields}"
       tool
+    end
+
+    def self.create_tool_and_key!(account, tool_configuration_params)
+      self.transaction do
+        self.create!(
+          developer_key: DeveloperKey.create!(account: account),
+          settings: tool_configuration_params[:settings],
+          settings_url: tool_configuration_params[:settings_url],
+          disabled_placements: tool_configuration_params[:disabled_placements],
+          custom_fields: tool_configuration_params[:custom_fields]
+        )
+      end
     end
 
     private

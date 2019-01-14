@@ -244,21 +244,49 @@ class Attachment < ActiveRecord::Base
     end
   end
 
+  READ_FILE_CHUNK_SIZE = 4096
+  def self.read_file_chunk_size
+    READ_FILE_CHUNK_SIZE
+  end
+
+  def self.valid_utf8?(file)
+    # validate UTF-8
+    chunk = file.read(read_file_chunk_size)
+    error_count = 0
+
+    while chunk
+      begin
+        raise EncodingError unless chunk.dup.force_encoding("UTF-8").valid_encoding?
+      rescue EncodingError
+        error_count += 1
+        if !file.eof? && error_count <= 4
+          # we may have split a utf-8 character in the chunk - try to resolve it, but only to a point
+          chunk << file.read(1)
+          next
+        else
+          raise
+        end
+      end
+
+      error_count = 0
+      chunk = file.read(read_file_chunk_size)
+    end
+    file.close
+    true
+  rescue EncodingError
+    false
+  end
+
   def infer_encoding
     return unless self.encoding.nil?
     begin
-      Iconv.open('UTF-8', 'UTF-8') do |iconv|
-        self.open do |chunk|
-          iconv.iconv(chunk)
-        end
-        iconv.iconv(nil)
+      if self.class.valid_utf8?(self.open)
+        self.encoding = 'UTF-8'
+        Attachment.where(:id => self).update_all(:encoding => 'UTF-8')
+      else
+        self.encoding = ''
+        Attachment.where(:id => self).update_all(:encoding => '')
       end
-      self.encoding = 'UTF-8'
-      Attachment.where(:id => self).update_all(:encoding => 'UTF-8')
-    rescue Iconv::Failure
-      self.encoding = ''
-      Attachment.where(:id => self).update_all(:encoding => '')
-      return
     rescue IOError => e
       logger.error("Error inferring encoding for attachment #{self.global_id}: #{e.message}")
     end
@@ -398,6 +426,7 @@ class Attachment < ActiveRecord::Base
     text/plain
     text/html
     application/rtf
+    text/rtf
     text/richtext
     application/vnd.wordperfect
     application/vnd.ms-powerpoint
@@ -878,12 +907,22 @@ class Attachment < ActiveRecord::Base
     end
   end
 
+  class FailedResponse < StandardError; end
   # GETs this attachment's public_url and streams the response to the
   # passed block; this is a helper function for #open
   # (you should call #open instead of this)
   private def streaming_download(dest=nil, &block)
+    retries ||= 0
     CanvasHttp.get(public_url) do |response|
+      raise FailedResponse.new("Expected 200, got #{response.code}: #{response.body}") unless response.code.to_i == 200
       response.read_body(dest, &block)
+    end
+  rescue FailedResponse, Net::ReadTimeout => e
+    if (retries += 1) < Setting.get(:streaming_download_retries, '5').to_i
+      Canvas::Errors.capture_exception(:attachment, e)
+      retry
+    else
+      raise e
     end
   end
 
@@ -1036,7 +1075,7 @@ class Attachment < ActiveRecord::Base
   end
 
   def disposition_filename
-    ascii_filename = Iconv.conv("ASCII//TRANSLIT//IGNORE", "UTF-8", display_name)
+    ascii_filename = I18n.transliterate(display_name, replacement: '_')
 
     # response-content-disposition will be url encoded in the depths of
     # aws-s3, doesn't need to happen here. we'll be nice and ghetto http
@@ -1857,10 +1896,6 @@ class Attachment < ActiveRecord::Base
 
   def canvadoc_available?
     canvadoc.try(:available?)
-  end
-
-  def view_inline_ping_url
-    "/#{context_url_prefix}/files/#{self.id}/inline_view"
   end
 
   def canvadoc_url(user, opts={})

@@ -232,7 +232,10 @@ module Lti
 
       let(:extensions) { settings['extensions'].first }
 
-      before { tool_configuration.developer_key = developer_key }
+      before do
+        tool_configuration.developer_key = developer_key
+        tool_configuration.custom_fields = "key=value\nfoo=bar"
+      end
 
       shared_examples_for 'a new context external tool' do
         context 'when "disabled_placements" is set' do
@@ -273,7 +276,7 @@ module Lti
         end
 
         it 'uses the correct top-level custom params' do
-          expect(subject.custom_fields).to eq settings['custom_fields']
+          expect(subject.custom_fields).to eq({"has_expansion"=>"$Canvas.user.id", "no_expansion"=>"foo", "key"=>"value", "foo"=>"bar"})
         end
 
         it 'uses the correct icon url' do
@@ -340,6 +343,29 @@ module Lti
       context 'when context is an account' do
         it_behaves_like 'a new context external tool' do
           let(:context) { account_model }
+        end
+      end
+    end
+
+    describe '#create_tool_and_key!' do
+      let_once(:account) { Account.create! }
+      let(:params) do
+        {
+          settings: settings
+        }
+      end
+
+      it 'creates a dev key' do
+        expect { described_class.create_tool_and_key! account, params }.to change(DeveloperKey, :count).by(1)
+      end
+
+      context 'when tool_config creation fails' do
+        let(:settings) { { tool: 'foo' } }
+
+        it 'does not create dev key' do
+          expect(DeveloperKey.where(account: account).count).to eq 0
+          expect { described_class.create_tool_and_key! account, params }.to raise_error ActiveRecord::RecordInvalid
+          expect(DeveloperKey.where(account: account).count).to eq 0
         end
       end
     end

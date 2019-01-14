@@ -31,7 +31,7 @@ class Course < ActiveRecord::Base
   include OutcomeImportContext
 
   attr_accessor :teacher_names, :master_course
-  attr_writer :student_count, :primary_enrollment_type, :primary_enrollment_role_id, :primary_enrollment_rank, :primary_enrollment_state, :primary_enrollment_date, :invitation, :master_migration
+  attr_writer :student_count, :teacher_count, :primary_enrollment_type, :primary_enrollment_role_id, :primary_enrollment_rank, :primary_enrollment_state, :primary_enrollment_date, :invitation, :master_migration
 
   time_zone_attribute :time_zone
   def time_zone
@@ -291,7 +291,7 @@ class Course < ActiveRecord::Base
 
   def update_account_associations_if_changed
     if (self.saved_change_to_root_account_id? || self.saved_change_to_account_id?) && !self.class.skip_updating_account_associations?
-      send_now_or_later_if_production(new_record? ? :now : :later, :update_account_associations)
+      send_now_or_later_if_production(saved_change_to_id? ? :now : :later, :update_account_associations)
     end
   end
 
@@ -344,7 +344,12 @@ class Course < ActiveRecord::Base
       tags = self.context_module_tags.active.joins(:context_module).where(:context_modules => {:workflow_state => 'active'})
     end
 
-    DifferentiableAssignment.scope_filter(tags, user, self, is_teacher: user_is_teacher)
+    scope = DifferentiableAssignment.scope_filter(tags, user, self, is_teacher: user_is_teacher)
+    unless user_is_teacher
+      scope = scope.where("content_tags.content_type <> ? OR content_tags.content_id IN (?)", "DiscussionTopic",
+        self.discussion_topics.published.visible_to_student_sections(user).select(:id))
+    end
+    scope
   end
 
   def sequential_module_item_ids
@@ -433,7 +438,7 @@ class Course < ActiveRecord::Base
   end
 
   def image
-    if self.image_id.present?
+    @image ||= if self.image_id.present?
       self.shard.activate do
         self.attachments.active.where(id: self.image_id).take&.public_download_url
       end
@@ -1122,7 +1127,7 @@ class Course < ActiveRecord::Base
         update_all_grading_period_scores: update_all_grading_period_scores
       )
     else
-      inst_job_opts = {}
+      inst_job_opts = { max_attempts: 10 }
       if student_ids.blank? && grading_period_id.nil? && update_all_grading_period_scores && update_course_score
         # if we have all default args, let's queue this job in a singleton to avoid duplicates
         inst_job_opts[:singleton] = "recompute_student_scores:#{global_id}"
@@ -1722,7 +1727,9 @@ class Course < ActiveRecord::Base
                      :grade_publishing_message => nil,
                      :last_publish_attempt_at => last_publish_attempt_at)
 
-    send_later_if_production(:send_final_grades_to_endpoint, publishing_user, user_ids_to_publish)
+    send_later_if_production_enqueue_args(:send_final_grades_to_endpoint,
+                                          { n_strand: ["send_final_grades_to_endpoint", global_root_account_id] },
+                                          publishing_user, user_ids_to_publish)
     send_at(last_publish_attempt_at + settings[:success_timeout].to_i.seconds, :expire_pending_grade_publishing_statuses, last_publish_attempt_at) if should_kick_off_grade_publishing_timeout?
   end
 
@@ -1760,11 +1767,17 @@ class Course < ActiveRecord::Base
       raise e
     end
 
+    default_timeout = Setting.get('send_final_grades_to_endpoint_timelimit', 15.seconds.to_s).to_f
+
+    timeout_options = { raise_on_timeout: true, fallback_timeout_length: default_timeout }
+
     posts_to_make.each do |enrollment_ids, res, mime_type, headers={}|
       begin
         posted_enrollment_ids += enrollment_ids
         if res
-          SSLCommon.post_data(settings[:publish_endpoint], res, mime_type, headers )
+          Canvas.timeout_protection("send_final_grades_to_endpoint:#{global_root_account_id}", timeout_options) do
+            SSLCommon.post_data(settings[:publish_endpoint], res, mime_type, headers )
+          end
         end
         Enrollment.where(:id => enrollment_ids).update_all(:grade_publishing_status => (should_kick_off_grade_publishing_timeout? ? "publishing" : "published"), :grade_publishing_message => nil)
       rescue => e
@@ -2368,7 +2381,7 @@ class Course < ActiveRecord::Base
     case visibility_level
     when :full, :limited
       scope
-    when :sections
+    when :sections, :sections_limited
       scope.where("enrollments.course_section_id IN (?) OR (enrollments.limit_privileges_to_course_section=? AND enrollments.type IN ('TeacherEnrollment', 'TaEnrollment', 'DesignerEnrollment'))",
                   visibilities.map{|s| s[:course_section_id]}, false)
     when :restricted
@@ -2414,6 +2427,8 @@ class Course < ActiveRecord::Base
     when :sections then scope.where(enrollments: { course_section_id: visibilities.map {|s| s[:course_section_id] } })
     when :restricted then scope.where(enrollments: { user_id: (visibilities.map { |s| s[:associated_user_id] }.compact + [user]) })
     when :limited then scope.where(enrollments: { type: ['StudentEnrollment', 'TeacherEnrollment', 'TaEnrollment', 'StudentViewEnrollment'] })
+    when :sections_limited then scope.where(enrollments: { course_section_id: visibilities.map {|s| s[:course_section_id] } }).
+      where(enrollments: { type: ['StudentEnrollment', 'TeacherEnrollment', 'TaEnrollment', 'StudentViewEnrollment'] })
     else scope.none
     end
   end
@@ -2422,7 +2437,7 @@ class Course < ActiveRecord::Base
   def course_section_visibility(user, opts={})
     visibilities = section_visibilities_for(user, opts)
     visibility = enrollment_visibility_level_for(user, visibilities)
-    if [:full, :limited, :restricted, :sections].include?(visibility)
+    if [:full, :limited, :restricted, :sections, :sections_limited].include?(visibility)
       enrollment_types = ['StudentEnrollment', 'StudentViewEnrollment', 'ObserverEnrollment']
       if [:restricted, :sections].include?(visibility) || (
           visibilities.any? && visibilities.all? { |v| enrollment_types.include? v[:type] }
@@ -2471,7 +2486,11 @@ class Course < ActiveRecord::Base
     if granted_permissions.empty?
       :restricted # e.g. observer, can only see admins in the course
     elsif visibilities.present? && visibility_limited_to_course_sections?(user, visibilities)
-      :sections
+      if granted_permissions.eql? [:read_roster]
+        :sections_limited
+      else
+        :sections
+      end
     elsif granted_permissions.eql? [:read_roster]
       :limited
     else
@@ -2824,6 +2843,8 @@ class Course < ActiveRecord::Base
     end
   end
 
+  include Csp::CourseHelper
+
   # unfortunately we decided to pluralize this in the API after the fact...
   # so now we pluralize it everywhere except the actual settings hash and
   # course import/export :(
@@ -2885,7 +2906,7 @@ class Course < ActiveRecord::Base
   def reset_content
     Course.transaction do
       new_course = Course.new
-      self.attributes.delete_if{|k,v| [:id, :created_at, :updated_at, :syllabus_body, :wiki_id, :default_view, :tab_configuration, :lti_context_id, :workflow_state].include?(k.to_sym) }.each do |key, val|
+      self.attributes.delete_if{|k,v| [:id, :created_at, :updated_at, :syllabus_body, :wiki_id, :default_view, :tab_configuration, :lti_context_id, :workflow_state, :latest_outcome_import_id].include?(k.to_sym) }.each do |key, val|
         new_course.write_attribute(key, val)
       end
       new_course.workflow_state = (self.admins.any? ? 'claimed' : 'created')
@@ -3089,7 +3110,7 @@ class Course < ActiveRecord::Base
     end
   end
 
-  %w{student_count primary_enrollment_type primary_enrollment_role_id primary_enrollment_rank primary_enrollment_state primary_enrollment_date invitation}.each do |method|
+  %w{student_count teacher_count primary_enrollment_type primary_enrollment_role_id primary_enrollment_rank primary_enrollment_state primary_enrollment_date invitation}.each do |method|
     class_eval <<-RUBY
       def #{method}
         read_attribute(:#{method}) || @#{method}

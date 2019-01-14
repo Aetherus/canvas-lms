@@ -17,7 +17,7 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-require File.expand_path(File.dirname(__FILE__) + '/../spec_helper')
+require File.expand_path(File.dirname(__FILE__) + '/../sharding_spec_helper')
 
 describe GradebooksController do
   before :once do
@@ -222,6 +222,54 @@ describe GradebooksController do
       user_session(@teacher)
       get :grade_summary, params: { course_id: @course.id, id: @student.id }
       expect(assigns[:js_env][:students]).to match_array [@student].as_json(include_root: false)
+    end
+
+    context "final grade override" do
+      before(:once) do
+        @course.update!(grading_standard_enabled: true)
+        @course.enable_feature!(:final_grades_override)
+        @course.assignments.create!(title: "an assignment")
+        @student_enrollment.scores.find_by(course_score: true).update!(override_score: 99)
+      end
+
+      it "includes the effective final grade in the ENV" do
+        user_session(@teacher)
+        get :grade_summary, params: { course_id: @course.id, id: @student.id }
+        expect(assigns[:js_env][:effective_final_grade]).to eq "A"
+      end
+
+      it "does not include the effective final grade in the ENV if the feature is disabled" do
+        @course.disable_feature!(:final_grades_override)
+        user_session(@teacher)
+        get :grade_summary, params: { course_id: @course.id, id: @student.id }
+        expect(assigns[:js_env].key?(:effective_final_grade)).to be false
+      end
+
+      it "does not include the effective final grade in the ENV if there is no override score" do
+        @student_enrollment.scores.find_by(course_score: true).update!(override_score: nil)
+        user_session(@teacher)
+        get :grade_summary, params: { course_id: @course.id, id: @student.id }
+        expect(assigns[:js_env].key?(:effective_final_grade)).to be false
+      end
+
+      it "takes the effective final grade for the grading period, if present" do
+        grading_period_group = @course.grading_period_groups.create!
+        grading_period = grading_period_group.grading_periods.create!(
+          title: "a grading period",
+          start_date: 1.day.ago,
+          end_date: 1.day.from_now
+        )
+        @student_enrollment.scores.find_by(grading_period: grading_period).update!(override_score: 84)
+        user_session(@teacher)
+        get :grade_summary, params: { course_id: @course.id, id: @student.id }
+        expect(assigns[:js_env][:effective_final_grade]).to eq "B"
+      end
+
+      it "takes the effective final grade for the course score, if viewing all grading periods" do
+        user_session(@teacher)
+        get :grade_summary, params: { course_id: @course.id, id: @student.id, grading_period_id: 0 }
+        expect(assigns[:js_env][:effective_final_grade]).to eq "A"
+      end
     end
 
     it "includes muted assignments" do
@@ -762,6 +810,17 @@ describe GradebooksController do
         expect(gradebook_options).not_to have_key :colors
       end
 
+      it "includes final_grade_override_enabled if New Gradebook is enabled" do
+        @course.enable_feature!(:new_gradebook)
+        get :show, params: {course_id: @course.id}
+        expect(gradebook_options).to have_key :final_grade_override_enabled
+      end
+
+      it "does not include final_grade_override_enabled if New Gradebook is disabled" do
+        get :show, params: {course_id: @course.id}
+        expect(gradebook_options).not_to have_key :final_grade_override_enabled
+      end
+
       it "includes late_policy if New Gradebook is enabled" do
         @course.enable_feature!(:new_gradebook)
         get :show, params: { course_id: @course.id }
@@ -902,7 +961,7 @@ describe GradebooksController do
           expect(Enrollment).to receive(:recompute_final_score).never
           get 'show', params: {:course_id => @course.id, :init => 1, :assignments => 1}, :format => 'csv'
         end
-        it "should get all the expected datas even with multibytes characters", :focus => true do
+        it "should get all the expected datas even with multibytes characters" do
           @course.assignments.create(:title => "Déjà vu")
           exporter = GradebookExporter.new(
             @course,
@@ -1095,6 +1154,44 @@ describe GradebooksController do
         periods = assigns[:js_env][:GRADEBOOK_OPTIONS][:grading_period_set][:grading_periods]
         expect(periods).to all include(:id, :start_date, :end_date, :close_date, :is_closed, :is_last)
       end
+    end
+  end
+
+  describe "GET 'final_grade_overrides'" do
+    it "returns unauthorized when there is no current user" do
+      get :final_grade_overrides, params: {course_id: @course.id}, format: :json
+      assert_status(401)
+    end
+
+    it "returns unauthorized when the user is not authorized to manage grades" do
+      user_session(@student)
+      get :final_grade_overrides, params: {course_id: @course.id}, format: :json
+      assert_status(401)
+    end
+
+    it "grants authorization to teachers in active courses" do
+      user_session(@teacher)
+      get :final_grade_overrides, params: {course_id: @course.id}, format: :json
+      expect(response).to be_ok
+    end
+
+    it "grants authorization to teachers in concluded courses" do
+      @course.complete!
+      user_session(@teacher)
+      get :final_grade_overrides, params: {course_id: @course.id}, format: :json
+      expect(response).to be_ok
+    end
+
+    it "returns the map of final grade overrides" do
+      assignment = assignment_model(course: @course, points_possible: 10)
+      assignment.grade_student(@student, grade: '85%', grader: @teacher)
+      enrollment = @student.enrollments.find_by!(course: @course)
+      enrollment.scores.find_by!(course_score: true).update!(override_score: 89.2)
+
+      user_session(@teacher)
+      get :final_grade_overrides, params: {course_id: @course.id}, format: :json
+      final_grade_overrides = json_parse(response.body)["final_grade_overrides"]
+      expect(final_grade_overrides).to have_key(@student.id.to_s)
     end
   end
 
@@ -2109,6 +2206,28 @@ describe GradebooksController do
       allow(@controller).to receive(:can_do).and_return(true)
 
       expect(@controller.post_grades_feature?).to eq(true)
+    end
+  end
+
+  describe "#grading_rubrics" do
+    context "sharding" do
+      specs_require_sharding
+
+      it "should fetch rubrics from a cross-shard course" do
+        user_session(@teacher)
+        @shard1.activate do
+          a = Account.create!
+          @cs_course = Course.create!(:name => 'cs_course', :account => a)
+          @rubric = Rubric.create!(context: @cs_course, title: 'testing')
+          RubricAssociation.create!(context: @cs_course, rubric: @rubric, purpose: :bookmark, association_object: @cs_course)
+          @cs_course.enroll_user(@teacher, "TeacherEnrollment", :enrollment_state => "active")
+        end
+
+        get "grading_rubrics", params: {:course_id => @course, :context_code => @cs_course.asset_string}
+        json = json_parse(response.body)
+        expect(json.first["rubric_association"]["rubric_id"]).to eq @rubric.global_id.to_s
+        expect(json.first["rubric_association"]["context_code"]).to eq @cs_course.global_asset_string
+      end
     end
   end
 end

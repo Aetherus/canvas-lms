@@ -704,9 +704,14 @@ describe SubmissionsController do
       expect(response).to redirect_to originality_report.originality_report_url
     end
 
-    it 'returns 400 if submission_id is not integer' do
-      get 'originality_report', params: {:course_id => assignment.context_id, :assignment_id => assignment.id, :submission_id => '{ user_id }', :asset_string => attachment.asset_string}
-      expect(response.response_code).to eq 400
+    it 'returns bad_request if submission_id is not an integer' do
+      get 'originality_report', params: {
+        course_id: assignment.context_id,
+        assignment_id: assignment.id,
+        submission_id: '{ user_id }',
+        asset_string: attachment.asset_string
+      }
+      expect(response).to have_http_status(:bad_request)
     end
 
     it "returns unauthorized for users who can't read submission" do
@@ -716,18 +721,23 @@ describe SubmissionsController do
       expect(response.status).to eq 401
     end
 
-    it 'gives error if no url is present for the OriginalityReport' do
+    it 'shows an error if no URL is present for the OriginalityReport' do
       originality_report.update_attribute(:originality_report_url, nil)
-      get 'originality_report', params: {course_id: assignment.context_id, assignment_id: assignment.id, submission_id: test_student.id, asset_string: attachment.asset_string}
-      expect(flash[:notice]).to be_present
+      get 'originality_report', params: {
+        course_id: assignment.context_id,
+        assignment_id: assignment.id,
+        submission_id: test_student.id,
+        asset_string: attachment.asset_string
+      }
+      expect(flash[:error]).to be_present
     end
   end
 
   describe 'POST resubmit_to_turnitin' do
-    it 'returns 400 if assignment_id is not integer' do
+    it 'returns bad_request if assignment_id is not integer' do
       assignment = assignment_model
       post 'resubmit_to_turnitin', params: {course_id: assignment.context_id, assignment_id: 'assignment-id', submission_id: test_student.id}
-      expect(response.response_code).to eq 400
+      expect(response).to have_http_status(:bad_request)
     end
 
     it "emits a 'plagiarism_resubmit' live event if originality report exists" do
@@ -742,17 +752,6 @@ describe SubmissionsController do
     end
   end
 
-  it "redirects to speed grader when an anonymous submission id is used" do
-    params = {
-      course_id: assignment.context_id,
-      assignment_id: assignment.id,
-      submission_id: assignment.submission_for_student(test_student).anonymous_id,
-      anonymous: true
-    }
-    post 'resubmit_to_turnitin', params: params
-    expect(response).to be_redirect
-  end
-
   describe 'POST resubmit_to_vericite' do
     it "emits a 'plagiarism_resubmit' live event" do
       expect(Canvas::LiveEvents).to receive(:plagiarism_resubmit)
@@ -762,18 +761,79 @@ describe SubmissionsController do
  end
 
   describe 'GET turnitin_report' do
-    it 'returns 400 if submission_id is not integer' do
-      assignment = assignment_model
-      get 'turnitin_report', params: {:course_id => assignment.context_id, :assignment_id => assignment.id, :submission_id => '{ user_id }', :asset_string => '123'}
-      expect(response.response_code).to eq 400
+    let(:course) { Course.create! }
+    let(:student) { course.enroll_student(User.create!).user }
+    let(:teacher) { course.enroll_teacher(User.create!).user }
+    let(:assignment) { course.assignments.create!(submission_types: 'online_text_entry', title: 'hi') }
+    let(:submission) { assignment.submit_homework(student, body: 'zzzzzzzzzz') }
+    let(:asset_string) { submission.id.to_s }
+
+    before { user_session(teacher) }
+
+    it 'returns bad_request if submission_id is not an integer' do
+      get 'turnitin_report', params: {
+        course_id: assignment.context_id,
+        assignment_id: assignment.id,
+        submission_id: '{ user_id }',
+        asset_string: asset_string
+      }
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    context "when the submission's turnitin data contains a report URL" do
+      before(:each) do
+        submission.update!(turnitin_data: {asset_string => {report_url: 'MY_GREAT_REPORT'}})
+      end
+
+      it "redirects to the course tool retrieval URL" do
+        get 'turnitin_report', params: {
+          course_id: assignment.context_id,
+          assignment_id: assignment.id,
+          submission_id: student.id,
+          asset_string: asset_string
+        }
+        expect(response).to redirect_to(/#{retrieve_course_external_tools_url(course.id)}/)
+      end
+
+      it "includes the report URL in the redirect" do
+        get 'turnitin_report', params: {
+          course_id: assignment.context_id,
+          assignment_id: assignment.id,
+          submission_id: student.id,
+          asset_string: asset_string
+        }
+        expect(response).to redirect_to(/MY_GREAT_REPORT/)
+      end
+    end
+
+    it "redirects the user to the submission details page if no turnitin URL exists" do
+      get 'turnitin_report', params: {
+        course_id: assignment.context_id,
+        assignment_id: assignment.id,
+        submission_id: student.id,
+        asset_string: asset_string
+      }
+      expect(response).to redirect_to course_assignment_submission_url(assignment.context_id, assignment.id, student.id)
+    end
+
+    it "displays a flash error if no turnitin URL exists" do
+      get 'turnitin_report', params: {
+        course_id: assignment.context_id,
+        assignment_id: assignment.id,
+        submission_id: student.id,
+        asset_string: asset_string
+      }
+
+      expect(flash[:error]).to be_present
     end
   end
 
   describe "GET audit_events" do
-    before(:once) do
+    let(:first_student) { course_with_user("StudentEnrollment", course: @course, name: "First", active_all: true).user }
+
+    before(:each) do
       @course = Course.create!
       @course.account.enable_service(:avatars)
-      first_student = course_with_user("StudentEnrollment", course: @course, name: "First", active_all: true).user
       second_student = course_with_user("StudentEnrollment", course: @course, name: "Second", active_all: true).user
       @teacher = course_with_user("TeacherEnrollment", course: @course, name: "Teacher", active_all: true).user
       @assignment = @course.assignments.create!(name: "anonymous", anonymous_grading: true, updating_user: @teacher)
@@ -818,7 +878,7 @@ describe SubmissionsController do
     it "returns the assignment audit events" do
       get :audit_events, params: params, format: :json
       assignment_audit_events = json_parse(response.body).fetch("audit_events").select do |event|
-        event.fetch("anonymous_or_moderation_event").fetch("event_type").include?("assignment_")
+        event.fetch("event_type").include?("assignment_")
       end
       expect(assignment_audit_events.count).to be 1
     end
@@ -826,7 +886,7 @@ describe SubmissionsController do
     it "returns the submission audit events" do
       get :audit_events, params: params, format: :json
       submission_audit_events = json_parse(response.body).fetch("audit_events").select do |event|
-        event.fetch("anonymous_or_moderation_event").fetch("event_type").include?("submission_")
+        event.fetch("event_type").include?("submission_")
       end
       expect(submission_audit_events.count).to be 2
     end
@@ -834,9 +894,62 @@ describe SubmissionsController do
     it "returns the audit events in order of created at" do
       get :audit_events, params: params, format: :json
       audit_event_ids = json_parse(response.body).fetch("audit_events").map do |event|
-        event.fetch("anonymous_or_moderation_event").fetch("id")
+        event.fetch("id")
       end
       expect(audit_event_ids).to eql audit_event_ids.sort
+    end
+
+    describe "user names and roles" do
+      let(:admin) { site_admin_user }
+      let(:final_grader) { @teacher }
+      let(:other_grader) { User.create!(name: "Nobody") }
+
+      let(:returned_users) { json_parse(response.body).fetch("users") }
+
+      before(:each) do
+        @course.enroll_teacher(other_grader, enrollment_state: "active")
+        @assignment.update!(moderated_grading: true, grader_count: 2, final_grader: final_grader)
+
+        @submission.submission_comments.create!(author: admin, comment: "I am an administrator :)")
+        @submission.submission_comments.create!(
+          author: other_grader,
+          comment: "I am nobody. Who are you? Are you nobody too?"
+        )
+      end
+
+      it "returns all users who have generated events for a submission" do
+        extraneous_grader = User.create!
+        @assignment.create_moderation_grader(extraneous_grader, occupy_slot: true)
+
+        get :audit_events, params: params, format: :json
+        user_ids = returned_users.pluck("id")
+        expect(user_ids).to match_array([first_student.id, admin.id, other_grader.id, final_grader.id])
+      end
+
+      it "returns the name associated with a user" do
+        get :audit_events, params: params, format: :json
+        expect(returned_users).to include(hash_including({"id" => other_grader.id, "name" => "Nobody" }))
+      end
+
+      it "returns a role of 'final_grader' if a user is the final grader" do
+        get :audit_events, params: params, format: :json
+        expect(returned_users).to include(hash_including({"id" => final_grader.id, "role" => "final_grader" }))
+      end
+
+      it "returns a role of 'admin' if a user is an administrator" do
+        get :audit_events, params: params, format: :json
+        expect(returned_users).to include(hash_including({"id" => admin.id, "role" => "admin" }))
+      end
+
+      it "returns a role of 'grader' if a user is a grader" do
+        get :audit_events, params: params, format: :json
+        expect(returned_users).to include(hash_including({"id" => other_grader.id, "role" => "grader" }))
+      end
+
+      it "returns a role of 'student' if a user is a student" do
+        get :audit_events, params: params, format: :json
+        expect(returned_users).to include(hash_including({"id" => first_student.id, "role" => "student" }))
+      end
     end
   end
 

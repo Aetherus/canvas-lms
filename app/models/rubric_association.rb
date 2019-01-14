@@ -133,8 +133,10 @@ class RubricAssociation < ActiveRecord::Base
   end
 
   def context_name
-    @cached_context_name ||= Rails.cache.fetch(['short_name_lookup', self.context_code].cache_key) do
-      self.context.short_name rescue ""
+    @cached_context_name ||= self.shard.activate do
+      Rails.cache.fetch(['short_name_lookup', self.context_code].cache_key) do
+        self.context.short_name rescue ""
+      end
     end
   end
 
@@ -225,8 +227,8 @@ class RubricAssociation < ActiveRecord::Base
     # Update/create the association -- this is what ties the rubric to an entity
     update_if_existing = params.delete(:update_if_existing)
     if params[:hide_points] == '1'
-      params.delete(:use_for_grading)
-      params.delete(:hide_score_total)
+      params[:use_for_grading] = '0'
+      params[:hide_score_total] = '0'
     end
     association ||= rubric.associate_with(
       association_object,
@@ -296,6 +298,7 @@ class RubricAssociation < ActiveRecord::Base
       if data
         replace_ratings = true
         has_score = (data[:points]).present?
+        rating[:id] = data[:rating_id]
         rating[:points] = assessment_points(criterion, data) if has_score
         rating[:criterion_id] = criterion.id
         rating[:learning_outcome_id] = criterion.learning_outcome_id
@@ -309,17 +312,17 @@ class RubricAssociation < ActiveRecord::Base
         rating[:comments_enabled] = true
         rating[:comments] = data[:comments]
         rating[:above_threshold] = rating[:points] > criterion.mastery_points if criterion.mastery_points && rating[:points]
-        cached_description = nil
-        criterion.ratings.each do |r|
+        criterion.ratings.each_with_index do |r, index|
           if r.points.to_f == rating[:points].to_f
-            cached_description = r.description
-            rating[:id] = r.id
+            rating[:description] ||= r.description
+            rating[:id] ||= r.id
+          elsif criterion.criterion_use_range && r.points.to_f > rating[:points].to_f && criterion.ratings[index + 1].try(:points).to_f < rating[:points].to_f
+            rating[:description] ||= r.description
+            rating[:id] ||= r.id
           end
         end
-        if !rating[:description] || rating[:description].empty?
-          rating[:description] = cached_description
-        end
-        if rating[:comments] && !rating[:comments].empty? && data[:save_comment] == '1'
+        save_comment = data[:save_comment] == '1' && params[:assessment_type] != 'peer_review'
+        if rating[:comments] && !rating[:comments].empty? && save_comment
           self.summary_data ||= {}
           self.summary_data[:saved_comments] ||= {}
           self.summary_data[:saved_comments][criterion.id.to_s] ||= []

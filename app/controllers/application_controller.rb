@@ -152,6 +152,7 @@ class ApplicationController < ActionController::Base
           show_feedback_link: show_feedback_link?,
           enable_profiles: (@domain_root_account && @domain_root_account.settings[:enable_profiles] != false)
         },
+        ARC_RECORDING_FEATURE_ENABLED: (@domain_root_account && @domain_root_account.feature_enabled?(:integrate_arc_rce)),
       }
       @js_env[:current_user] = @current_user ? Rails.cache.fetch(['user_display_json', @current_user].cache_key, :expires_in => 1.hour) { user_display_json(@current_user, :profile, [:avatar_is_fallback]) } : {}
       @js_env[:page_view_update_url] = page_view_path(@page_view.id, page_view_token: @page_view.token) if @page_view
@@ -270,13 +271,8 @@ class ApplicationController < ActionController::Base
   end
   helper_method :grading_periods?
 
-  def master_courses?
-    @domain_root_account && @domain_root_account.feature_enabled?(:master_courses)
-  end
-  helper_method :master_courses?
-
   def setup_master_course_restrictions(objects, course, user_can_edit: false)
-    return unless master_courses? && course.is_a?(Course) && (user_can_edit || course.grants_right?(@current_user, session, :read_as_admin))
+    return unless course.is_a?(Course) && (user_can_edit || course.grants_right?(@current_user, session, :read_as_admin))
 
     if MasterCourses::MasterTemplate.is_master_course?(course)
       MasterCourses::Restrictor.preload_default_template_restrictions(objects, course)
@@ -302,7 +298,7 @@ class ApplicationController < ActionController::Base
   helper_method :set_master_course_js_env_data
 
   def load_blueprint_courses_ui
-    return unless @context && @context.is_a?(Course) && master_courses? && @context.grants_right?(@current_user, :manage)
+    return unless @context && @context.is_a?(Course) && @context.grants_right?(@current_user, :manage)
 
     is_child = MasterCourses::ChildSubscription.is_child_course?(@context)
     is_master = MasterCourses::MasterTemplate.is_master_course?(@context)
@@ -335,7 +331,7 @@ class ApplicationController < ActionController::Base
   helper_method :load_blueprint_courses_ui
 
   def editing_restricted?(content, edit_type=:any)
-    return false unless master_courses? && content.respond_to?(:editing_restricted?)
+    return false unless content.respond_to?(:editing_restricted?)
     content.editing_restricted?(edit_type)
   end
   helper_method :editing_restricted?
@@ -1229,22 +1225,19 @@ class ApplicationController < ActionController::Base
     # or it's not an update to an already-existing page_view.  We check to make sure
     # it's not an update because if the page_view already existed, we don't want to
     # double-count it as multiple views when it's really just a single view.
-    if @accessed_asset && (@accessed_asset[:level] == 'participate' || !@page_view_update)
-      @access = AssetUserAccess.where(user_id: user.id, asset_code: @accessed_asset[:code]).first_or_initialize
-      @accessed_asset[:level] ||= 'view'
-      @access.log @context, @accessed_asset
+    return unless @accessed_asset && (@accessed_asset[:level] == 'participate' || !@page_view_update)
+    @access = AssetUserAccess.log(user, @context, @accessed_asset) if @context
 
-      if @page_view.nil? && page_views_enabled? && %w{participate submit}.include?(@accessed_asset[:level])
-        generate_page_view(user)
-      end
-
-      if @page_view
-        @page_view.participated = %w{participate submit}.include?(@accessed_asset[:level])
-        @page_view.asset_user_access = @access
-      end
-
-      @page_view_update = true
+    if @page_view.nil? && page_views_enabled? && %w{participate submit}.include?(@accessed_asset[:level])
+      generate_page_view(user)
     end
+
+    if @page_view
+      @page_view.participated = %w{participate submit}.include?(@accessed_asset[:level])
+      @page_view.asset_user_access = @access
+    end
+
+    @page_view_update = true
   end
 
   def log_gets
@@ -1580,6 +1573,7 @@ class ApplicationController < ActionController::Base
             launch_url: @resource_url,
             link_code: @opaque_id,
             overrides: {'resource_link_title' => @resource_title},
+            domain: @domain_root_account&.domain
         }
         variable_expander = Lti::VariableExpander.new(@domain_root_account, @context, self,{
                                                         current_user: @current_user,
@@ -1702,6 +1696,11 @@ class ApplicationController < ActionController::Base
       host_and_shard = HostUrl.file_host_with_shard(@domain_root_account || Account.default, request.host_with_port)
     end
     host, shard = host_and_shard
+    config = Canvas::DynamicSettings.find(tree: :private, cluster: attachment.shard.database_server.id)
+    if config['attachment_specific_file_domain'] == 'true'
+      separator = config['attachment_specific_file_domain_separator'] || '.'
+      host = "a#{attachment.shard.id}-#{attachment.local_id}#{separator}#{host}"
+    end
     res = "#{request.protocol}#{host}"
 
     shard.activate do
@@ -2337,6 +2336,7 @@ class ApplicationController < ActionController::Base
 
     ctx[:hostname] = request.host
     ctx[:user_agent] = request.headers['User-Agent']
+    ctx[:client_ip] = request.remote_ip
     ctx[:producer] = 'canvas'
 
     StringifyIds.recursively_stringify_ids(ctx)
@@ -2378,7 +2378,6 @@ class ApplicationController < ActionController::Base
     js_env({
       ROOT_ACCOUNT_NAME: @account.root_account.name, # used in AddPeopleApp modal
       ACCOUNT_ID: @account.id,
-      'master_courses?' => master_courses?,
       ROOT_ACCOUNT_ID: @account.root_account.id,
       customized_login_handle_name: @account.root_account.customized_login_handle_name,
       delegated_authentication: @account.root_account.delegated_authentication?,
