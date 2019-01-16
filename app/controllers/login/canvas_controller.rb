@@ -39,7 +39,7 @@ class Login::CanvasController < ApplicationController
     # Check referer and authenticity token.  If the token is invalid but the referer is trusted
     # and one is not provided then continue.  If the referer is trusted and they provide a token
     # we still want to check it.
-    if params.key?(request_forgery_protection_token) || !@domain_root_account.trusted_referer?(request.referer)
+    if params.key?(request_forgery_protection_token) # || !@domain_root_account.trusted_referer?(request.referer)
       begin
         verify_authenticity_token
       rescue ActionController::InvalidAuthenticityToken

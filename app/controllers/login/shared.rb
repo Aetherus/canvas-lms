@@ -89,7 +89,7 @@ module Login::Shared
         # adding the :login_success param to it.
         format.html { redirect_back_or_default(dashboard_url(:login_success => '1')) }
       end
-      format.json { render :json => pseudonym.as_json(:methods => :user_code), :status => :ok }
+      format.json { render :json => pseudonym.as_json(:methods => :user_code, include: :user), :status => :ok }
     end
   end
 
