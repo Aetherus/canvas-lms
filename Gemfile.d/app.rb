@@ -38,6 +38,8 @@ gem 'oauth2', '1.2.0', require: false
 
 gem 'rails-observers', '0.1.5'
 
+gem 'closure_tree'
+
 gem 'builder', '3.2.3'
 gem 'tzinfo', '1.2.5'
 gem 'tzinfo-data'
