@@ -28,8 +28,10 @@ class VideoConverter
         # puts progress
       end unless attachment.extension == '.mp4'
       #byebug
-      attachment.update!(workflow_state: 'processed')
     end
+    attachment.update!(workflow_state: 'processed')
     logger.info "Finished processing video attachment #{attachment_id}"
+  rescue
+    attachment.mark_errored!
   end
 end
