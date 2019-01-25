@@ -52,7 +52,7 @@ class ApplicationController < ActionController::Base
   include AuthenticationMethods
 
   include Canvas::RequestForgeryProtection
-  protect_from_forgery with: :exception
+  #protect_from_forgery with: :exception
 
   # load_user checks masquerading permissions, so this needs to be cleared first
   before_action :clear_cached_contexts

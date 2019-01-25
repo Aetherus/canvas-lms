@@ -14,10 +14,11 @@ namespace :activities do
   task :colleges => [:environment, 'activities:login'] do
     begin
       from = 30.days.ago.beginning_of_day.strftime('%Y-%m-%d')
-      to = Date.today.strftime('%Y-%m-%d')
+      to = Date.tomorrow.strftime('%Y-%m-%d')
 
       Account.where(parent_account_id: 1).find_each do |account|
         RestClient.get("http://localhost:3000/api/v1/accounts/#{account.id}/analytics/completed/activity", cookies: $cookies) do |resp|
+          puts resp.body
           visits = JSON.parse(resp.body.split(';', 2).last)['by_date'].select{|k, v| k >= from && k < to}.map{|k, v| v}.sum
           course_ids = Course.where(account_id: account.self_and_descendant_ids).where('created_at >= ?', 30.days.ago).pluck(:id)
           courses_criteria = course_ids.size.to_r
@@ -36,7 +37,7 @@ namespace :activities do
   task :course_constructions => [:environment, 'activities:login'] do
     begin
       from = 30.days.ago.beginning_of_day.strftime('%Y-%m-%d')
-      to = Date.today.strftime('%Y-%m-%d')
+      to = Date.tomorrow.strftime('%Y-%m-%d')
 
       Course.find_each do |course|
         activity = course.teachers.map do |teacher|
@@ -48,8 +49,9 @@ namespace :activities do
                           Attachment.where(context: Assignment.where(context: course.context_modules)).count
             context_modules = course.context_modules.count
             quizzes = course.quizzes.count + Quizzes::Quiz.where(context: course.context_modules).count
-            visits = JSON.parse(resp.body.split(';', 2).last)['page_views'].select{|k, v| k >= from && k < to}.map{|k, v| v}.sum
-            wiki_pages + attachments + quizzes + visits
+            assignments = course.assignments.count + Assignment.where(context: course.context_modules).count
+            #visits = JSON.parse(resp.body.split(';', 2).last)['page_views'].select{|k, v| k >= from && k < to}.map{|k, v| v}.sum
+            wiki_pages + attachments + quizzes + assignments
           end
         end
         course.course_construction_activities.create(course_name: course.name, teacher_name: course.teachers.map(&:name).join('、'), activity: activity)
@@ -63,7 +65,7 @@ namespace :activities do
   task :course_visits => [:environment, 'activities:login'] do
     begin
       from = 30.days.ago.beginning_of_day.strftime('%Y-%m-%d')
-      to = Date.today.strftime('%Y-%m-%d')
+      to = Date.tomorrow.strftime('%Y-%m-%d')
 
       Course.find_each do |course|
         RestClient.get("http://localhost:3000/api/v1/courses/#{course.id}/analytics/activity", cookies: $cookies) do |resp|
@@ -77,5 +79,11 @@ namespace :activities do
   end
 
   desc '统计一切'
-  task :all => %w[environment activities:login activities:colleges activities:course_constructions activities:course_visits]
+  task :all => %w[
+    environment 
+    activities:login 
+    activities:colleges 
+    activities:course_constructions 
+    activities:course_visits
+  ]
 end
