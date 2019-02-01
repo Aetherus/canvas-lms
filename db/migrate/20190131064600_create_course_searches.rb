@@ -22,7 +22,7 @@ class CreateCourseSearches < ActiveRecord::Migration[5.1]
         			teacher_names text;
       			begin
 							select string_agg(users.name, ',') into teacher_names from users inner join enrollments on enrollments.type = 'TeacherEnrollment' and enrollments.course_id = new.id;
-              new.content := to_tsvector('jiebaqry', new.name || ',' || teacher_names);
+              insert into course_searches (course_id, content) values (new.id, to_tsvector('jiebaqry', new.name || ',' || teacher_names));
         			return new;
       			end
     			$$ language plpgsql;
@@ -61,8 +61,8 @@ class CreateCourseSearches < ActiveRecord::Migration[5.1]
       			begin
               if new.type = 'TeacherEnrollment' then
 							  select string_agg(users.name, ',') into teacher_names from users inner join enrollments on enrollments.type = 'TeacherEnrollment' and enrollments.course_id = new.course_id;
+                update course_searches set content = to_tsvector('jiebaqry', name || ',' || teacher_names) where course_id = new.course_id;
               end if;
-              update courses set content = to_tsvector('jiebaqry', name || ',' || teacher_names);
         			return new;
       			end
     			$$ language plpgsql;
