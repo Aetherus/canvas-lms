@@ -59,7 +59,6 @@ class AccessToken < ActiveRecord::Base
   def self.authenticate(token_string, token_key = :crypted_token)
     # hash the user supplied token with all of our known keys
     # attempt to find a token that matches one of the hashes
-    byebug
     hashed_tokens = all_hashed_tokens(token_string)
     token = self.not_deleted.where(token_key => hashed_tokens).first
     if token && token.send(token_key) != hashed_tokens.first
