@@ -20,7 +20,7 @@ import React from 'react'
 import { render, shallow } from 'enzyme'
 import Outcome from '../Outcome'
 
-const result = (id = 1, date = new Date()) => ({
+const result = (id = 1, date = new Date(), hidePoints = false) => ({
   id,
   percent: 0.1,
   assignment: {
@@ -30,8 +30,12 @@ const result = (id = 1, date = new Date()) => ({
     submission_types: '',
     score: 0
   },
+  hide_points: hidePoints,
   submitted_or_assessed_at: date.toISOString()
 })
+
+const time1 = new Date(Date.UTC(2018, 1, 1, 7, 1, 0)).toISOString()
+const time2 = new Date(Date.UTC(2019, 1, 1, 7, 1, 0)).toISOString()
 
 const defaultProps = (props = {}) => (
   Object.assign({
@@ -64,10 +68,24 @@ const defaultProps = (props = {}) => (
             name: 'My assignment',
             submission_types: 'online_quiz',
             score: 0
-          }
+          },
+          submitted_or_assessed_at: time1
+        },
+        {
+          id: 2,
+          score: 1,
+          percent: 0.1,
+          assignment: {
+            id: 'live_assessments/assessment_1',
+            name: 'My assessment',
+            submission_types: 'magic_marker',
+            score: 0
+          },
+          submitted_or_assessed_at: time2
         }
       ],
-      title: 'My outcome'
+      title: 'My outcome',
+      score: 1
     },
     expanded: false,
     onExpansionChange: () => {},
@@ -129,11 +147,29 @@ describe('header', () => {
     const summary = render(header.prop('summary'))
     expect(summary.text()).toMatch('1 alignment')
   })
+
+  it('shows points if only some results have hide points enabled', () => {
+    const props = defaultProps()
+    props.outcome.results = [result(1, undefined, false), result(2, undefined, true)]
+    const wrapper = shallow(<Outcome {...props}/>)
+    const header = wrapper.find('ToggleGroup')
+    const summary = render(header.prop('summary'))
+    expect(summary.text()).toMatch('1/5')
+  })
+
+  it('does not show points if all results have hide points enabled', () => {
+    const props = defaultProps()
+    props.outcome.results = [result(1, undefined, true), result(2, undefined, true)]
+    const wrapper = shallow(<Outcome {...props}/>)
+    const header = wrapper.find('ToggleGroup')
+    const summary = render(header.prop('summary'))
+    expect(summary.text()).not.toMatch('1/5')
+  })
 })
 
 it('includes the individual results', () => {
   const wrapper = shallow(<Outcome {...defaultProps()} />)
-  expect(wrapper.find('AssignmentResult')).toHaveLength(1)
+  expect(wrapper.find('AssignmentResult')).toHaveLength(2)
 })
 
 it('renders the results by most recent', () => {

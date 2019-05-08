@@ -441,19 +441,29 @@ module CustomSeleniumActions
 
   MODIFIER_KEY = RUBY_PLATFORM =~ /darwin/ ? :command : :control
   def replace_content(el, value, options = {})
-    # We don't use selenium el.clear because it doesn't work with textboxes that have a pattern attribute.
+    # Removed the javascript select(), it was causing stale element exceptions
+    # el.clear doesn't work with textboxes that have a pattern attribute that's why we have :backspace.
     # We are treating the chrome browser different because Selenium cannot send :command key to chrome on Mac.
     # This is a known issue and hasn't been solved yet. https://bugs.chromium.org/p/chromedriver/issues/detail?id=30
-    case driver.browser
-    when :firefox, :safari, :internet_explorer
-      keys = [[MODIFIER_KEY, "a"], :backspace]
-    when :chrome
-      driver.execute_script("arguments[0].select()", el)
-      keys = [:backspace]
+    if SeleniumDriverSetup.saucelabs_test_run?
+      el.click
+      el.send_keys [(driver.browser == :safari ? :command : :control), 'a']
+      el.send_keys(value)
+    else
+      case driver.browser
+      when :firefox, :safari, :internet_explorer
+        keys = [[MODIFIER_KEY, "a"], :backspace]
+      when :chrome
+        el.clear
+        keys = [:backspace]
+      end
+      keys << value
+      el.send_keys(*keys)
     end
-    keys << value
-    keys << :tab if options[:tab_out]
-    el.send_keys(*keys)
+
+    if options[:tab_out]
+      el.send_keys(:tab)
+    end
   end
 
   # can pass in either an element or a forms css

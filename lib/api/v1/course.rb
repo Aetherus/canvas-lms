@@ -27,6 +27,7 @@ module Api::V1::Course
 
   def course_settings_json(course)
     settings = {}
+    settings[:allow_final_grade_override] = course.allow_final_grade_override?
     settings[:allow_student_discussion_topics] = course.allow_student_discussion_topics?
     settings[:allow_student_forum_attachments] = course.allow_student_forum_attachments?
     settings[:allow_student_discussion_editing] = course.allow_student_discussion_editing?
@@ -81,7 +82,7 @@ module Api::V1::Course
   #   }
   #
   def course_json(course, user, session, includes, enrollments, subject_user = user, preloaded_progressions: nil, precalculated_permissions: nil)
-    if includes.include?('access_restricted_by_date') && enrollments && enrollments.all?(&:inactive?)
+    if includes.include?('access_restricted_by_date') && enrollments&.all?(&:inactive?) && !course.grants_right?(user, :read_as_admin)
       return {'id' => course.id, 'access_restricted_by_date' => true}
     end
 
@@ -115,7 +116,7 @@ module Api::V1::Course
       apply_nickname(hash, course, user) if user
 
       hash['image_download_url'] = course.image if includes.include?('course_image') && course.feature_enabled?('course_card_images')
-
+      hash['concluded'] = course.concluded? if includes.include?('concluded')
       apply_master_course_settings(hash, course, user)
 
       # return hash from the block for additional processing in Api::V1::CourseJson

@@ -12,6 +12,7 @@ exports[`the Rubric component hides the score total when needed 1`] = `
   <Table
     caption="Point Rubric"
     hover={false}
+    layout="auto"
     size="medium"
   >
     <thead>
@@ -48,6 +49,7 @@ exports[`the Rubric component hides the score total when needed 1`] = `
             "comments_enabled": true,
             "criterion_id": "_1384",
             "description": "bleh",
+            "editComments": true,
             "id": "7_4778",
             "learning_outcome_id": null,
             "points": Object {
@@ -108,6 +110,7 @@ exports[`the Rubric component hides the score total when needed 1`] = `
             "comments_enabled": true,
             "criterion_id": "7_391",
             "description": "Naturligvis hadde han ogsaa længe forstaat hvorfor Inger hadde.",
+            "editComments": true,
             "id": "7_6639",
             "learning_outcome_id": "612",
             "points": Object {
@@ -178,6 +181,7 @@ exports[`the Rubric component renders as expected 1`] = `
   <Table
     caption="Point Rubric"
     hover={false}
+    layout="auto"
     size="medium"
   >
     <thead>
@@ -214,6 +218,7 @@ exports[`the Rubric component renders as expected 1`] = `
             "comments_enabled": true,
             "criterion_id": "_1384",
             "description": "bleh",
+            "editComments": true,
             "id": "7_4778",
             "learning_outcome_id": null,
             "points": Object {
@@ -274,6 +279,7 @@ exports[`the Rubric component renders as expected 1`] = `
             "comments_enabled": true,
             "criterion_id": "7_391",
             "description": "Naturligvis hadde han ogsaa længe forstaat hvorfor Inger hadde.",
+            "editComments": true,
             "id": "7_6639",
             "learning_outcome_id": "612",
             "points": Object {
@@ -367,6 +373,7 @@ exports[`the Rubric component renders properly with no assessment 1`] = `
   <Table
     caption="Point Rubric"
     hover={false}
+    layout="auto"
     size="medium"
   >
     <thead>
@@ -527,6 +534,7 @@ exports[`the Rubric component updates the total score when an individual criteri
   <Table
     caption="Point Rubric"
     hover={false}
+    layout="auto"
     size="medium"
   >
     <thead>
@@ -563,6 +571,7 @@ exports[`the Rubric component updates the total score when an individual criteri
             "comments_enabled": true,
             "criterion_id": "_1384",
             "description": "bleh",
+            "editComments": true,
             "id": "7_4778",
             "learning_outcome_id": null,
             "points": Object {
@@ -622,6 +631,7 @@ exports[`the Rubric component updates the total score when an individual criteri
             "comments_enabled": true,
             "criterion_id": "7_391",
             "description": "Naturligvis hadde han ogsaa længe forstaat hvorfor Inger hadde.",
+            "editComments": true,
             "id": "7_6639",
             "learning_outcome_id": "612",
             "points": Object {

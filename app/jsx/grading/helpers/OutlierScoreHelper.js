@@ -20,7 +20,7 @@ import GRADEBOOK_TRANSLATIONS from 'compiled/gradebook/GradebookTranslations'
 
 const MULTIPLIER = 1.0
 
-function isNegativePoints (score) {
+function isNegativePoints(score) {
   return score < 0
 }
 

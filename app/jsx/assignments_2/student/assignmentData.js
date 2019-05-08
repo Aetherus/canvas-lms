@@ -18,6 +18,38 @@
 import gql from 'graphql-tag'
 import {bool, number, shape, string, arrayOf} from 'prop-types'
 
+export function GetAssignmentEnvVariables() {
+  const defaults = {
+    assignmentUrl: '',
+    currentUserId: null,
+    modulePrereq: null,
+    moduleUrl: ''
+  }
+  if (!window.ENV || !Object.keys(window.ENV).length) {
+    return defaults
+  }
+
+  const baseUrl = `${window.location.origin}/${ENV.context_asset_string.split('_')[0]}s/${
+    ENV.context_asset_string.split('_')[1]
+  }`
+  defaults.assignmentUrl = `${baseUrl}/assignments`
+  defaults.moduleUrl = `${baseUrl}/modules`
+  defaults.currentUserId = ENV.current_user_id
+
+  if (ENV.PREREQS.items && ENV.PREREQS.items.length !== 0 && ENV.PREREQS.items[0].prev) {
+    const prereq = ENV.PREREQS.items[0].prev
+    defaults.modulePrereq = {
+      title: prereq.title,
+      link: prereq.html_url,
+      __typename: 'modulePrereq'
+    }
+  } else {
+    defaults.modulePrereq = null
+  }
+
+  return {...defaults}
+}
+
 export const STUDENT_VIEW_QUERY = gql`
   query GetAssignment($assignmentLid: ID!) {
     assignment: legacyNode(type: Assignment, _id: $assignmentLid) {
@@ -26,8 +58,11 @@ export const STUDENT_VIEW_QUERY = gql`
         dueAt
         lockAt
         name
+        muted
         pointsPossible
         unlockAt
+        gradingType
+        allowedAttempts
         assignmentGroup {
           name
         }
@@ -35,11 +70,21 @@ export const STUDENT_VIEW_QUERY = gql`
           isLocked
         }
         modules {
+          id
           name
         }
-        submissionsConnection(last: 1) {
+        submissionsConnection(
+          last: 1
+          filter: {states: [unsubmitted, graded, pending_review, submitted]}
+        ) {
           nodes {
+            id
+            deductedPoints
+            enteredGrade
             grade
+            gradingStatus
+            latePolicyStatus
+            submissionStatus
           }
         }
       }
@@ -47,25 +92,115 @@ export const STUDENT_VIEW_QUERY = gql`
   }
 `
 
+export const SUBMISSION_COMMENT_QUERY = gql`
+  query GetSubmissionComments($submissionId: ID!) {
+    submissionComments: node(id: $submissionId) {
+      ... on Submission {
+        commentsConnection {
+          nodes {
+            _id
+            comment
+            updatedAt
+            mediaObject {
+              id
+              title
+              mediaType
+              mediaSources {
+                src: url
+                type: contentType
+              }
+            }
+            author {
+              avatarUrl
+              shortName
+            }
+            attachments {
+              _id
+              displayName
+              mimeClass
+              url
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+export const AttachmentShape = shape({
+  _id: string,
+  displayName: string,
+  mimeClass: string,
+  url: string
+})
+
+export const CommentShape = shape({
+  _id: string,
+  attachments: arrayOf(AttachmentShape),
+  comment: string,
+  mediaObject: MediaObjectShape,
+  author: shape({
+    avatarUrl: string,
+    shortName: string
+  }),
+  updatedAt: string
+})
+
+export const MediaObjectShape = shape({
+  id: string,
+  title: string,
+  mediaType: string,
+  mediaSources: shape({
+    src: string,
+    type: string
+  })
+})
+
 export const StudentAssignmentShape = shape({
-  description: string.isRequired,
+  description: string,
   dueAt: string,
   lockAt: string,
+  muted: bool.isRequired,
   name: string.isRequired,
   pointsPossible: number.isRequired,
   unlockAt: string,
+  gradingType: string,
+  allowedAttempts: number,
   assignmentGroup: shape({
     name: string.isRequired
+  }).isRequired,
+  env: shape({
+    assignmentUrl: string.isRequired,
+    moduleUrl: string.isRequired,
+    currentUserId: string,
+    modulePrereq: shape({
+      title: string.isRequired,
+      link: string.isRequired
+    })
   }).isRequired,
   lockInfo: shape({
     isLocked: bool.isRequired
   }).isRequired,
-  modules: arrayOf(shape({name: string.isRequired})).isRequired,
+  modules: arrayOf(
+    shape({
+      id: string.isRequired,
+      name: string.isRequired
+    }).isRequired
+  ).isRequired,
   submissionsConnection: shape({
     nodes: arrayOf(
       shape({
-        grade: string
+        commentsConnection: shape({
+          nodes: arrayOf(CommentShape)
+        }),
+        id: string,
+        deductedPoints: number,
+        enteredGrade: string,
+        grade: string,
+        gradingStatus: string,
+        latePolicyStatus: string,
+        submissionStatus: string
       })
     ).isRequired
-  }).isRequired
+  })
 })

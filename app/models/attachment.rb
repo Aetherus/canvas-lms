@@ -1057,7 +1057,7 @@ class Attachment < ActiveRecord::Base
         data = { :count => count }
         DelayedNotification.send_later_if_production_enqueue_args(
             :process,
-            { :priority => Delayed::LOW_PRIORITY },
+            { :priority => 30},
             record, notification, recipient_keys, data)
       end
     end
@@ -1369,8 +1369,9 @@ class Attachment < ActiveRecord::Base
 
   scope :not_hidden, -> { where("attachments.file_state<>'hidden'") }
   scope :not_locked, -> {
-    where("(attachments.locked IS NULL OR attachments.locked=?) AND ((attachments.lock_at IS NULL) OR
-      (attachments.lock_at>? OR (attachments.unlock_at IS NOT NULL AND attachments.unlock_at<?)))", false, Time.now.utc, Time.now.utc)
+    where("attachments.locked IS NOT TRUE
+      AND (attachments.lock_at IS NULL OR attachments.lock_at>?)
+      AND (attachments.unlock_at IS NULL OR attachments.unlock_at<?)", Time.now.utc, Time.now.utc)
   }
   scope :by_content_types, lambda { |types|
     clauses = []
@@ -1553,7 +1554,10 @@ class Attachment < ActiveRecord::Base
 
   def restore
     self.file_state = 'available'
-    self.save
+    if self.save
+      self.handle_duplicates(:rename)
+    end
+    true
   end
 
   def deleted?
@@ -1959,6 +1963,8 @@ class Attachment < ActiveRecord::Base
        self.context.respond_to?(:feature_enabled?) &&
        self.context.feature_enabled?(:usage_rights_required)
       self.locked = self.usage_rights.nil?
+    else
+      self.locked = false
     end
   end
 

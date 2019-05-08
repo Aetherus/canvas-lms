@@ -33,6 +33,7 @@ import userSettings from 'compiled/userSettings'
 import RichContentEditor from 'jsx/shared/rce/RichContentEditor'
 import MoveToDialog from 'jsx/eportfolios/MoveToDialog'
 import {fetchContent} from 'eportfolios/eportfolio_section'
+import sanitizeHtml from 'jsx/shared/sanitizeHtml'
 import './jquery.ajaxJSON'
 import './jquery.inst_tree' /* instTree */
 import './jquery.instructure_forms' /* formSubmit, getFormData, formErrors, errorBox */
@@ -201,7 +202,7 @@ import 'jqueryui/sortable'
     $("#edit_page_sidebar .submit_button").click(function(event) {
       $("#edit_page_form").submit();
     });
-    $("#edit_page_form,#edit_page_sidebar").find(".preview_button").click(function(){
+    $("#edit_page_form,#edit_page_sidebar").find("button.preview_button").click(function(){
       $("#page_content .section.failed").remove();
       $("#edit_page_form,#page_content,#page_sidebar").addClass('previewing');
       $("#page_content .section").each(function() {
@@ -209,7 +210,8 @@ import 'jqueryui/sortable'
         var $preview = $section.find(".section_content").clone().removeClass('section_content').addClass('preview_content').addClass('preview_section');
         var section_type = $section.getTemplateData({textValues: ['section_type']}).section_type;
         if(section_type == "html") {
-          $preview.html($section.find(".edit_section").val());
+          // xsslint safeString.function sanitizeHtml
+          $preview.html(sanitizeHtml($section.find(".edit_section").val()));
           $section.find(".section_content").after($preview);
         } else if (section_type == "rich_text") {
           var $richText = $section.find('.edit_section');
@@ -242,7 +244,6 @@ import 'jqueryui/sortable'
           var $section = $(this)
           var section_type = $section.getTemplateData({textValues: ['section_type']}).section_type;
           if(section_type == "rich_text" || section_type == "html") {
-            var code = $section.find(".edit_section").val();
             if(section_type == "rich_text") {
               var $richText = $section.find('.edit_section')
               var editorContent = RichContentEditor.callOnRCE($richText, "get_code")
@@ -251,6 +252,7 @@ import 'jqueryui/sortable'
               }
               RichContentEditor.destroyRCE($richText);
             } else {
+              const code = sanitizeHtml($section.find(".edit_section").val());
               $section.find(".section_content").html($.raw(code));
             }
           } else if(!$section.hasClass('read_only')) {
@@ -481,6 +483,21 @@ import 'jqueryui/sortable'
         $section.addClass('failed');
         $(this).remove();
         $section.formErrors(data.errors || data);
+      }
+    });
+    $("#recent_submissions .submission").keydown(function(event) {
+      const count = $(event.target).closest('a').length
+      if (count === 0 || count === 1) {
+        const code = event.which;
+        if ((code === 13) || (code === 32)) {
+          if (count === 0) {
+            // Add Submission
+            $(this).click();
+          } else if (count === 1) {
+            // Open Submission
+            $(event.target).closest('a')[0].click();
+          }
+        }
       }
     });
     $("#recent_submissions .submission").click(function(event) {

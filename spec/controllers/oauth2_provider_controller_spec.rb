@@ -374,6 +374,12 @@ describe Oauth2ProviderController do
           expect(json.keys.sort).to match_array(success_token_keys)
           expect(json['token_type']).to eq 'Bearer'
         end
+
+        context 'with global_id as client_id' do
+          let(:client_id) { key.global_id }
+
+          it { is_expected.to have_http_status(200) }
+        end
       end
 
       context 'invalid grant_type provided' do
@@ -497,7 +503,7 @@ describe Oauth2ProviderController do
 
     context 'client_credentials' do
       let(:grant_type) { 'client_credentials' }
-      let(:aud) { Rails.application.routes.url_helpers.oauth2_token_url host: 'test.host' }
+      let(:aud) { Rails.application.routes.url_helpers.oauth2_token_url(host: 'test.host', protocol: 'https://') }
       let(:iat) { 1.minute.ago.to_i }
       let(:exp) { 10.minutes.from_now.to_i }
       let(:signing_key) { JSON::JWK.new(key.private_jwk) }
@@ -545,7 +551,7 @@ describe Oauth2ProviderController do
         end
 
         context 'with aud as an array' do
-          let(:aud) { [Rails.application.routes.url_helpers.oauth2_token_url(host: 'test.host'), 'doesnotexist'] }
+          let(:aud) { [Rails.application.routes.url_helpers.oauth2_token_url(host: 'test.host', protocol: 'https://'), 'doesnotexist'] }
 
           it { is_expected.to have_http_status 200 }
         end
@@ -554,6 +560,17 @@ describe Oauth2ProviderController do
           let(:exp) { 1.minute.ago.to_i }
 
           it { is_expected.to have_http_status 400 }
+        end
+
+        context 'with iat in the future by a small amount' do
+          let(:future_iat_time) { 5.seconds.from_now }
+          let(:iat) { future_iat_time.to_i }
+
+          it 'returns an access token' do
+            Timecop.freeze(future_iat_time - 5.seconds) do
+              expect(subject).to have_http_status 200
+            end
+          end
         end
 
         context 'with bad iat' do
@@ -588,15 +605,15 @@ describe Oauth2ProviderController do
           end
         end
 
-        context 'with replayed jwt' do
-          it 'returns 400' do
+        context 'with same token' do
+          it 'returns 200' do
             enable_cache do
               expect(subject).to have_http_status 200
               Setting.set('oauth.allowed_timestamp_future_skew', 0.seconds)
 
               parameters = {grant_type: 'client_credentials' }.merge(client_credentials_params)
               post :token, params: parameters
-              expect(response).to have_http_status 400
+              expect(response).to have_http_status 200
             end
           end
         end

@@ -1,0 +1,38 @@
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _reduxActions = require('redux-actions');
+
+function mergeGradesIntoCourses(courses, action) {
+  var grades = action.payload;
+  return courses.map(function (course) {
+    var newCourse = Object.assign({}, course, grades[course.id]);
+    delete newCourse.courseId; // remove confusing duplicate field
+    return newCourse;
+  });
+} /*
+   * Copyright (C) 2017 - present Instructure, Inc.
+   *
+   * This file is part of Canvas.
+   *
+   * Canvas is free software: you can redistribute it and/or modify it under
+   * the terms of the GNU Affero General Public License as published by the Free
+   * Software Foundation, version 3 of the License.
+   *
+   * Canvas is distributed in the hope that they will be useful, but WITHOUT ANY
+   * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+   * A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+   * details.
+   *
+   * You should have received a copy of the GNU Affero General Public License along
+   * with this program. If not, see <http://www.gnu.org/licenses/>.
+   */
+exports.default = (0, _reduxActions.handleActions)({
+  INITIAL_OPTIONS: function INITIAL_OPTIONS(state, action) {
+    return action.payload.courses;
+  },
+  GOT_GRADES_SUCCESS: mergeGradesIntoCourses
+}, []);

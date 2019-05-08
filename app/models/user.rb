@@ -38,8 +38,10 @@ class User < ActiveRecord::Base
   attr_accessor :previous_id, :menu_data, :gradebook_importer_submissions, :prior_enrollment
 
   before_save :infer_defaults
+  before_validation :ensure_lti_id, on: :update
   after_create :set_default_feature_flags
   after_update :clear_cached_short_name, if: -> (user) {user.saved_change_to_short_name? || (user.read_attribute(:short_name).nil? && user.saved_change_to_name?)}
+  validate :preserve_lti_id, on: :update
 
   serialize :preferences
   include TimeZoneHelper
@@ -164,6 +166,7 @@ class User < ActiveRecord::Base
 
   has_many :progresses, :as => :context, :inverse_of => :context
   has_many :one_time_passwords, -> { order(:id) }, inverse_of: :user
+  has_many :past_lti_ids, class_name: 'UserPastLtiId', inverse_of: :user
 
   belongs_to :otp_communication_channel, :class_name => 'CommunicationChannel'
 
@@ -293,8 +296,6 @@ class User < ActiveRecord::Base
       order("enrollment_rank").
       order_by_sortable_name
   end
-
-  scope :enrolled_in_course_between, lambda { |course_ids, start_at, end_at| joins(:enrollments).where(:enrollments => { :course_id => course_ids, :created_at => start_at..end_at }) }
 
   scope :with_last_login, lambda {
     select("users.*, MAX(current_login_at) as last_login").
@@ -755,7 +756,16 @@ class User < ActiveRecord::Base
     self.reminder_time_for_due_dates ||= 48.hours.to_i
     self.reminder_time_for_grading ||= 0
     self.initial_enrollment_type = nil unless ['student', 'teacher', 'ta', 'observer'].include?(initial_enrollment_type)
+    self.lti_id ||= SecureRandom.uuid
     true
+  end
+
+  def preserve_lti_id
+    errors.add(:lti_id, 'Cannot change lti_id!') if lti_id_changed? && lti_id_was != nil
+  end
+
+  def ensure_lti_id
+    self.lti_id ||= SecureRandom.uuid
   end
 
   def set_default_feature_flags
@@ -1502,6 +1512,16 @@ class User < ActiveRecord::Base
     preferences[:create_announcements_unlocked] = bool
   end
 
+  def default_notifications_disabled=(val)
+    # if this is set then all notifications will be disabled by default
+    # for the user and will need to be explicitly enabled
+    preferences[:default_notifications_disabled] = val
+  end
+
+  def default_notifications_disabled?
+    !!preferences[:default_notifications_disabled]
+  end
+
   def use_new_conversations?
     true
   end
@@ -1778,6 +1798,12 @@ class User < ActiveRecord::Base
   def participating_instructor_course_ids
     cached_course_ids('participating_instructor') do |enrollments|
       enrollments.of_instructor_type.current.active_by_date
+    end
+  end
+
+  def participating_instructor_course_with_concluded_ids
+    cached_course_ids('participating_instructor_with_concluded') do |enrollments|
+      enrollments.of_instructor_type.current_and_concluded.not_inactive_by_date
     end
   end
 

@@ -29,12 +29,7 @@ beforeAll(() => {
     fixtures.setAttribute('id', 'fixtures')
     document.body.appendChild(fixtures)
   }
-  global.ENV = {}
-  global.ENV.context_asset_string = 'course_1'
-})
-
-afterAll(() => {
-  global.ENV = null
+  window.pageYOffset = 0
 })
 
 afterEach(() => {
@@ -42,7 +37,86 @@ afterEach(() => {
 })
 
 it('renders normally', () => {
-  ReactDOM.render(<Header assignment={mockAssignment()} />, document.getElementById('fixtures'))
-  const element = $('[data-test-id="assignments-2-student-header"]')
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={mockAssignment()} />,
+    document.getElementById('fixtures')
+  )
+  const element = $('[data-testid="assignments-2-student-header"]')
   expect(element).toHaveLength(1)
+})
+
+it('dispatches scroll event properly when less than threshold', () => {
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={mockAssignment()} />,
+    document.getElementById('fixtures')
+  )
+  const scrollEvent = new Event('scroll')
+  window.pageYOffset = 100
+  window.dispatchEvent(scrollEvent)
+  const foundClassElement = $('[data-test-id="assignment-student-header-normal"]')
+  expect(foundClassElement).toHaveLength(1)
+})
+
+it('dispatches scroll event properly when greather than threshold', () => {
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={mockAssignment()} />,
+    document.getElementById('fixtures')
+  )
+  const scrollEvent = new Event('scroll')
+  window.pageYOffset = 500
+  window.dispatchEvent(scrollEvent)
+  const foundClassElement = $('[data-test-id="assignment-student-header-sticky"]')
+  expect(foundClassElement).toHaveLength(1)
+})
+
+it('displays element filler when scroll offset is in correct place', () => {
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={mockAssignment()} />,
+    document.getElementById('fixtures')
+  )
+  const scrollEvent = new Event('scroll')
+  window.pageYOffset = 100
+  window.dispatchEvent(scrollEvent)
+  const normalHeader = $('[data-test-id="assignment-student-header-normal"]')
+  expect(normalHeader).toHaveLength(1)
+  window.pageYOffset = 200
+  window.dispatchEvent(scrollEvent)
+  const fillerElement = $('[data-test-id="header-element-filler"]')
+  expect(fillerElement).toHaveLength(1)
+  const stickyHeader = $('.assignment-student-header-sticky')
+  expect(stickyHeader).toHaveLength(1)
+})
+
+it('will not render LatePolicyStatusDisplay if the submission is not late', () => {
+  const assignment = mockAssignment()
+  assignment.submissionsConnection.nodes[0].latePolicyStatus = null
+  assignment.submissionsConnection.nodes[0].submissionStatus = null
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={assignment} />,
+    document.getElementById('fixtures')
+  )
+  const foundClassElement = $('[data-test-id="late-policy-container"]')
+  expect(foundClassElement).toHaveLength(0)
+})
+
+it('will render LatePolicyStatusDisplay if the submission status is late', () => {
+  const assignment = mockAssignment()
+  assignment.submissionsConnection.nodes[0].latePolicyStatus = null
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={assignment} />,
+    document.getElementById('fixtures')
+  )
+  const foundClassElement = $('[data-test-id="late-policy-container"]')
+  expect(foundClassElement).toHaveLength(1)
+})
+
+it('will render LatePolicyStatusDisplay if the latePolicyStatus is late status is late', () => {
+  const assignment = mockAssignment()
+  assignment.submissionsConnection.nodes[0].submissionStatus = null
+  ReactDOM.render(
+    <Header scrollThreshold={150} assignment={assignment} />,
+    document.getElementById('fixtures')
+  )
+  const foundClassElement = $('[data-test-id="late-policy-container"]')
+  expect(foundClassElement).toHaveLength(1)
 })

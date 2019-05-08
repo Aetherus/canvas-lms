@@ -17,16 +17,24 @@
  */
 
 import I18n from 'i18n!assignments_2_student_header_date_title'
+import {bool, string} from 'prop-types'
+import {StudentAssignmentShape} from '../assignmentData'
+import Text from '@instructure/ui-elements/lib/components/Text'
 
 import React from 'react'
 import Steps from '../../shared/Steps'
 import StepItem from '../../shared/Steps/StepItem'
 
-function availableStepContainer() {
+function availableStepContainer(props) {
   return (
     <div className="steps-container">
-      <Steps>
-        <StepItem label={I18n.t('Avaible')} status="complete" />
+      {props.isCollapsed && (
+        <div className="steps-main-status-label">
+          <Text weight="bold">{props.collapsedLabel}</Text>
+        </div>
+      )}
+      <Steps isCollapsed={props.isCollapsed}>
+        <StepItem label={I18n.t('Available')} status="complete" />
         <StepItem
           status="in-progress"
           label={status =>
@@ -48,10 +56,20 @@ function availableStepContainer() {
   )
 }
 
-function unavailableStepContainer() {
+availableStepContainer.propTypes = {
+  isCollapsed: bool,
+  collapsedLabel: string
+}
+
+function unavailableStepContainer(props) {
   return (
     <div className="steps-container">
-      <Steps>
+      {props.isCollapsed && (
+        <div className="steps-main-status-label">
+          <Text weight="bold">{props.collapsedLabel}</Text>
+        </div>
+      )}
+      <Steps isCollapsed={props.isCollapsed}>
         <StepItem label={I18n.t('Unavailable')} status="unavailable" />
         <StepItem label={I18n.t('Upload')} />
         <StepItem label={I18n.t('Submit')} />
@@ -61,15 +79,26 @@ function unavailableStepContainer() {
   )
 }
 
-function StepContainer(props) {
-  const {assignment} = props
+unavailableStepContainer.propTypes = {
+  isCollapsed: bool,
+  collapsedLabel: string
+}
 
-  // TODO render the step-container based on the actual assignment data.
-  if (assignment.lockInfo.isLocked) {
-    return unavailableStepContainer()
+function StepContainer(props) {
+  const {assignment, isCollapsed, collapsedLabel, forceLockStatus} = props
+
+  // TODO: render the step-container based on the actual assignment data.
+  if (forceLockStatus || assignment.lockInfo.isLocked) {
+    return unavailableStepContainer({isCollapsed, collapsedLabel})
   } else {
-    return availableStepContainer()
+    return availableStepContainer({isCollapsed, collapsedLabel})
   }
+}
+
+StepContainer.propTypes = {
+  assignment: StudentAssignmentShape,
+  collapsedLabel: string.isRequired,
+  forceLockStatus: bool
 }
 
 export default React.memo(StepContainer)

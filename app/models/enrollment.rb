@@ -439,19 +439,20 @@ class Enrollment < ActiveRecord::Base
 
   def create_linked_enrollment_for(observer)
     # we don't want to create a new observer enrollment if one exists
-    enrollment = linked_enrollment_for(observer)
-    return true if enrollment && !enrollment.deleted?
-    return false unless observer.can_be_enrolled_in_course?(course)
-    enrollment ||= observer.observer_enrollments.build
-    enrollment.associated_user_id = user_id
-    enrollment.shard = shard if enrollment.new_record?
-    enrollment.update_from(self, !!@skip_broadcasts)
+    self.class.unique_constraint_retry do
+      enrollment = linked_enrollment_for(observer)
+      return true if enrollment && !enrollment.deleted?
+      return false unless observer.can_be_enrolled_in_course?(course)
+      enrollment ||= observer.observer_enrollments.build
+      enrollment.associated_user_id = user_id
+      enrollment.shard = shard if enrollment.new_record?
+      enrollment.update_from(self, !!@skip_broadcasts)
+    end
   end
 
   def linked_enrollment_for(observer)
     observer.observer_enrollments.where(
       :associated_user_id => user_id,
-      :course_id => course_id,
       :course_section_id => course_section_id_before_last_save || course_section_id).
         shard(Shard.shard_for(course_id)).first
   end
@@ -659,13 +660,14 @@ class Enrollment < ActiveRecord::Base
   end
 
   def accept(force = false)
-    return false unless force || invited?
-    self.user.dashboard_messages.where(:context_id => self, :context_type => 'Enrollment').delete_all if self.user
-    update_attribute(:workflow_state, 'active')
-    if self.type == 'StudentEnrollment'
-      Enrollment.recompute_final_score_in_singleton(self.user_id, self.course_id)
+    Shackles.activate(:master) do
+      return false unless force || invited?
+      update_attribute(:workflow_state, 'active')
+      if self.type == 'StudentEnrollment'
+        Enrollment.recompute_final_score_in_singleton(self.user_id, self.course_id)
+      end
+      touch_user
     end
-    touch_user
   end
 
   def reset_notifications_cache
@@ -1066,7 +1068,7 @@ class Enrollment < ActiveRecord::Base
   def effective_current_grade(id_opts=nil)
     score = find_score(id_opts)
 
-    if score&.overridden? && course.feature_enabled?(:final_grades_override)
+    if score&.overridden? && course.allow_final_grade_override?
       score.effective_final_grade
     else
       computed_current_grade(id_opts)
@@ -1076,8 +1078,8 @@ class Enrollment < ActiveRecord::Base
   def effective_current_score(id_opts=nil)
     score = find_score(id_opts)
 
-    if score&.overridden? && course.feature_enabled?(:final_grades_override)
-      score.effective_final_score_lower_bound
+    if score&.overridden? && course.allow_final_grade_override?
+      score.effective_final_score
     else
       computed_current_score(id_opts)
     end
@@ -1086,7 +1088,7 @@ class Enrollment < ActiveRecord::Base
   def effective_final_grade(id_opts=nil)
     score = find_score(id_opts)
 
-    if score&.overridden? && course.feature_enabled?(:final_grades_override)
+    if score&.overridden? && course.allow_final_grade_override?
       score.effective_final_grade
     else
       computed_final_grade(id_opts)
@@ -1096,21 +1098,21 @@ class Enrollment < ActiveRecord::Base
   def effective_final_score(id_opts=nil)
     score = find_score(id_opts)
 
-    if score&.overridden? && course.feature_enabled?(:final_grades_override)
-      score.effective_final_score_lower_bound
+    if score&.overridden? && course.allow_final_grade_override?
+      score.effective_final_score
     else
       computed_final_score(id_opts)
     end
   end
 
   def override_grade(id_opts=nil)
-    return nil unless course.feature_enabled?(:final_grades_override) && course.grading_standard_enabled?
+    return nil unless course.allow_final_grade_override? && course.grading_standard_enabled?
     score = find_score(id_opts)
     score.effective_final_grade if score&.override_score
   end
 
   def override_score(id_opts=nil)
-    return nil unless course.feature_enabled?(:final_grades_override)
+    return nil unless course.allow_final_grade_override?
     score = find_score(id_opts)
     score&.override_score
   end

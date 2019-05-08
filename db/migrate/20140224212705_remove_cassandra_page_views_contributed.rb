@@ -27,8 +27,6 @@ class RemoveCassandraPageViewsContributed < ActiveRecord::Migration[4.2]
   def self.runnable?
     # cassandra 1.2.x doesn't support dropping columns, oddly enough
     return false unless super
-    require 'byebug'
-    byebug
     server_version = cassandra.db.connection.describe_version()
     server_version < '19.35.0' || server_version >= '19.39.0'
   end

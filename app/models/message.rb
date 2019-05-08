@@ -46,7 +46,7 @@ class Message < ActiveRecord::Base
 
     delegate :deliver, :dispatch_at, :to => :message
     def message
-      @message ||= Message.where(:id => @id, :created_at => @created_at).first
+      @message ||= Message.where(:id => @id, :created_at => @created_at).first || Message.where(:id => @id).first
     end
   end
 
@@ -597,7 +597,7 @@ class Message < ActiveRecord::Base
     end
 
     check_acct = (user && user.account) || Account.site_admin
-    if check_acct.feature_enabled?(:notification_service) && path_type != "yo"
+    if check_acct.feature_enabled?(:notification_service)
       enqueue_to_sqs
     else
       send(delivery_method)

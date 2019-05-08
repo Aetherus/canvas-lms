@@ -30,9 +30,6 @@ class Conversation < ActiveRecord::Base
   validates_length_of :subject, :maximum => maximum_string_length, :allow_nil => true
 
   attr_accessor :latest_messages_from_stream_item
-  self.send_to_stream_update_block = lambda { |conversation|
-    User.where(:id => conversation.conversation_message_participants.distinct.except(:order).pluck(:user_id)).to_a
-  }
 
   def participants(reload = false)
     if !@participants || reload
@@ -278,10 +275,11 @@ class Conversation < ActiveRecord::Base
       if options[:update_participants]
         update_participants(message, options)
       end
-      # now that the message participants are all saved, we can properly broadcast to recipients
-      message.after_participants_created_broadcast
       message
     end
+
+    # now that the message participants are all saved, we can properly broadcast to recipients
+    message.after_participants_created_broadcast
     send_later_if_production(:reset_unread_counts) if options[:reset_unread_counts]
     message
   end
@@ -546,7 +544,7 @@ class Conversation < ActiveRecord::Base
     return unless private_hash_changed?
     existing = self.shard.activate do
       ConversationParticipant.unscoped do
-        ConversationParticipant.where(private_hash: private_hash).first.try(:conversation)
+        ConversationParticipant.where(private_hash: private_hash).take&.conversation
       end
     end
     if existing
