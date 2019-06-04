@@ -30,19 +30,38 @@ class AccountReportRunner < ActiveRecord::Base
     state :aborted
   end
 
+  attr_accessor :rows
+
+  def initialize(*)
+    @rows = []
+    super
+  end
+
+  def write_rows
+    return if rows.empty?
+    Shackles.activate(:master) do
+      self.class.bulk_insert_objects(rows)
+      @rows = []
+    end
+  end
+
   def start
+    @rows ||= []
     self.update_attributes!(workflow_state: 'running', started_at: Time.now.utc)
   end
 
   def complete
+    write_rows
     self.update_attributes!(workflow_state: 'completed', ended_at: Time.now.utc)
   end
 
   def abort
+    write_rows
     self.update_attributes!(workflow_state: 'aborted', ended_at: Time.now.utc)
   end
 
   def fail
+    write_rows
     self.update_attributes!(workflow_state: 'error', ended_at: Time.now.utc)
   end
 
@@ -51,8 +70,7 @@ class AccountReportRunner < ActiveRecord::Base
   scope :incomplete, -> {where(workflow_state: %w(created running))}
 
   def delete_account_report_rows
-    self.account_report_rows.find_ids_in_batches(batch_size: 10_000) do |batch|
-      AccountReportRow.where(id: batch).delete_all
-    end
+    cleanup = self.account_report_rows.limit(10_000)
+    until cleanup.delete_all < 10_000; end
   end
 end

@@ -451,7 +451,7 @@ class OutcomeResultsController < ApplicationController
   end
 
   def include_assignments
-    assignments = @results.map(&:assignment)
+    assignments = @results.map { |result| result.assignment || result.alignment&.content }
     outcome_results_assignments_json(assignments)
   end
 
@@ -580,7 +580,7 @@ class OutcomeResultsController < ApplicationController
   def users_for_outcome_context
     # this only works for courses; when other context types are added, this will
     # need to treat them differently.
-    apply_sort_order(@context.students)
+    apply_sort_order(@context.all_students)
   end
 
   def apply_sort_order(relation)

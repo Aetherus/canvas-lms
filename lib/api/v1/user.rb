@@ -52,8 +52,9 @@ module Api::V1::User
       enrollment_json_opts = {current_grading_period_scores: includes.include?('current_grading_period_scores')}
       if includes.include?('sis_user_id') || (!excludes.include?('pseudonym') && user_json_is_admin?(context, current_user))
         include_root_account = @domain_root_account.trust_exists?
-        sis_context = enrollment || @domain_root_account
-        pseudonym = SisPseudonym.for(user, sis_context, type: :implicit, require_sis: false)
+        course_or_section = @context if (@context.is_a?(Course) || @context.is_a?(CourseSection))
+        sis_context = enrollment || course_or_section || @domain_root_account
+        pseudonym = SisPseudonym.for(user, sis_context, type: :implicit, require_sis: false, root_account: @domain_root_account)
         enrollment_json_opts[:sis_pseudonym] = pseudonym if pseudonym&.sis_user_id
         # the sis fields on pseudonym are poorly named -- sis_user_id is
         # the id in the SIS import data, where on every other table
@@ -88,8 +89,9 @@ module Api::V1::User
         json[:email] = user.email
       end
 
-      if includes.include?('bio') && !excludes.include?('personal_info') && @domain_root_account.enable_profiles? && user.profile
-        json[:bio] = user.profile.bio
+      if !excludes.include?('personal_info') && @domain_root_account&.enable_profiles? && user.profile
+        json[:bio] = user.profile.bio if includes.include?('bio')
+        json[:title] = user.profile.title if includes.include?('title')
       end
 
       if includes.include?('sections')
@@ -138,7 +140,13 @@ module Api::V1::User
       end
 
       if includes.include?('lti_id')
-        json[:lti_id] = user.lti_context_id
+        json[:lti_id] = Lti::Asset.old_id_for_user_in_context(user, context) || user.lti_context_id
+      end
+
+      if includes.include?('uuid')
+        past_uuid = UserPastLtiId.uuid_for_user_in_context(user, context)
+        json[:past_uuid] = past_uuid unless past_uuid == user.uuid
+        json[:uuid] = user.uuid
       end
     end
   end
@@ -255,7 +263,7 @@ module Api::V1::User
         json[:course_integration_id] = enrollment.course.integration_id
         json[:sis_section_id] = enrollment.course_section.sis_source_id
         json[:section_integration_id] = enrollment.course_section.integration_id
-        pseudonym = opts.key?(:sis_pseudonym) ? opts[:sis_pseudonym] : sis_pseudonym_for(enrollment.user, enrollment)
+        pseudonym = opts.key?(:sis_pseudonym) ? opts[:sis_pseudonym] : SisPseudonym.for(enrollment.user, enrollment, type: :trusted, root_account: @domain_root_account)
         json[:sis_user_id] = pseudonym.try(:sis_user_id)
       end
       json[:html_url] = course_user_url(enrollment.course_id, enrollment.user_id)
@@ -353,15 +361,11 @@ module Api::V1::User
     sis_id_context(context).grants_right?(user, :read_sis) || @domain_root_account.grants_right?(user, :manage_sis)
   end
 
-  def sis_pseudonym_for(user, context=@domain_root_account)
-    SisPseudonym.for(user, context, type: :trusted)
-  end
-
   def group_ids(user)
     if user.group_memberships.loaded?
-      user.group_memberships.map(&:group_id)
+      user.group_memberships.reject(&:deleted?).map(&:group_id)
     else
-      user.group_memberships.pluck(:group_id)
+      user.group_memberships.active.pluck(:group_id)
     end
   end
 end

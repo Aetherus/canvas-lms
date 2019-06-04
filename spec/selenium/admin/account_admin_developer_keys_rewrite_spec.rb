@@ -251,7 +251,7 @@ describe 'Developer Keys' do
         fj("span:contains('On'):last").click
         click_inherited_tab
         click_account_tab
-        expect(fxpath("//*[@data-automation='devKeyAdminTable']/tbody/tr/td[5]/fieldset/span/span/span/span[2]/span/span/span[1]/div/label/span[1]").css_value('background-color')).to be_truthy
+        expect(f("table[data-automation='devKeyAdminTable'] input[value='on']").attribute('tabindex')).to eq "0"
       end
 
       it "persists state when switching between inheritance and account tabs", test_id: 3488600 do
@@ -263,8 +263,7 @@ describe 'Developer Keys' do
         fj("span:contains('Off'):last").click
         click_account_tab
         click_inherited_tab
-        expect(fj("fieldset:last")).not_to have_attribute('aria-disabled')
-        expect(fxpath("//*[@data-automation='devKeyAdminTable']/tbody/tr[1]/td[3]/fieldset/span/span/span/span[2]/span/span/span[2]/div/label/span[2]").css_value('background-color')).to be_truthy
+        expect(f("table[data-automation='devKeyAdminTable'] input[value='off']").attribute('tabindex')).to eq "0"
       end
 
       it "only show create developer key button for account tab panel" do
@@ -361,7 +360,7 @@ describe 'Developer Keys' do
 
       it "adds scopes to backend developer key via UI in site admin" do
         site_admin_logged_in
-        expand_scope_group_by_filter('Assignment Groups', Account.site_admin.id)
+        expand_scope_group_by_filter('Assignment Groups', Account.default.id)
         click_scope_group_checkbox
         find_button("Save Key").click
         wait_for_ajaximations

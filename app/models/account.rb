@@ -245,6 +245,8 @@ class Account < ActiveRecord::Base
   # For setting the default dashboard (e.g. Student Planner/List View, Activity Stream, Dashboard Cards)
   add_setting :default_dashboard_view, :inheritable => true
 
+  add_setting :require_confirmed_email, :boolean => true, :root_only => true, :default => false
+
   def settings=(hash)
     if hash.is_a?(Hash) || hash.is_a?(ActionController::Parameters)
       hash.each do |key, val|
@@ -1327,7 +1329,7 @@ class Account < ActiveRecord::Base
   end
 
   def self.update_all_update_account_associations
-    Account.root_accounts.active.find_each(&:update_account_associations)
+    Account.root_accounts.active.non_shadow.find_each(&:update_account_associations)
   end
 
   def course_count
@@ -1488,15 +1490,19 @@ class Account < ActiveRecord::Base
           link[:type] = 'custom'
         end
       end
-      links = HelpLinks.map_default_links(links)
+      links = help_links_builder.map_default_links(links)
     end
 
     result = if settings[:new_custom_help_links]
-      links || HelpLinks.default_links
+      links || help_links_builder.default_links
     else
-      HelpLinks.default_links + (links || [])
+      help_links_builder.default_links + (links || [])
     end
-    HelpLinks.instantiate_links(result)
+    help_links_builder.instantiate_links(result)
+  end
+
+  def help_links_builder
+    @help_links_builder ||= HelpLinks.new(self)
   end
 
   def set_service_availability(service, enable)
@@ -1756,4 +1762,26 @@ class Account < ActiveRecord::Base
   end
   handle_asynchronously :update_user_dashboards, :priority => Delayed::LOW_PRIORITY, :max_attempts => 1
 
+  def process_external_integration_keys(params_keys, current_user)
+    return unless params_keys
+
+    ExternalIntegrationKey.indexed_keys_for(self).each do |key_type, key|
+      next unless params_keys.key?(key_type)
+      next unless key.grants_right?(current_user, :write)
+      unless params_keys[key_type].blank?
+        key.key_value = params_keys[key_type]
+        key.save!
+      else
+        key.delete
+      end
+    end
+  end
+
+  def available_course_visibility_override_options(_options=nil)
+    {}
+  end
+
+  def user_needs_verification?(user)
+    self.require_confirmed_email? && (user.nil? || !user.cached_active_emails.any?)
+  end
 end

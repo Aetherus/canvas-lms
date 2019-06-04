@@ -86,7 +86,7 @@ class Oauth2ProviderController < ApplicationController
 
   def deny
     params = { error: "access_denied" }
-    params[:state] = session[:oauth2][:state] if session[:oauth2][:state]
+    params[:state] = session[:oauth2][:state] if session[:oauth2].key? :state
     redirect_to Canvas::Oauth::Provider.final_redirect(self, params)
   end
 
@@ -114,6 +114,8 @@ class Oauth2ProviderController < ApplicationController
       assign_localizer
       I18n.set_locale_with_localizer
     end
+
+    increment_request_cost(Setting.get("oauth_token_additional_request_cost", "200").to_i)
 
     render :json => token
   end

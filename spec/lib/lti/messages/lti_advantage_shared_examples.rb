@@ -133,7 +133,7 @@ RSpec.shared_context 'lti_advantage_shared_examples' do
     end
 
     it 'adds security claims' do
-      expected_sub = Lti::Asset.opaque_identifier_for(user)
+      expected_sub = user.lti_id
       expect(jws['sub']).to eq expected_sub
     end
   end

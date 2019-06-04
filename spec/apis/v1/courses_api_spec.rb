@@ -77,18 +77,6 @@ describe Api::V1::Course do
       expect(@test_api.course_json(@course1, @me, {}, [], [])).to include "apply_assignment_group_weights"
     end
 
-    it "should not show details if user is restricted from access by course dates" do
-      @student = student_in_course(:course => @course2).user
-      @course2.start_at = 3.weeks.ago
-      @course2.conclude_at = 2.weeks.ago
-      @course2.restrict_enrollments_to_course_dates = true
-      @course2.restrict_student_past_view = true
-      @course2.save!
-
-      json = @test_api.course_json(@course2, @student, {}, ['access_restricted_by_date'], @student.student_enrollments)
-      expect(json).to eq({"id" => @course2.id, "access_restricted_by_date" => true})
-    end
-
     it "should include course progress" do
       mod = @course2.context_modules.create!(:name => "some module", :require_sequential_progress => true)
       assignment = @course2.assignments.create!(:title => "some assignment")
@@ -335,6 +323,38 @@ describe Api::V1::Course do
         expect(json["blueprint"]).to eq true
         expect(json["blueprint_restrictions_by_object_type"]["assignment"]["points"]).to eq true
         expect(json["blueprint_restrictions_by_object_type"]["quiz"]["content"]).to eq true
+      end
+    end
+
+    context "students restricted from access by course dates" do
+      before(:once) do
+        @student = student_in_course(:course => @course2).user
+        @course2.start_at = 3.weeks.ago
+        @course2.conclude_at = 2.weeks.ago
+        @course2.restrict_enrollments_to_course_dates = true
+        @course2.restrict_student_past_view = true
+        @course2.save!
+      end
+
+      let(:json) do
+        @test_api.course_json(
+          @course2,
+          @calling_user,
+          {},
+          ['access_restricted_by_date'],
+          @student.student_enrollments
+        )
+      end
+
+      it "should not show details if the calling user is restricted from access by course dates" do
+        @calling_user = @student
+        expect(json).to eq({"id" => @course2.id, "access_restricted_by_date" => true})
+      end
+
+      it "should show details if calling user is an admin when the requested " \
+      "user is restricted from access by course dates" do
+        @calling_user = account_admin_user
+        expect(json).to include "enrollments"
       end
     end
   end
@@ -597,9 +617,7 @@ describe CoursesController, type: :request do
     end
     it "should return a course list for an observed students" do
       parent = User.create
-      parent.as_observer_observation_links.create! do |uo|
-        uo.user_id = @me.id
-      end
+      add_linked_observer(@me, parent)
       json = api_call_as_user(parent,:get,"/api/v1/users/#{@me.id}/courses",
                               { :user_id => @me.id, :controller => 'courses', :action => 'user_index',
                                 :format => 'json' })
@@ -622,10 +640,7 @@ describe CoursesController, type: :request do
       @shard2.activate do
         a = Account.create
         parent = user_with_pseudonym(name: 'Zombo', username: 'nobody2@example.com', account: a)
-        parent.as_observer_observation_links.create! do |uo|
-          uo.user_id = @me.id
-        end
-        parent.save!
+        add_linked_observer(@me, parent)
       end
       expect(@me.account.id).not_to eq parent.account.id
       json = api_call_as_user(parent,:get,"/api/v1/users/#{@me.id}/courses",
@@ -743,7 +758,8 @@ describe CoursesController, type: :request do
             'sis_course_id'                        => '12345',
             'public_description'                   => 'Nature is lethal but it doesn\'t hold a candle to man.',
             'course_format'                        => 'online',
-            'time_zone'                            => 'America/Juneau'
+            'time_zone'                            => 'America/Juneau',
+            'license'                              => 'cc_by_sa'
           }
         }
         course_response = post_params['course'].merge({
@@ -812,7 +828,8 @@ describe CoursesController, type: :request do
             'sis_course_id'                        => '12345',
             'sis_import_id'                        => nil,
             'public_description'                   => 'Nature is lethal but it doesn\'t hold a candle to man.',
-            'time_zone'                            => 'America/Chicago'
+            'time_zone'                            => 'America/Chicago',
+            'license'                              => 'cc_by_sa'
           }
         }
         course_response = post_params['course'].merge({
@@ -860,6 +877,18 @@ describe CoursesController, type: :request do
         )
         new_course = Course.find(json['id'])
         expect(new_course).to be_available
+      end
+
+      it "doesn't allow creating a published course for unverified users if account requires it" do
+        @account.settings[:require_confirmed_email] = true
+        @account.save!
+
+        json = api_call(:post, @resource_path,
+          @resource_params,
+          { :account_id => @account.id, :offer => true, :course => { :name => 'Test Course' } },
+          {}, {:expected_status => 401}
+        )
+        expect(json["status"]).to eq "unverified"
       end
 
       it "doesn't offer a course if passed a false 'offer' parameter" do
@@ -1107,9 +1136,19 @@ describe CoursesController, type: :request do
       it "should allow updating only the offer parameter" do
         @course.workflow_state = "claimed"
         @course.save!
+
         api_call(:put, @path, @params, {:offer => 1})
+
         @course.reload
         expect(@course.workflow_state).to eq "available"
+      end
+
+      it "doesn't allow creating a published course for unverified users if account requires it" do
+        Account.default.tap{|a| a.settings[:require_confirmed_email] = true; a.save!}
+        @course.update_attribute(:workflow_state, "claimed")
+
+        json = api_call(:put, @path, @params, {:offer => 1}, {}, {:expected_status => 401})
+        expect(json["status"]).to eq "unverified"
       end
 
       it "should be able to update the storage_quota" do
@@ -1866,6 +1905,7 @@ describe CoursesController, type: :request do
     context "with override scores" do
       before(:once) do
         @course2.enable_feature!(:final_grades_override)
+        @course2.update!(allow_final_grade_override: true)
         student_enrollment = @course2.all_student_enrollments.first
         student_enrollment.scores.create!(
           course_score: true,
@@ -1875,36 +1915,78 @@ describe CoursesController, type: :request do
         )
       end
 
-      it "returns the override score instead of the current score" do
-        @course2.update!(grading_standard_enabled: false)
-        json_response = courses_api_index_call
-        expect(enrollment(json_response).fetch("computed_current_score")).to be 89.0
+      context "when Final Grade Override is enabled and allowed" do
+        it "includes the override score instead of the current score" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_current_score")).to be 89.0
+        end
+
+        it "includes the override grade instead of the current grade" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_current_grade")).to eq "B+"
+        end
+
+        it "includes the override score instead of the current final score" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_final_score")).to be 89.0
+        end
+
+        it "includes the override grade instead of the current final grade" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_final_grade")).to eq "B+"
+        end
       end
 
-      it "returns the lower bound of override score instead of the current score" do
-        json_response = courses_api_index_call
-        expect(enrollment(json_response).fetch("computed_current_score")).to be 87.0
+      context "when Final Grade Override is not allowed" do
+        before(:once) do
+          @course2.update!(allow_final_grade_override: false)
+        end
+
+        it "includes the current score" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_current_score")).to be 60.0
+        end
+
+        it "includes the current grade" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_current_grade")).to eq "F"
+        end
+
+        it "includes the current final score" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_final_score")).to be 77.0
+        end
+
+        it "includes the current final grade" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_final_grade")).to eq "C+"
+        end
       end
 
-      it "returns the override grade instead of the current grade" do
-        json_response = courses_api_index_call
-        expect(enrollment(json_response).fetch("computed_current_grade")).to eq "B+"
-      end
+      context "when Final Grade Override is disabled" do
+        before(:once) do
+          @course2.disable_feature!(:final_grades_override)
+        end
 
-      it "returns the lower bound of override score instead of the current final score" do
-        json_response = courses_api_index_call
-        expect(enrollment(json_response).fetch("computed_final_score")).to be 87.0
-      end
+        it "includes the current score" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_current_score")).to be 60.0
+        end
 
-      it "returns the override score instead of the current final score" do
-        @course2.update!(grading_standard_enabled: false)
-        json_response = courses_api_index_call
-        expect(enrollment(json_response).fetch("computed_final_score")).to be 89.0
-      end
+        it "includes the current grade" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_current_grade")).to eq "F"
+        end
 
-      it "returns the override grade instead of the current final grade" do
-        json_response = courses_api_index_call
-        expect(enrollment(json_response).fetch("computed_final_grade")).to eq "B+"
+        it "includes the current final score" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_final_score")).to be 77.0
+        end
+
+        it "includes the current final grade" do
+          json_response = courses_api_index_call
+          expect(enrollment(json_response).fetch("computed_final_grade")).to eq "C+"
+        end
       end
     end
 
@@ -3282,7 +3364,8 @@ describe CoursesController, type: :request do
         'restrict_enrollments_to_course_dates' => false,
         'time_zone' => 'America/Los_Angeles',
         'uuid' => @course1.uuid,
-        'blueprint' => false
+        'blueprint' => false,
+        'license' => nil
       })
     end
 
@@ -3494,83 +3577,134 @@ describe CoursesController, type: :request do
       course_with_teacher(:active_all => true)
     end
 
-    it "should render settings json" do
-      json = api_call(:get, "/api/v1/courses/#{@course.id}/settings", {
-        :controller => 'courses',
-        :action => 'settings',
-        :course_id => @course.to_param,
-        :format => 'json'
-      })
-      expect(json).to eq({
-        'allow_student_discussion_topics' => true,
-        'allow_student_forum_attachments' => false,
-        'allow_student_discussion_editing' => true,
-        'grading_standard_enabled' => false,
-        'grading_standard_id' => nil,
-        'allow_student_organized_groups' => true,
-        'hide_distribution_graphs' => false,
-        'hide_final_grades' => false,
-        'lock_all_announcements' => false,
-        'restrict_student_past_view' => false,
-        'restrict_student_future_view' => false,
-        'show_announcements_on_home_page' => false,
-        'home_page_announcement_limit' => nil,
-        'image_url' => nil,
-        'image_id' => nil,
-        'image' => nil
-      })
+    context "as teacher" do
+      it "should render settings json" do
+        json = api_call(:get, "/api/v1/courses/#{@course.id}/settings", {
+          :controller => 'courses',
+          :action => 'api_settings',
+          :course_id => @course.to_param,
+          :format => 'json'
+        })
+        expect(json).to eq({
+          'allow_final_grade_override' => false,
+          'allow_student_discussion_topics' => true,
+          'allow_student_forum_attachments' => false,
+          'allow_student_discussion_editing' => true,
+          'grading_standard_enabled' => false,
+          'grading_standard_id' => nil,
+          'allow_student_organized_groups' => true,
+          'hide_distribution_graphs' => false,
+          'hide_final_grades' => false,
+          'lock_all_announcements' => false,
+          'restrict_student_past_view' => false,
+          'restrict_student_future_view' => false,
+          'show_announcements_on_home_page' => false,
+          'home_page_announcement_limit' => nil,
+          'image_url' => nil,
+          'image_id' => nil,
+          'image' => nil
+        })
+      end
+
+      it "should update settings" do
+        @course.enable_feature!(:new_gradebook)
+        @course.enable_feature!(:final_grades_override)
+        expect(Auditors::Course).to receive(:record_updated).
+          with(anything, anything, anything, source: :api)
+
+        json = api_call(:put, "/api/v1/courses/#{@course.id}/settings", {
+          :controller => 'courses',
+          :action => 'update_settings',
+          :course_id => @course.to_param,
+          :format => 'json'
+        }, {
+          :allow_final_grade_override => true,
+          :allow_student_discussion_topics => false,
+          :allow_student_forum_attachments => true,
+          :allow_student_discussion_editing => false,
+          :allow_student_organized_groups => false,
+          :hide_distribution_graphs => true,
+          :hide_final_grades => true,
+          :lock_all_announcements => true,
+          :restrict_student_past_view => true,
+          :restrict_student_future_view => true,
+          :show_announcements_on_home_page => false,
+          :home_page_announcement_limit => nil
+        })
+        expect(json).to eq({
+          'allow_final_grade_override' => true,
+          'allow_student_discussion_topics' => false,
+          'allow_student_forum_attachments' => true,
+          'allow_student_discussion_editing' => false,
+          'grading_standard_enabled' => false,
+          'grading_standard_id' => nil,
+          'allow_student_organized_groups' => false,
+          'hide_distribution_graphs' => true,
+          'hide_final_grades' => true,
+          'lock_all_announcements' => true,
+          'restrict_student_past_view' => true,
+          'restrict_student_future_view' => true,
+          'show_announcements_on_home_page' => false,
+          'home_page_announcement_limit' => nil,
+          'image_url' => nil,
+          'image_id' => nil,
+          'image' => nil
+        })
+        @course.reload
+        expect(@course.allow_final_grade_override?).to eq true
+        expect(@course.allow_student_discussion_topics).to eq false
+        expect(@course.allow_student_forum_attachments).to eq true
+        expect(@course.allow_student_discussion_editing).to eq false
+        expect(@course.allow_student_organized_groups).to eq false
+        expect(@course.hide_distribution_graphs).to eq true
+        expect(@course.hide_final_grades).to eq true
+        expect(@course.lock_all_announcements).to eq true
+        expect(@course.show_announcements_on_home_page).to eq false
+        expect(@course.home_page_announcement_limit).to be_falsey
+      end
     end
 
-    it "should update settings" do
-      expect(Auditors::Course).to receive(:record_updated).
-        with(anything, anything, anything, source: :api)
+    context "as student" do
+      before :once do
+        student_in_course :active_all => true
+      end
 
-      json = api_call(:put, "/api/v1/courses/#{@course.id}/settings", {
-        :controller => 'courses',
-        :action => 'update_settings',
-        :course_id => @course.to_param,
-        :format => 'json'
-      }, {
-        :allow_student_discussion_topics => false,
-        :allow_student_forum_attachments => true,
-        :allow_student_discussion_editing => false,
-        :allow_student_organized_groups => false,
-        :hide_distribution_graphs => true,
-        :hide_final_grades => true,
-        :lock_all_announcements => true,
-        :restrict_student_past_view => true,
-        :restrict_student_future_view => true,
-        :show_announcements_on_home_page => false,
-        :home_page_announcement_limit => nil
-      })
-      expect(json).to eq({
-        'allow_student_discussion_topics' => false,
-        'allow_student_forum_attachments' => true,
-        'allow_student_discussion_editing' => false,
-        'grading_standard_enabled' => false,
-        'grading_standard_id' => nil,
-        'allow_student_organized_groups' => false,
-        'hide_distribution_graphs' => true,
-        'hide_final_grades' => true,
-        'lock_all_announcements' => true,
-        'restrict_student_past_view' => true,
-        'restrict_student_future_view' => true,
-        'show_announcements_on_home_page' => false,
-        'home_page_announcement_limit' => nil,
-        'image_url' => nil,
-        'image_id' => nil,
-        'image' => nil
-      })
-      @course.reload
-      expect(@course.allow_student_discussion_topics).to eq false
-      expect(@course.allow_student_forum_attachments).to eq true
-      expect(@course.allow_student_discussion_editing).to eq false
-      expect(@course.allow_student_organized_groups).to eq false
-      expect(@course.hide_distribution_graphs).to eq true
-      expect(@course.hide_final_grades).to eq true
-      expect(@course.lock_all_announcements).to eq true
-      expect(@course.show_announcements_on_home_page).to eq false
-      expect(@course.home_page_announcement_limit).to be_falsey
+      it "should render settings json" do
+        json = api_call(:get, "/api/v1/courses/#{@course.id}/settings", {
+          :controller => 'courses',
+          :action => 'api_settings',
+          :course_id => @course.to_param,
+          :format => 'json'
+        })
+        expect(json).to eq({
+          'allow_final_grade_override' => false,
+          'allow_student_discussion_topics' => true,
+          'allow_student_forum_attachments' => false,
+          'allow_student_discussion_editing' => true,
+          'grading_standard_enabled' => false,
+          'grading_standard_id' => nil,
+          'allow_student_organized_groups' => true,
+          'hide_distribution_graphs' => false,
+          'hide_final_grades' => false,
+          'lock_all_announcements' => false,
+          'restrict_student_past_view' => false,
+          'restrict_student_future_view' => false,
+          'show_announcements_on_home_page' => false,
+          'home_page_announcement_limit' => nil,
+          'image_url' => nil,
+          'image_id' => nil,
+          'image' => nil
+        })
+      end
+
+      it "should not update settings" do
+        api_call(:put, "/api/v1/courses/#{@course.id}/settings",
+          { :controller => 'courses', :action => 'update_settings', :course_id => @course.to_param, :format => 'json' },
+          { :allow_student_discussion_topics => false },
+          {},
+          :expected_status => 401)
+        expect(@course.reload.allow_student_discussion_topics).to eq true
+      end
     end
   end
 

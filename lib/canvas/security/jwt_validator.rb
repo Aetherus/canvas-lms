@@ -22,13 +22,14 @@ module Canvas::Security
 
     validate :assertions, :aud, :exp, :iat, :jti
 
-    def initialize(jwt:, expected_aud:, override_sub: nil, full_errors: false, require_iss: false)
+    def initialize(jwt:, expected_aud:, override_sub: nil, full_errors: false, require_iss: false, skip_jti_check: false)
       @jwt = OpenStruct.new jwt
       @assertions = Set.new(jwt.keys)
       @expected_aud = expected_aud
       @full_errors = full_errors
       @require_iss = require_iss
       @jwt.sub = override_sub if override_sub.present?
+      @skip_jti_check = skip_jti_check
     end
 
     def error_message
@@ -61,21 +62,24 @@ module Canvas::Security
     end
 
     def exp
+      errors.add(:base, "the 'exp' must be a number") if @jwt.exp.present? && !@jwt.exp.is_a?(Numeric)
       return if errors?
       exp_time = Time.zone.at(@jwt.exp)
       errors.add(:base, "the JWT has expired") if exp_time < Time.zone.now
     end
 
     def iat
+      errors.add(:base, "the 'iat' must be a number") if @jwt.iat.present? && !@jwt.iat.is_a?(Numeric)
       return if errors?
       iat_time = Time.zone.at(@jwt.iat)
       max_iat_age = Setting.get("oauth2_jwt_iat_ago_in_seconds", 5.minutes.to_s).to_i.seconds
+      iat_future_buffer = Setting.get("oauth2_jwt_iat_future_buffer", 30.seconds.to_s).to_i.seconds
       errors.add(:base, "the 'iat' must be less than #{max_iat_age} seconds old") if iat_time < max_iat_age.ago
-      errors.add(:base, "the 'iat' must not be in the future") if iat_time > Time.zone.now
+      errors.add(:base, "the 'iat' must not be in the future") if iat_time > Time.zone.now + iat_future_buffer
     end
 
     def jti
-      return if errors?
+      return if errors? || @skip_jti_check
       nonce_duration = (@jwt.exp.to_i - @jwt.iat.to_i).seconds
       nonce_key = "nonce:#{@jwt.sub}:#{@jwt.jti}"
       unless Lti::Security.check_and_store_nonce(nonce_key, @jwt.iat, nonce_duration)

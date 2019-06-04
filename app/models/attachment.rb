@@ -316,13 +316,21 @@ class Attachment < ActiveRecord::Base
     excluded_atts = EXCLUDED_COPY_ATTRIBUTES
     excluded_atts += ["locked", "hidden"] if dup == existing && !options[:migration]&.for_master_course_import?
     dup.assign_attributes(self.attributes.except(*excluded_atts))
-
+    dup.context = context
     # avoid cycles (a -> b -> a) and self-references (a -> a) in root_attachment_id pointers
     if dup.new_record? || ![self.id, self.root_attachment_id].include?(dup.id)
-      dup.root_attachment_id = self.root_attachment_id || self.id
+      if self.shard == dup.shard
+        dup.root_attachment_id = self.root_attachment_id || self.id
+      else
+        if existing_attachment = dup.find_existing_attachment_for_md5
+          dup.root_attachment = existing_attachment
+        else
+          dup.write_attribute(:filename, self.filename)
+          Attachments::Storage.store_for_attachment(dup, self.open)
+        end
+      end
     end
-    dup.write_attribute(:filename, self.filename) unless dup.root_attachment_id?
-    dup.context = context
+    dup.write_attribute(:filename, self.filename) unless dup.read_attribute(:filename) || dup.root_attachment_id?
     dup.migration_id = options[:migration_id] || CC::CCHelper.create_key(self)
     dup.mark_as_importing!(options[:migration]) if options[:migration]
     if context.respond_to?(:log_merge_result)
@@ -1057,7 +1065,7 @@ class Attachment < ActiveRecord::Base
         data = { :count => count }
         DelayedNotification.send_later_if_production_enqueue_args(
             :process,
-            { :priority => Delayed::LOW_PRIORITY },
+            { :priority => 30},
             record, notification, recipient_keys, data)
       end
     end
@@ -1282,7 +1290,7 @@ class Attachment < ActiveRecord::Base
   def locked_for?(user, opts={})
     return false if opts[:check_policies] && self.grants_right?(user, :read_as_admin)
     return {:asset_string => self.asset_string, :manually_locked => true} if self.locked || Folder.is_locked?(self.folder_id)
-    Rails.cache.fetch(locked_cache_key(user), :expires_in => 1.minute) do
+    RequestCache.cache(locked_request_cache_key(user)) do
       locked = false
       if (self.unlock_at && Time.now < self.unlock_at)
         touch_on_unlock if Time.now + 1.hour >= self.unlock_at
@@ -1369,8 +1377,9 @@ class Attachment < ActiveRecord::Base
 
   scope :not_hidden, -> { where("attachments.file_state<>'hidden'") }
   scope :not_locked, -> {
-    where("(attachments.locked IS NULL OR attachments.locked=?) AND ((attachments.lock_at IS NULL) OR
-      (attachments.lock_at>? OR (attachments.unlock_at IS NOT NULL AND attachments.unlock_at<?)))", false, Time.now.utc, Time.now.utc)
+    where("attachments.locked IS NOT TRUE
+      AND (attachments.lock_at IS NULL OR attachments.lock_at>?)
+      AND (attachments.unlock_at IS NULL OR attachments.unlock_at<?)", Time.now.utc, Time.now.utc)
   }
   scope :by_content_types, lambda { |types|
     clauses = []
@@ -1419,7 +1428,9 @@ class Attachment < ActiveRecord::Base
       att.display_name = new_name
       att.content_type = "application/pdf"
       CrocodocDocument.where(attachment_id: att.children_and_self.select(:id)).delete_all
-      Canvadoc.where(attachment_id: att.children_and_self.select(:id)).delete_all
+      canvadoc_scope = Canvadoc.where(attachment_id: att.children_and_self.select(:id))
+      CanvadocsSubmission.where(:canvadoc_id => canvadoc_scope.select(:id)).delete_all
+      canvadoc_scope.delete_all
       att.save!
     end
   end
@@ -1553,7 +1564,10 @@ class Attachment < ActiveRecord::Base
 
   def restore
     self.file_state = 'available'
-    self.save
+    if self.save
+      self.handle_duplicates(:rename)
+    end
+    true
   end
 
   def deleted?
@@ -1959,6 +1973,8 @@ class Attachment < ActiveRecord::Base
        self.context.respond_to?(:feature_enabled?) &&
        self.context.feature_enabled?(:usage_rights_required)
       self.locked = self.usage_rights.nil?
+    else
+      self.locked = false
     end
   end
 

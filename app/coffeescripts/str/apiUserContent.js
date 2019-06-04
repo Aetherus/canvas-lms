@@ -25,7 +25,11 @@ const apiUserContent = {
   xsslint safeString.identifier mathml
   */
   translateMathmlForScreenreaders ($equationImage) {
-    const mathml = $('<div/>').html($equationImage.data('mathml')).html()
+    // note, it is safe to treat the x-canvaslms-safe-mathml as html because it
+    // only ever gets put there by us (in Api::Html::Content::apply_mathml).
+    // Any user content that gets sent to the server will have the
+    // x-canvaslms-safe-mathml attribute stripped out.
+    const mathml = $('<div/>').html($equationImage.attr('x-canvaslms-safe-mathml')).html()
     const mathmlSpan = $('<span class="hidden-readable"></span>')
     mathmlSpan.html(mathml)
     return mathmlSpan
@@ -115,7 +119,7 @@ const apiUserContent = {
       $dummy.find('img.equation_image').each((index, equationImage) => {
         const $equationImage = $(equationImage)
         const mathmlSpan = apiUserContent.translateMathmlForScreenreaders($equationImage)
-        $equationImage.removeAttr('data-mathml')
+        $equationImage.removeAttr('x-canvaslms-safe-mathml')
         $equationImage.after(mathmlSpan)
       })
     }

@@ -16,7 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import I18n from 'i18n!media_comments'
+import I18n from 'i18n!media_comments_publicjs'
 import _ from 'underscore'
 import pubsub from 'vendor/jquery.ba-tinypubsub'
 import $ from 'jquery'
@@ -27,7 +27,8 @@ import 'jqueryui/dialog'
 import './jquery.instructure_misc_helpers' /* /\$\.h/, /\$\.fileSize/ */
 import './jquery.instructure_misc_plugins' /* .dim, /\.log\(/ */
 import 'jqueryui/progressbar'
-import 'jqueryui/tabs'
+
+const getDefaultExport = mod => mod.default ? mod.default : mod
 
   "use strict"
   var jsUploader
@@ -59,9 +60,10 @@ import 'jqueryui/tabs'
     return ENV.context_asset_string || ('user_' + ENV.current_user_id);
   }
 
-  function addEntry(entry){
-    var contextCode = $.mediaComment.contextCode(),
-        mediaType = { 2: 'image', 5: 'audio' }[entry.mediaType] || 'video';
+  function addEntry(entry, isAudioFile){
+    const contextCode = $.mediaComment.contextCode();
+
+    const mediaType = { 2: 'image', 5: 'audio' }[entry.mediaType] || isAudioFile ? 'audio' : 'video';
 
     if (contextCode) {
       $.ajaxJSON("/media_objects", "POST", {
@@ -483,19 +485,19 @@ import 'jqueryui/tabs'
 
     // Do JS uploader is appropriate
     if (INST.kalturaSettings.js_uploader) {
-       const JsUploader = require('compiled/media_comments/js_uploader')
+       const JsUploader = getDefaultExport(require('compiled/media_comments/js_uploader'))
        jsUploader = new JsUploader(mediaType, opts)
        jsUploader.onReady = mediaCommentReady
        jsUploader.addEntry = addEntry
 
        if (ENV.ARC_RECORDING_FEATURE_ENABLED) {
-         const Browser = require('jsx/shared/browserUtils')
-         const currentBrowser = Browser.getBrowser()
+         const getBrowser = require('jsx/shared/browserUtils').getBrowser
+         const currentBrowser = getBrowser()
          if (
            (currentBrowser.name === 'Chrome' && Number(currentBrowser.version) >= 68) ||
            (currentBrowser.name === 'Firefox' && Number(currentBrowser.version) >= 61)
          ) {
-           import('jsx/media_recorder/renderRecorder').then((renderCanvasMediaRecorder) => {
+           import('jsx/media_recorder/renderRecorder').then(({default: renderCanvasMediaRecorder}) => {
              let tryToRenderInterval
              const renderFunc = () => {
                const e = document.getElementById('record_media_tab')
@@ -546,8 +548,9 @@ import 'jqueryui/tabs'
       // **********************************************************************
       var checkForKS = function() {
         if($div.data('ks')) {
-          var mediaCommentsTemplate = require('jst/MediaComments');
+          const mediaCommentsTemplate = getDefaultExport(require('jst/MediaComments'))
           $div.html(mediaCommentsTemplate());
+          require('jqueryui/tabs')
           $div.find("#media_record_tabs").tabs({activate: $.mediaComment.video_delegate.expectReady});
           mediaCommentReady();
         } else if($div.data('ks-error')) {

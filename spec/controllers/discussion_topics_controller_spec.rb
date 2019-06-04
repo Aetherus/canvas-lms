@@ -468,8 +468,8 @@ describe DiscussionTopicsController do
       # this is essentially a unit test for app/coffeescripts/models/Entry.coffee,
       # making sure that we get back the expected format for this url template
       template = assigns[:js_env][:DISCUSSION][:SPEEDGRADER_URL_TEMPLATE]
-      url = template.gsub(/%22:student_id%22/, '123')
-      expect(url).to match "%7B%22student_id%22:123%7D"
+      url = template.gsub(/%3Astudent_id/, '123')
+      expect(url).to match "student_id=123"
     end
 
     it "should mark as read when viewed" do
@@ -787,6 +787,14 @@ describe DiscussionTopicsController do
       allow(AssignmentUtil).to receive(:post_to_sis_friendly_name).and_return('Foo Bar')
       get 'new', params: {:course_id => @course.id}
       expect(assigns[:js_env][:SIS_NAME]).to eq('Foo Bar')
+    end
+  end
+
+  describe "GET 'new'" do
+    it "creates a default assignment group if none exist" do
+      user_session(@teacher)
+      get :new, params: {course_id: @course.id}
+      expect(@course.assignment_groups.count).not_to eq 0
     end
   end
 
@@ -1473,6 +1481,39 @@ describe DiscussionTopicsController do
         title: "foobers"
       })
       expect(response).to have_http_status 200
+    end
+
+    it "triggers module progression recalculation if needed after changing sections" do
+      section1 = @course.course_sections.create!(name: "Section")
+      section2 = @course.course_sections.create!(name: "Section2")
+      topic = @course.discussion_topics.create!(title: "foo", message: "bar", user: @teacher)
+      mod = @course.context_modules.create!
+      tag = mod.add_item({:id => topic.id, :type => 'discussion_topic'})
+      mod.completion_requirements = {tag.id => {:type => 'must_view'}}
+      mod.save!
+      prog = mod.evaluate_for(@student)
+      expect(prog).to be_unlocked
+
+      user_session(@teacher)
+      put 'update', params: {course_id: @course.id, topic_id: topic.id, specific_sections: section2.id}
+      expect(response).to be_successful
+
+      expect(prog.reload).to be_completed
+    end
+
+    it "triggers module progression recalculation if undoing section specificness" do
+      section1 = @course.course_sections.create!(name: "Section")
+      section2 = @course.course_sections.create!(name: "Section2")
+      topic = @course.discussion_topics.create!(title: "foo", message: "bar", user: @teacher, 
+        is_section_specific: true, course_sections: [section2])
+      mod = @course.context_modules.create!
+      tag = mod.add_item({:id => topic.id, :type => 'discussion_topic'})
+      mod.completion_requirements = {tag.id => {:type => 'must_view'}}
+
+      user_session(@teacher)
+      expect_any_instantiation_of(mod).to receive(:invalidate_progressions)
+      put 'update', params: {course_id: @course.id, topic_id: topic.id, specific_sections: 'all'}
+      expect(response).to be_successful
     end
 
     it "can turn graded topic into ungraded section-specific topic in one edit" do

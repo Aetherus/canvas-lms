@@ -33,7 +33,7 @@ module Lti::Ims
 
     def serialize_context
       {
-        id: lti_id(page[:context]),
+        id: Lti::Asset.opaque_identifier_for(unwrap(page[:context])),
         label: page[:context].context_label,
         title: page[:context].context_title,
       }.compact
@@ -93,7 +93,7 @@ module Lti::Ims
         family_name: (enrollment.user.last_name if page[:tool].include_name?),
         email: (enrollment.user.email if page[:tool].include_email?),
         lis_person_sourcedid: (member_sourced_id(expander) if page[:tool].include_name?),
-        user_id: lti_id(enrollment.user),
+        user_id: enrollment.user.lti_id,
         roles: enrollment.lti_roles
       }.compact
     end
@@ -121,7 +121,7 @@ module Lti::Ims
             claim_group_whitelist: [ :public, :i18n, :custom_params ],
             extension_whitelist: [ :canvas_user_id, :canvas_user_login_id ]
           }
-        ).generate_post_payload_message
+        ).generate_post_payload_message(validate_launch: false)
       ensure
         I18n.locale = orig_locale
         Time.zone = orig_time_zone
@@ -132,10 +132,6 @@ module Lti::Ims
         except!("#{LtiAdvantage::Serializers::JwtMessageSerializer::IMS_CLAIM_PREFIX}version").
         except!("picture")
       { message: [ launch_hash ] }
-    end
-
-    def lti_id(entity)
-      Lti::Asset.opaque_identifier_for(unwrap(entity))
     end
 
     def unwrap(wrapped)

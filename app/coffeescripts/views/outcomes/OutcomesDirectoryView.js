@@ -26,6 +26,7 @@ import OutcomeCollection from '../../collections/OutcomeCollection'
 import OutcomeGroupCollection from '../../collections/OutcomeGroupCollection'
 import OutcomeGroupIconView from './OutcomeGroupIconView'
 import OutcomeIconView from './OutcomeIconView'
+import {publish} from 'vendor/jquery.ba-tinypubsub'
 import 'jquery.disableWhileLoading'
 import 'jqueryui/droppable'
 import '../../jquery.rails_flash_notifications'
@@ -37,7 +38,7 @@ export default class OutcomesDirectoryView extends PaginatedView {
       // Hack: trick Babel/TypeScript into allowing this before super.
       if (false) { super(); }
       let thisFn = (() => { return this; }).toString();
-      let thisName = thisFn.slice(thisFn.indexOf('return') + 6 + 1, thisFn.lastIndexOf(';')).trim();
+      let thisName = thisFn.match(/_this\d*/)[0];
       eval(`${thisName} = this;`);
     }
     this.moveModelHere = this.moveModelHere.bind(this)
@@ -62,7 +63,7 @@ export default class OutcomesDirectoryView extends PaginatedView {
     this.readOnly = opts.readOnly
     this.parent = opts.parent
     const outcomeGroupTitle = opts.outcomeGroup.attributes.title
-    const ariaLabel = `directory ${outcomeGroupTitle}: depth ${opts.directoryDepth},`
+    const ariaLabel = `Listing of child outcomes for ${outcomeGroupTitle}`
     this.$el.attr('aria-label', ariaLabel)
     // the way the event listeners work between OutcomeIconView, OutcomesDirectoryView
     // and SidebarView can cause items to become unselectable following a move. The
@@ -302,9 +303,9 @@ ${htmlEscape(I18n.t('Loading more results'))}</span></li>`
       _.isEmpty(this.outcomes.models) &&
       _.isEmpty(this.views())
     ) {
-      return $.publish('renderNoOutcomeWarning')
+      return publish('renderNoOutcomeWarning')
     } else {
-      return $.publish('clearNoOutcomeWarning')
+      return publish('clearNoOutcomeWarning')
     }
   }
 

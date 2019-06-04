@@ -20,8 +20,9 @@ import $ from 'jquery'
 import _ from 'underscore'
 import React from 'react'
 import StudentContextTray from './StudentContextTray'
-import {client, ApolloProvider, Query, gql} from '../canvas-apollo'
+import {createClient, ApolloProvider, Query, gql} from '../canvas-apollo'
 
+const client = createClient()
 
 const SCC_QUERY = gql`
   query StudentContextCard($courseId: ID!, $studentId: ID!) {
@@ -71,6 +72,8 @@ const SCC_QUERY = gql`
           grades {
             current_grade: currentGrade
             current_score: currentScore
+            override_grade: overrideGrade
+            override_score: overrideScore
           }
         }
         analytics: summaryAnalytics(courseId: $courseId) {
@@ -106,15 +109,18 @@ function placeholderCourse(courseId) {
   }
 }
 
-export default props => {
-  return (
-    <ApolloProvider client={client}>
-      <Query query={SCC_QUERY} variables={{courseId: props.courseId, studentId: props.studentId}}>
-        {({data, loading}) => {
-          const {course, user} = data
-          return <StudentContextTray data={{loading, course: course || placeholderCourse(props.courseId), user}} {...props} />
-        }}
-      </Query>
-    </ApolloProvider>
-  )
-}
+export default props => (
+  <ApolloProvider client={client}>
+    <Query query={SCC_QUERY} variables={{courseId: props.courseId, studentId: props.studentId}}>
+      {({data, loading}) => {
+        const {course, user} = data
+        return (
+          <StudentContextTray
+            data={{loading, course: course || placeholderCourse(props.courseId), user}}
+            {...props}
+          />
+        )
+      }}
+    </Query>
+  </ApolloProvider>
+)

@@ -76,6 +76,17 @@ describe GradebookImporter do
       expect(@gi.students.length).to eq 2
     end
 
+    it "ignores the line denoting manually posted assignments if present" do
+      importer_with_rows(
+        'Student,ID,Section,Assignment 1,Final Score',
+        'Points Possible,,,10,',
+        ', ,,Manual Posting,',
+        '"Blend, Bill",6,My Course,-,',
+        '"Farner, Todd",4,My Course,-,'
+      )
+      expect(@gi.students.length).to eq 2
+    end
+
     context 'when dealing with a file containing semicolon field separators' do
       context 'with interspersed commas to throw you off' do
         before(:each) do
@@ -168,6 +179,44 @@ describe GradebookImporter do
           actual_grades = @gi.upload.gradebook.fetch('students').map { |student| student.fetch('submissions').second.fetch('grade') }
 
           expect(actual_grades).to match_array(expected_grades)
+        end
+      end
+    end
+
+    context "when dealing with a file containing comma field separators" do
+      let(:rows) do
+        [
+          'Student,ID,Section,Assignment 1,Assignment 2,Final Score',
+          'Points Possible,,,1000,50000,',
+          'C. Iulius Caesar,1,,123.43,"45,678.12",99%',
+          'Cn. Pompeius Magnus,2,,"123,32","45.678,23",99%',
+        ]
+      end
+
+      let(:importer) { importer_with_rows(rows) }
+      let(:students) { importer.upload.gradebook.fetch('students') }
+
+      context "with values that use a period as a decimal separator" do
+        let(:grades) { students.first.fetch('submissions').map { |submission| submission.fetch('grade') } }
+
+        it "normalizes values with no thousands separator" do
+          expect(grades.first).to eq "123.43"
+        end
+
+        it "normalizes values using a comma as the thousands separator" do
+          expect(grades.second).to eq "45678.12"
+        end
+      end
+
+      context "with values that use a comma as the decimal separator" do
+        let(:grades) { students.second.fetch('submissions').map { |submission| submission.fetch('grade') } }
+
+        it "normalizes values with no thousands separator" do
+          expect(grades.first).to eq "123.32"
+        end
+
+        it "normalizes values using a period as the thousands separator" do
+          expect(grades.second).to eq "45678.23"
         end
       end
     end
@@ -504,6 +553,22 @@ describe GradebookImporter do
     expect(@gi.missing_assignments).to be_empty
   end
 
+  describe "override columns" do
+    it "does not create assignments for the Override Score or Override Grade column" do
+      course_model
+      @assignment1 = @course.assignments.create!(name: 'Assignment 1', points_possible: 10)
+      importer_with_rows(
+        "Student,ID,Section,Assignment 1,Current Points,Final Points,Override Score,Override Grade",
+        "Points Possible,,,20,,,,"
+      )
+
+      aggregate_failures do
+        expect(@gi.assignments).to eq [@assignment1]
+        expect(@gi.missing_assignments).to be_empty
+      end
+    end
+  end
+
   it "parses new and existing users" do
     course_with_student(active_all: true)
     @student1 = @student
@@ -533,6 +598,18 @@ describe GradebookImporter do
     importer_with_rows(
         "Student,ID,Section,Assignment 1",
         ",#{@student.id},,10"
+    )
+    expect(@gi.assignments).to eq []
+  end
+
+  it "checks for score changes at a precision of 2 decimal places" do
+    course_with_student
+    course_with_teacher(course: @course)
+    @assignment1 = @course.assignments.create!(name: 'Assignment 1', points_possible: 10)
+    @assignment1.grade_student(@student, grade: 10.987, grader: @teacher)
+    importer_with_rows(
+      "Student,ID,Section,Assignment 1",
+      ",#{@student.id},,10.99"
     )
     expect(@gi.assignments).to eq []
   end

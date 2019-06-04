@@ -1,0 +1,368 @@
+{
+  "add_8523c19b": {
+    "message": "Dodaj"
+  },
+  "align_11050992": {
+    "message": "Poravnaj"
+  },
+  "align_center_ca078feb": {
+    "message": "Poravnaj na sredino"
+  },
+  "align_left_e9f1f93b": {
+    "message": "Poravnaj levo"
+  },
+  "align_right_9bad3ac1": {
+    "message": "Poravnaj desno"
+  },
+  "all_4321c3a1": {
+    "message": "Vse"
+  },
+  "alphabetical_55b5b4e0": {
+    "message": "Abecedno"
+  },
+  "alternative_text_a834dcad": {
+    "message": "Nadomestno besedilo:"
+  },
+  "announcement_list_da155734": {
+    "message": "Seznam obvestil"
+  },
+  "announcements_a4b8ed4a": {
+    "message": "Obvestila"
+  },
+  "assignments_1e02582c": {
+    "message": "Naloge"
+  },
+  "c_2001_acme_inc_283f7f80": {
+    "message": "(c) 2001 Acme Inc."
+  },
+  "cancel_file_upload_9903e7b9": {
+    "message": "Prekliči nalaganje datoteke"
+  },
+  "cancel_image_upload_2c771950": {
+    "message": "Prekliči nalaganje slike"
+  },
+  "cc_attribution_f6de631f": {
+    "message": "Priznanje avtorstva CC"
+  },
+  "cc_attribution_no_derivatives_b006744f": {
+    "message": "Priznanje avtorstva CC – brez predelav"
+  },
+  "cc_attribution_non_commercial_39e0d30d": {
+    "message": "Priznanje avtorstva CC – nekomercialno"
+  },
+  "cc_attribution_non_commercial_no_derivatives_9fe74c00": {
+    "message": "Priznanje avtorstva CC – nekomercialno – brez predelav"
+  },
+  "cc_attribution_non_commercial_share_alike_c7edb1e5": {
+    "message": "Priznanje avtorstva CC – nekomercialno – deljenje pod istimi pogoji"
+  },
+  "cc_attribution_share_alike_669e7f16": {
+    "message": "Priznanje avtorstva CC – deljenje pod istimi pogoji"
+  },
+  "check_if_the_image_is_decorative_283649b7": {
+    "message": "Preverite, ali je slika dekorativna."
+  },
+  "choose_usage_rights_33683854": {
+    "message": "Izberi pravice uporabe ..."
+  },
+  "circle_unordered_list_9e3a0763": {
+    "message": "nerazvrščeni seznam s krogi"
+  },
+  "click_any_file_to_insert_a_download_link_for_that__a708fa4c": {
+    "message": "Kliknite katero koli datoteko, da vstavite povezavo za prenos te datoteke."
+  },
+  "click_any_image_to_embed_the_image_in_the_page_2cdd1136": {
+    "message": "Da vdelate sliko v stran, kliknite katero koli sliko."
+  },
+  "click_any_page_to_insert_a_link_to_that_page_ac920c02": {
+    "message": "Kliknite katero koli stran, da vstavite povezavo na to stran."
+  },
+  "click_to_embed_image_33107dd8": {
+    "message": "Kliknite, da vdelate sliko."
+  },
+  "click_to_embed_imagename_c41ea8df": {
+    "message": "Kliknite, da vdelate { imageName }."
+  },
+  "click_to_insert_a_link_into_the_editor_c19613aa": {
+    "message": "Kliknite, da vstavite povezavo v urejevalnik."
+  },
+  "click_to_insert_a_link_to_this_item_39794098": {
+    "message": "Kliknite, da vstavite povezavo k temu elementu."
+  },
+  "close_d634289d": {
+    "message": "Zapri"
+  },
+  "close_flickr_form_b32e600a": {
+    "message": "Zapri obrazec storitve Flickr"
+  },
+  "collaborations_5c56c15f": {
+    "message": "Skupinske naloge"
+  },
+  "computer_1d7dfa6f": {
+    "message": "Računalnik"
+  },
+  "content_subtype_5ce35e88": {
+    "message": "Podvrsta vsebine"
+  },
+  "content_type_2cf90d95": {
+    "message": "Vrsta vsebine"
+  },
+  "copyright_holder_66ee111": {
+    "message": "Lastnik avtorskih pravic:"
+  },
+  "course_documents_104d76e0": {
+    "message": "Dokumenti predmeta"
+  },
+  "course_images_f8511d04": {
+    "message": "Slike predmeta"
+  },
+  "course_links_b56959b9": {
+    "message": "Povezave predmeta"
+  },
+  "course_media_ec759ad": {
+    "message": "Mediji predmeta"
+  },
+  "course_navigation_dd035109": {
+    "message": "Navigacija po predmetu"
+  },
+  "creative_commons_license_725584ae": {
+    "message": "Licenca Creative Commons:"
+  },
+  "date_added_ed5ad465": {
+    "message": "Datum dodajanja"
+  },
+  "date_published_371c4ad0": {
+    "message": "Datum objave"
+  },
+  "decorative_image_fde98579": {
+    "message": "Dekorativna slika"
+  },
+  "decrease_indent_de6343ab": {
+    "message": "Povečaj zamik"
+  },
+  "default_bulleted_unordered_list_47079da8": {
+    "message": "privzeti neurejeni seznam z alinejami"
+  },
+  "default_numerical_ordered_list_48dd3548": {
+    "message": "privzeti številčno urejeni seznam"
+  },
+  "discussions_a5f96392": {
+    "message": "Razprave"
+  },
+  "discussions_index_6c36ced": {
+    "message": "Kazalo razprav"
+  },
+  "documents_81393201": {
+    "message": "Dokumenti"
+  },
+  "enter_search_terms_e397b1f0": {
+    "message": "vnos iskalnih besed"
+  },
+  "enter_the_alternative_text_for_this_image_88047c47": {
+    "message": "Vnesite nadomestno besedilo za to sliko."
+  },
+  "external_links_3d9f074e": {
+    "message": "Zunanje povezave"
+  },
+  "file_upload_form_4aaad554": {
+    "message": "Obrazec za nalaganje datoteke"
+  },
+  "files_c300e900": {
+    "message": "Datoteke"
+  },
+  "files_index_af7c662b": {
+    "message": "Kazalo datotek"
+  },
+  "folder_705fd2d7": {
+    "message": "Mapa"
+  },
+  "grades_a61eba0a": {
+    "message": "Ocene"
+  },
+  "group_navigation_99f191a": {
+    "message": "Navigacija po skupini"
+  },
+  "header_f28f73db": {
+    "message": "Glava"
+  },
+  "i_have_obtained_permission_to_use_this_file_6386f087": {
+    "message": "Pridobil sem dovoljenje za uporabo te datoteke."
+  },
+  "i_hold_the_copyright_71ee91b1": {
+    "message": "Imam avtorske pravice."
+  },
+  "if_you_do_not_select_usage_rights_now_this_file_wi_14e07ab5": {
+    "message": "Če ne izberete pravic uporabe zdaj, ta datoteka po nalaganju ne bo objavljena."
+  },
+  "image_upload_form_7b74079a": {
+    "message": "Obrazec za nalaganje slike"
+  },
+  "image_url_2aee2734": {
+    "message": "Naslov URL slike"
+  },
+  "images_7ce26570": {
+    "message": "Slike"
+  },
+  "increase_indent_6d550a4a": {
+    "message": "Povečaj zamik"
+  },
+  "insert_equella_links_49a8dacd": {
+    "message": "Vstavi povezave storitve EQUELLA"
+  },
+  "insert_link_6dc23cae": {
+    "message": "Vstavi povezavo"
+  },
+  "insert_math_equation_57c6e767": {
+    "message": "Vstavi matematično enačbo"
+  },
+  "link_7262adec": {
+    "message": "Povezava"
+  },
+  "link_to_a_new_page_6c4ad034": {
+    "message": "Povezava na novo stran"
+  },
+  "link_to_other_content_in_the_course_879163b5": {
+    "message": "Povezava na drugo vsebino v predmetu."
+  },
+  "link_to_other_content_in_the_group_3fe25379": {
+    "message": "Povezava na drugo vsebino v skupini."
+  },
+  "links_14b70841": {
+    "message": "Povezave"
+  },
+  "load_more_results_460f49a9": {
+    "message": "Naloži več rezultatov"
+  },
+  "loading_25990131": {
+    "message": "Nalaganje ..."
+  },
+  "loading_bde52856": {
+    "message": "Nalaganje"
+  },
+  "loading_failed_b3524381": {
+    "message": "Nalaganje ni uspelo ..."
+  },
+  "loading_folders_8d4d5d5a": {
+    "message": "Nalaganje map ..."
+  },
+  "loading_more_results_def6df65": {
+    "message": "Nalaganje več rezultatov ..."
+  },
+  "media_af190855": {
+    "message": "Mediji"
+  },
+  "modules_c4325335": {
+    "message": "Moduli"
+  },
+  "no_results_940393cf": {
+    "message": "Ni rezultatov."
+  },
+  "ordered_and_unordered_lists_cfadfc38": {
+    "message": "Urejeni in neurejeni seznami"
+  },
+  "pages_e5414c2c": {
+    "message": "Strani"
+  },
+  "paragraph_5e5ad8eb": {
+    "message": "Odstavek"
+  },
+  "people_b4ebb13c": {
+    "message": "Sodelujoči"
+  },
+  "preformatted_d0670862": {
+    "message": "Predoblikovano"
+  },
+  "quizzes_7e598f57": {
+    "message": "Kvizi"
+  },
+  "record_upload_media_5fdce166": {
+    "message": "Posnemi/naloži medije"
+  },
+  "search_280d00bd": {
+    "message": "Iskanje"
+  },
+  "search_flickr_6884b518": {
+    "message": "Preišči storitev Flickr"
+  },
+  "select_a_file_53ba40ac": {
+    "message": "Izberi datoteko"
+  },
+  "select_a_folder_to_upload_your_file_into_b82d12b": {
+    "message": "Izberite mapo za nalaganje datoteke vanjo."
+  },
+  "small_header_168fb9f9": {
+    "message": "Majhna glava"
+  },
+  "something_went_wrong_89195131": {
+    "message": "Prišlo je do težav."
+  },
+  "sort_by_e75f9e3e": {
+    "message": "Razvrsti po"
+  },
+  "square_unordered_list_b15ce93b": {
+    "message": "nerazvrščeni seznam s kvadrati"
+  },
+  "subheader_2b87606d": {
+    "message": "Podglava"
+  },
+  "submit_a3cc6859": {
+    "message": "Pošlji"
+  },
+  "subscript_59744f96": {
+    "message": "Podpisano"
+  },
+  "superscript_8cb349a2": {
+    "message": "Nadpisano"
+  },
+  "syllabus_f191f65b": {
+    "message": "Učni načrt"
+  },
+  "the_material_is_in_the_public_domain_279c39a3": {
+    "message": "Gradivo je dostopno javnosti."
+  },
+  "the_material_is_licensed_under_creative_commons_3242cb5e": {
+    "message": "Gradivo je licencirano z licenco Creative Commons."
+  },
+  "the_material_is_subject_to_fair_use_exception_41bc6a4b": {
+    "message": "Za gradivo velja izjema poštene uporabe (Fair Use)."
+  },
+  "this_upload_exceeds_the_file_storage_quota_please__c3a1b641": {
+    "message": "To nalaganje presega kvoto prostora za datoteke na disku. Pogovorite se s skrbnikom sistema."
+  },
+  "tray_839df38a": {
+    "message": "Trak"
+  },
+  "unsplash_ee049fbf": {
+    "message": "Pozdravna"
+  },
+  "upload_8b403d05": {
+    "message": "Naloži"
+  },
+  "upload_a_new_file_96e6d4ff": {
+    "message": "Naloži novo datoteko"
+  },
+  "upload_a_new_image_890df275": {
+    "message": "Naloži novo sliko"
+  },
+  "upload_image_6120b609": {
+    "message": "Naloži sliko"
+  },
+  "uppercase_alphabetic_ordered_list_3f5aa6b2": {
+    "message": "abecedno urejeni seznam z velikimi začetnicami"
+  },
+  "uppercase_roman_numeral_ordered_list_853f292b": {
+    "message": "abecedno urejeni seznam z rimskimi številkami"
+  },
+  "url_22a5f3b8": {
+    "message": "URL"
+  },
+  "usage_right_ff96f3e2": {
+    "message": "Pravica uporabe:"
+  },
+  "what_would_you_like_to_call_the_new_page_d7e4488a": {
+    "message": "Kako bi želeli poimenovati novo stran?"
+  },
+  "wiki_home_9cd54d0": {
+    "message": "Glavna stran wiki"
+  }
+}

@@ -22,7 +22,7 @@ import PropTypes from 'prop-types'
 import Billboard from '@instructure/ui-billboard/lib/components/Billboard'
 import Button from '@instructure/ui-buttons/lib/components/Button'
 import IconPlus from '@instructure/ui-icons/lib/Line/IconPlus'
-import I18n from 'i18n!rubrics'
+import I18n from 'i18n!ProficiencyTable'
 import PresentationContent from '@instructure/ui-a11y/lib/components/PresentationContent'
 import Spinner from '@instructure/ui-elements/lib/components/Spinner'
 import Table from '@instructure/ui-elements/lib/components/Table'
@@ -284,7 +284,7 @@ export default class ProficiencyTable extends React.Component {
         <Billboard
           headingAs="h2"
           headingLevel="h2"
-          ref={(d) => { this.triggerRoot = d }} // eslint-disable-line immutable/no-mutation
+          ref={(d) => { this.triggerRoot = d }}
           hero={<div style={styles}><PresentationContent><SVGWrapper url="/images/trophy.svg"/></PresentationContent></div>}
           heading={I18n.t('Customize Learning Mastery Ratings')}
           message={I18n.t(`

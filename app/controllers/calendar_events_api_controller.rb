@@ -555,7 +555,7 @@ class CalendarEventsApiController < ApplicationController
   def participants
     get_event
     if authorized_action(@event, @current_user, :read_child_events)
-      participants = Api.paginate(@event.child_event_participants.order(:id), self, api_v1_calendar_event_participants_url)
+      participants = Api.paginate( @event.child_event_participants_scope.order(:id), self, api_v1_calendar_event_participants_url)
       json = participants.map do |user|
         user_display_json(user)
       end
@@ -1204,7 +1204,7 @@ class CalendarEventsApiController < ApplicationController
 
       if courses_user_has_been_enrolled_in[:student].include?(assignment.context_id)
         assignment = assignment.overridden_for(user)
-        assignment.infer_all_day
+        assignment.infer_all_day(Time.zone)
         assignments << assignment
       else
         dates_list = assignment.all_dates_visible_to(user,
@@ -1331,7 +1331,19 @@ class CalendarEventsApiController < ApplicationController
   def require_user_or_observer
     return render_unauthorized_action unless @current_user.present?
     @observee = api_find(User, params[:user_id])
-    authorized_action(@observee, @current_user, :read)
+
+    if @observee.grants_right?(@current_user, session, :read)
+      true # parent or admin
+    else
+      # possibly an observer without a full link
+      shards = @current_user.in_region_associated_shards & @observee.in_region_associated_shards
+      @observed_course_ids = @current_user.observer_enrollments.shard(shards).active_or_pending.where(associated_user_id: @observee).pluck(:course_id)
+      if @observed_course_ids.any?
+        true
+      else
+        render_unauthorized_action
+      end
+    end
   end
 
   def require_authorization

@@ -20,7 +20,7 @@ require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper.rb')
 
 describe BasicLTI::QuizzesNextVersionedSubmission do
   before(:each) do
-    course_model
+    course_model(workflow_state: 'available')
     @root_account = @course.root_account
     @account = account_model(:root_account => @root_account, :parent_account => @root_account)
     @course.update_attribute(:account, @account)
@@ -39,7 +39,7 @@ describe BasicLTI::QuizzesNextVersionedSubmission do
       {
         title: "value for title",
         description: "value for description",
-        due_at: Time.zone.now,
+        due_at: Time.zone.now + 1000,
         points_possible: "1.5",
         submission_types: 'external_tool',
         external_tool_tag_attributes: {url: tool.url}
@@ -227,6 +227,70 @@ describe BasicLTI::QuizzesNextVersionedSubmission do
             end.compact
           )
         end
+      end
+    end
+  end
+
+  describe "#commit_history" do
+    before do
+      allow(Submission).to receive(:find_or_initialize_by).and_return(submission)
+    end
+
+    subject { BasicLTI::QuizzesNextVersionedSubmission.new(assignment, @user) }
+
+    let(:submission) do
+      assignment.submissions.first || Submission.find_or_initialize_by(assignment: assignment, user: @user)
+    end
+
+    let!(:notification) do
+      Notification.create!(
+        name: "Assignment Submitted",
+        workflow_state: "active",
+        subject: "No Subject",
+        category: "TestImmediately"
+      )
+    end
+
+    it "sends notification to users" do
+      expect(submission).to receive(:without_versioning).and_call_original
+      expect(submission).to receive(:with_versioning).twice.and_call_original
+      expect(BroadcastPolicy.notifier).to receive(:send_notification).with(
+        submission,
+        "Assignment Submitted",
+        notification,
+        any_args
+      )
+
+      subject.commit_history('url', '77', -1)
+    end
+
+    context 'when grading period is closed' do
+      before do
+        gpg = GradingPeriodGroup.create(
+          course_id: @course.id,
+          workflow_state: 'active',
+          title: 'some school',
+          weighted: true,
+          display_totals_for_all_grading_periods: true
+        )
+        gp = GradingPeriod.create(
+          weight: 40.0,
+          start_date: Time.zone.now - 10.days,
+          end_date: Time.zone.now - 1.day,
+          title: 'some title',
+          workflow_state: 'active',
+          grading_period_group_id: gpg.id,
+          close_date: Time.zone.now - 1.day
+        )
+
+        submission.grading_period_id = gp.id
+        submission.without_versioning(&:save!)
+      end
+
+      it "returns without processing" do
+        expect(subject).not_to receive(:valid?)
+
+        subject.commit_history('url', '77', -1)
       end
     end
   end

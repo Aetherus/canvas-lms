@@ -28,7 +28,7 @@ describe "Wiki pages and Tiny WYSIWYG editor" do
     end
 
     it "should not allow access to page when marked as hide from student" do
-      expected_error = "Unauthorized"
+      expected_error = "Access Denied"
       title = "test_page"
       hfs = true
       edit_roles = "members"
@@ -37,7 +37,7 @@ describe "Wiki pages and Tiny WYSIWYG editor" do
       get "/courses/#{@course.id}/pages/#{title}"
       wait_for_ajax_requests
 
-      expect(f('.ui-state-error')).to include_text(expected_error)
+      expect(f('#unauthorized_message')).to include_text(expected_error)
     end
 
     it "should not allow students to edit if marked for only teachers can edit" do
@@ -93,6 +93,7 @@ describe "Wiki pages and Tiny WYSIWYG editor" do
     end
 
     it "should not allow students to add links to new pages unless they can create pages" do
+      skip('this only worked with the legacy editor. make it work w/ canvas-rce CORE-2714')
       create_wiki_page("test_page", false, "public")
       get "/courses/#{@course.id}/pages/test_page/edit"
       wait_for_ajax_requests

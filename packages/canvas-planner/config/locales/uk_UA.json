@@ -71,8 +71,8 @@
   "close_opportunity_center_popup_9907d981": {
     "message": "Закрити спливаюче вікно Центру можливостей"
   },
-  "count_plural_0_opportunities_one_opportunity_other_bb1698f6": {
-    "message": "{ count, plural,\n     =0 {# opportunities}\n    one {# opportunity}\n  other {# opportunities}\n}. Натисніть для відкриття спливаючого вікна Центру можливостей."
+  "count_plural_0_opportunities_one_opportunity_other_765e27fa": {
+    "message": "{ count, plural,\n     =0 {# opportunities}\n    one {# opportunity}\n  other {# opportunities}\n}"
   },
   "count_plural_one_show_completed_item_other_show_co_8d0d0ae5": {
     "message": "{ count, plural,\n    one {Show # completed item}\n  other {Show # completed items}\n}"
@@ -94,6 +94,9 @@
   },
   "date_is_required_8660ec22": {
     "message": "Потрібно вказати дату"
+  },
+  "date_time_d9fbf2d7": {
+    "message": "Дата та час:"
   },
   "delete_a6efa79d": {
     "message": "Видалити"
@@ -272,6 +275,9 @@
   "peer_review_74f26a13": {
     "message": "Експертна оцінка"
   },
+  "peer_review_for_itemtitle_358cb413": {
+    "message": "Експертна оцінка для { itemTitle }"
+  },
   "points_bceb5005": {
     "message": "бали"
   },
@@ -310,6 +316,12 @@
   },
   "startdate_to_enddate_d245175b": {
     "message": "{ startDate } до { endDate }"
+  },
+  "startdatetime_enddatetime_20abc10e": {
+    "message": "{ startDateTime } - { endDateTime }"
+  },
+  "startdatetime_endtime_49741bbe": {
+    "message": "{ startDateTime } - { endTime }"
   },
   "starttime_to_endtime_d7cc249d": {
     "message": "{ startTime } до { endTime }"

@@ -31,7 +31,9 @@ module BasicLTI
     end
 
     def commit_history(launch_url, grade, grader_id)
+      return true if grading_period_closed?
       return false unless valid?(launch_url, grade)
+
       attempt = attempt_history_by_key(launch_url)
       grade, score = @assignment.compute_grade_and_score(grade, nil)
       # if score is not changed, stop creating a new version
@@ -67,6 +69,10 @@ module BasicLTI
       score_equal && (grade1 == grade2) && submission.url == launch_url
     end
 
+    def grading_period_closed?
+      !!(submission.grading_period&.closed?)
+    end
+
     def valid?(launch_url, grade)
       launch_url.present? && grade.present?
     end
@@ -76,16 +82,28 @@ module BasicLTI
     end
 
     def save_submission!(launch_url, grade, score, grader_id)
+      submit_submission
+      grade_submission(launch_url, grade, score, grader_id)
+    end
+
+    def submit_submission
+      submission.submission_type = params[:submission_type] || 'basic_lti_launch'
+      submission.submitted_at = params[:submitted_at] || Time.zone.now
+      submission.grade_matches_current_submission = false
+      # this step is important, to send user notifications
+      # see SubmissionPolicy
+      submission.workflow_state = 'submitted'
+      submission.without_versioning(&:save!)
+    end
+
+    def grade_submission(launch_url, grade, score, grader_id)
       submission.grade = grade
       submission.score = score
-      submission.submission_type = params[:submission_type] || 'basic_lti_launch'
-      submission.workflow_state = 'submitted'
-      submission.submitted_at = params[:submitted_at] || Time.zone.now
       submission.graded_at = submission.submitted_at
       submission.grade_matches_current_submission = true
       submission.grader_id = grader_id
       clear_cache
-      return submission.save! if submission.new_record? || submission.url == launch_url
+      return submission.save! if submission.url == launch_url
       submission.url = launch_url
       submission.with_versioning(:explicit => true) { submission.save! }
     end
@@ -112,8 +130,9 @@ module BasicLTI
       @_attempts_hash ||= begin
         attempts = submission.versions.sort_by(&:created_at).each_with_object({}) do |v, a|
           h = YAML.safe_load(v.yaml).with_indifferent_access
-          url = h[:url]
+          url = v.model.url
           next if url.blank?
+          h[:url] = url
           (a[url] = (a[url] || [])) << h.slice(*JSON_FIELDS)
         end
 

@@ -15,98 +15,88 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+import $ from 'jquery'
+import _ from 'underscore'
+import tz from 'timezone'
+import DataLoader from 'jsx/gradezilla/DataLoader'
+import React from 'react'
+import ReactDOM from 'react-dom'
+import LongTextEditor from 'slickgrid.long_text_editor'
+import KeyboardNavDialog from '../views/KeyboardNavDialog'
+import KeyboardNavTemplate from 'jst/KeyboardNavDialog'
+import GradingPeriodSetsApi from '../api/gradingPeriodSetsApi'
+import InputFilterView from '../views/InputFilterView'
+import I18n from 'i18n!gradezilla'
+import CourseGradeCalculator from 'jsx/gradebook/CourseGradeCalculator'
+import * as EffectiveDueDates from 'jsx/gradebook/EffectiveDueDates'
+import GradeFormatHelper from 'jsx/gradebook/shared/helpers/GradeFormatHelper'
+import UserSettings from '../userSettings'
+import Spinner from 'spin.js'
+import GradeDisplayWarningDialog from '../shared/GradeDisplayWarningDialog'
+import PostGradesFrameDialog from './PostGradesFrameDialog'
+import NumberCompare from '../util/NumberCompare'
+import natcompare from '../util/natcompare'
+import * as ConvertCase from 'convert_case'
+import htmlEscape from 'str/htmlEscape'
+import * as EnterGradesAsSetting from 'jsx/gradezilla/shared/EnterGradesAsSetting'
+import SetDefaultGradeDialogManager from 'jsx/gradezilla/shared/SetDefaultGradeDialogManager'
+import CurveGradesDialogManager from 'jsx/gradezilla/default_gradebook/CurveGradesDialogManager'
+import GradebookApi from 'jsx/gradezilla/default_gradebook/apis/GradebookApi'
+import * as SubmissionCommentApi from 'jsx/gradezilla/default_gradebook/apis/SubmissionCommentApi'
+import CourseSettings from 'jsx/gradezilla/default_gradebook/CourseSettings'
+import FinalGradeOverrides from 'jsx/gradezilla/default_gradebook/FinalGradeOverrides'
+import GradebookGrid from 'jsx/gradezilla/default_gradebook/GradebookGrid'
+import studentRowHeaderConstants from 'jsx/gradezilla/default_gradebook/constants/studentRowHeaderConstants'
+import AssignmentRowCellPropFactory from 'jsx/gradezilla/default_gradebook/GradebookGrid/editors/AssignmentCellEditor/AssignmentRowCellPropFactory'
+import TotalGradeOverrideCellPropFactory from 'jsx/gradezilla/default_gradebook/GradebookGrid/editors/TotalGradeOverrideCellEditor/TotalGradeOverrideCellPropFactory'
+import PostPolicies from 'jsx/gradezilla/default_gradebook/PostPolicies'
+import GradebookMenu from 'jsx/gradezilla/default_gradebook/components/GradebookMenu'
+import ViewOptionsMenu from 'jsx/gradezilla/default_gradebook/components/ViewOptionsMenu'
+import ActionMenu from 'jsx/gradezilla/default_gradebook/components/ActionMenu'
+import AssignmentGroupFilter from 'jsx/gradezilla/default_gradebook/components/AssignmentGroupFilter'
+import GradingPeriodFilter from 'jsx/gradezilla/default_gradebook/components/GradingPeriodFilter'
+import ModuleFilter from 'jsx/gradezilla/default_gradebook/components/ModuleFilter'
+import SectionFilter from 'jsx/gradezilla/default_gradebook/components/SectionFilter'
+import GridColor from 'jsx/gradezilla/default_gradebook/components/GridColor'
+import StatusesModal from 'jsx/gradezilla/default_gradebook/components/StatusesModal'
+import SubmissionTray from 'jsx/gradezilla/default_gradebook/components/SubmissionTray'
+import GradebookSettingsModal from 'jsx/gradezilla/default_gradebook/components/GradebookSettingsModal'
+import AnonymousSpeedGraderAlert from 'jsx/gradezilla/default_gradebook/components/AnonymousSpeedGraderAlert'
+import { statusColors } from 'jsx/gradezilla/default_gradebook/constants/colors'
+import StudentDatastore from 'jsx/gradezilla/default_gradebook/stores/StudentDatastore'
+import PostGradesStore from 'jsx/gradezilla/SISGradePassback/PostGradesStore'
+import SubmissionStateMap from 'jsx/gradezilla/SubmissionStateMap'
+import DownloadSubmissionsDialogManager from 'jsx/gradezilla/shared/DownloadSubmissionsDialogManager'
+import ReuploadSubmissionsDialogManager from 'jsx/gradezilla/shared/ReuploadSubmissionsDialogManager'
+import GradebookKeyboardNav from './GradebookKeyboardNav'
+import AssignmentMuterDialogManager from 'jsx/gradezilla/shared/AssignmentMuterDialogManager'
+import assignmentHelper from 'jsx/gradezilla/shared/helpers/assignmentHelper'
+import TextMeasure from 'jsx/gradezilla/shared/helpers/TextMeasure'
+import * as GradeInputHelper from 'jsx/grading/helpers/GradeInputHelper'
+import OutlierScoreHelper from 'jsx/grading/helpers/OutlierScoreHelper'
+import LatePolicyApplicator from 'jsx/grading/LatePolicyApplicator'
+import Button from '@instructure/ui-buttons/lib/components/Button'
+import IconSettingsSolid from '@instructure/ui-icons/lib/Solid/IconSettings'
+import * as FlashAlert from 'jsx/shared/FlashAlert'
+import 'jquery.ajaxJSON'
+import 'jquery.instructure_date_and_time'
+import 'jqueryui/dialog'
+import 'jqueryui/tooltip'
+import '../behaviors/tooltip'
+import '../behaviors/activate'
+import 'jquery.instructure_misc_helpers'
+import 'jquery.instructure_misc_plugins'
+import 'vendor/jquery.ba-tinypubsub'
+import 'jqueryui/position'
+import '../jquery.kylemenu'
+import '../jquery/fixDialogButtons'
+import 'jsx/context_cards/StudentContextCardTrigger'
 
-define [
-  'jquery'
-  'underscore'
-  'axios'
-  'timezone'
-  'jsx/gradezilla/DataLoader'
-  'react'
-  'react-dom'
-  'slickgrid.long_text_editor'
-  '../views/KeyboardNavDialog'
-  'jst/KeyboardNavDialog'
-  '../api/gradingPeriodsApi'
-  '../api/gradingPeriodSetsApi'
-  '../views/InputFilterView'
-  'i18nObj'
-  'i18n!gradezilla'
-  'jsx/shared/helpers/numberHelper'
-  '../gradezilla/GradebookTranslations'
-  'jsx/gradebook/CourseGradeCalculator'
-  'jsx/gradebook/EffectiveDueDates'
-  'jsx/gradebook/shared/helpers/GradeFormatHelper'
-  '../userSettings'
-  'spin.js'
-  '../AssignmentMuter'
-  '../shared/GradeDisplayWarningDialog'
-  '../gradezilla/PostGradesFrameDialog'
-  '../util/NumberCompare'
-  '../util/natcompare'
-  'convert_case'
-  'str/htmlEscape'
-  'jsx/gradezilla/shared/EnterGradesAsSetting'
-  'jsx/gradezilla/shared/SetDefaultGradeDialogManager'
-  'jsx/gradezilla/default_gradebook/CurveGradesDialogManager'
-  'jsx/gradezilla/default_gradebook/apis/GradebookApi'
-  'jsx/gradezilla/default_gradebook/apis/SubmissionCommentApi'
-  'jsx/gradezilla/default_gradebook/GradebookGrid'
-  'jsx/gradezilla/default_gradebook/constants/studentRowHeaderConstants'
-  'jsx/gradezilla/default_gradebook/GradebookGrid/editors/AssignmentCellEditor/AssignmentRowCellPropFactory'
-  'jsx/gradezilla/default_gradebook/components/GradebookMenu'
-  'jsx/gradezilla/default_gradebook/components/ViewOptionsMenu'
-  'jsx/gradezilla/default_gradebook/components/ActionMenu'
-  'jsx/gradezilla/default_gradebook/components/AssignmentGroupFilter'
-  'jsx/gradezilla/default_gradebook/components/GradingPeriodFilter'
-  'jsx/gradezilla/default_gradebook/components/ModuleFilter'
-  'jsx/gradezilla/default_gradebook/components/SectionFilter'
-  'jsx/gradezilla/default_gradebook/components/GridColor'
-  'jsx/gradezilla/default_gradebook/components/StatusesModal'
-  'jsx/gradezilla/default_gradebook/components/SubmissionTray'
-  'jsx/gradezilla/default_gradebook/components/GradebookSettingsModal'
-  'jsx/gradezilla/default_gradebook/components/AnonymousSpeedGraderAlert'
-  'jsx/gradezilla/default_gradebook/constants/colors'
-  'jsx/gradezilla/default_gradebook/stores/StudentDatastore'
-  'jsx/gradezilla/SISGradePassback/PostGradesStore'
-  'jsx/gradezilla/SISGradePassback/PostGradesApp'
-  'jsx/gradezilla/SubmissionStateMap'
-  'jsx/gradezilla/shared/DownloadSubmissionsDialogManager'
-  'jsx/gradezilla/shared/ReuploadSubmissionsDialogManager'
-  '../gradezilla/GradebookKeyboardNav'
-  'jsx/gradezilla/shared/AssignmentMuterDialogManager'
-  'jsx/gradezilla/shared/helpers/assignmentHelper'
-  'jsx/gradezilla/shared/helpers/TextMeasure'
-  'jsx/grading/helpers/GradeInputHelper'
-  'jsx/grading/helpers/OutlierScoreHelper'
-  'jsx/grading/LatePolicyApplicator'
-  '@instructure/ui-buttons/lib/components/Button'
-  '@instructure/ui-icons/lib/Solid/IconSettings'
-  'jsx/shared/FlashAlert'
-  'jquery.ajaxJSON'
-  'jquery.instructure_date_and_time'
-  'jqueryui/dialog'
-  'jqueryui/tooltip'
-  '../behaviors/tooltip'
-  '../behaviors/activate'
-  'jquery.instructure_misc_helpers'
-  'jquery.instructure_misc_plugins'
-  'vendor/jquery.ba-tinypubsub'
-  'jqueryui/position'
-  '../jquery.kylemenu'
-  '../jquery/fixDialogButtons'
-  'jsx/context_cards/StudentContextCardTrigger'
-], ($, _, axios, tz, DataLoader, React, ReactDOM, LongTextEditor, KeyboardNavDialog, KeyboardNavTemplate,
-  GradingPeriodsApi, GradingPeriodSetsApi, InputFilterView, i18nObj, I18n, numberHelper, GRADEBOOK_TRANSLATIONS,
-  CourseGradeCalculator, EffectiveDueDates, GradeFormatHelper, UserSettings, Spinner, AssignmentMuter,
-  GradeDisplayWarningDialog, PostGradesFrameDialog, NumberCompare, natcompare, ConvertCase, htmlEscape,
-  EnterGradesAsSetting, SetDefaultGradeDialogManager, CurveGradesDialogManager, GradebookApi, SubmissionCommentApi,
-  GradebookGrid, studentRowHeaderConstants, AssignmentRowCellPropFactory, GradebookMenu, ViewOptionsMenu, ActionMenu,
-  AssignmentGroupFilter, GradingPeriodFilter, ModuleFilter, SectionFilter, GridColor, StatusesModal, SubmissionTray,
-  GradebookSettingsModal, AnonymousSpeedGraderAlert, { statusColors }, StudentDatastore, PostGradesStore, PostGradesApp, SubmissionStateMap,
-  DownloadSubmissionsDialogManager, ReuploadSubmissionsDialogManager, GradebookKeyboardNav,
-  AssignmentMuterDialogManager, assignmentHelper, TextMeasure, GradeInputHelper, { default: OutlierScoreHelper },
-  LatePolicyApplicator, { default: Button }, { default: IconSettingsSolid }, FlashAlert) ->
+export default do ->
+
+  ensureAssignmentVisibility = (assignment, submission) =>
+    if assignment?.only_visible_to_overrides && !assignment.assignment_visibility.includes(submission.user_id)
+      assignment.assignment_visibility.push(submission.user_id)
 
   isAdmin = =>
     _.contains(ENV.current_user_roles, 'admin')
@@ -137,6 +127,16 @@ define [
       Object.keys(student).forEach (key) =>
         if key.match ASSIGNMENT_KEY_REGEX
           fn(student[key])
+
+  getCourseFromOptions = (options) ->
+    {
+      id: options.context_id
+    }
+
+  getCourseFeaturesFromOptions = (options) ->
+    {
+      finalGradeOverrideEnabled: options.final_grade_override_enabled
+    }
 
   ## Gradebook Display Settings
   getInitialGridDisplaySettings = (settings, colors) ->
@@ -177,8 +177,6 @@ define [
       showEnrollments:
         concluded: false
         inactive: false
-      showUnpublishedAssignments: true
-      showFinalGradeOverrides: false
       sortRowsBy:
         columnId: sortRowsByColumnId # the column controlling the sort
         settingKey: sortRowsBySettingKey # the key describing the sort criteria
@@ -205,7 +203,14 @@ define [
     }
 
   getInitialCourseContent = (options) ->
+    courseGradingScheme = null
     defaultGradingScheme = null
+
+    if options.grading_standard
+      courseGradingScheme = {
+        data: options.grading_standard
+      }
+
     if options.default_grading_standard
       defaultGradingScheme = {
         data: options.default_grading_standard
@@ -213,16 +218,12 @@ define [
 
     {
       contextModules: []
+      courseGradingScheme
       defaultGradingScheme
       gradingSchemes: options.grading_schemes.map(ConvertCase.camelize)
       gradingPeriodAssignments: {}
       assignmentStudentVisibility: {}
       latePolicy: ConvertCase.camelize(options.late_policy) if options.late_policy
-    }
-
-  getInitialStudentContent = () ->
-    {
-      finalGradeOverrides: {}
     }
 
   getInitialGradebookContent = (options) ->
@@ -258,6 +259,12 @@ define [
     hasSections: $.Deferred()
 
     constructor: (@options) ->
+      @course = getCourseFromOptions(@options)
+      @courseFeatures = getCourseFeaturesFromOptions(@options)
+      @courseSettings = new CourseSettings(@, {
+        allowFinalGradeOverride: @options.course_settings.allow_final_grade_override
+      })
+
       @gridData = {
         columns: {
           definitions: {}
@@ -274,6 +281,16 @@ define [
         editable: @options.gradebook_is_editable
         gradebook: @
       })
+
+      if @courseFeatures.finalGradeOverrideEnabled
+        @finalGradeOverrides = new FinalGradeOverrides(@)
+      else
+        @finalGradeOverrides = null
+
+      if @options.post_policies_enabled
+        @postPolicies = new PostPolicies(@)
+      else
+        @postPolicies = null
 
       $.subscribe 'assignment_muting_toggled',        @handleAssignmentMutingChange
       $.subscribe 'submissions_updated',              @updateSubmissionsFromExternal
@@ -294,7 +311,6 @@ define [
 
     setInitialState: =>
       @courseContent = getInitialCourseContent(@options)
-      @studentContent = getInitialStudentContent()
       @gradebookContent = getInitialGradebookContent(@options)
       @gridDisplaySettings = getInitialGridDisplaySettings(@options.settings, @options.colors)
       @contentLoadStates = getInitialContentLoadStates()
@@ -324,7 +340,6 @@ define [
       else
         @gradingPeriodSet = null
       @show_attendance = !!UserSettings.contextGet 'show_attendance'
-      @include_ungraded_assignments = UserSettings.contextGet 'include_ungraded_assignments'
       # preferences serialization causes these to always come
       # from the database as strings
       if @options.course_is_concluded || @options.settings.show_concluded_enrollments == 'true'
@@ -332,7 +347,6 @@ define [
       if @options.settings.show_inactive_enrollments == 'true'
         @toggleEnrollmentFilter('inactive', true)
       @initShowUnpublishedAssignments(@options.settings.show_unpublished_assignments)
-      @initShowOverrides(@options.settings.show_final_grade_overrides)
       @initSubmissionStateMap()
       @gradebookColumnSizeSettings = @options.gradebook_column_size_settings
       @setColumnOrder(Object.assign(
@@ -398,7 +412,6 @@ define [
           include: @fieldsToIncludeWithAssignments
         contextModulesURL: @options.context_modules_url
         customColumnsURL: @options.custom_columns_url
-        getFinalGradeOverrides: @options.final_grade_override_enabled
         getGradingPeriodAssignments: @gradingPeriodSet?
 
         sectionsURL: @options.sections_url
@@ -426,14 +439,6 @@ define [
       dataLoader.gotCustomColumns.then @gotCustomColumns
       dataLoader.gotStudents.then @gotAllStudents
 
-      @renderedGrid = $.when(
-        dataLoader.gotStudentIds,
-        dataLoader.gotContextModules,
-        dataLoader.gotCustomColumns,
-        dataLoader.gotAssignmentGroups,
-        dataLoader.gotGradingPeriodAssignments
-      ).then(@doSlickgridStuff)
-
       dataLoader.gotStudents.then () =>
         @setStudentsLoaded(true)
         @updateColumnHeaders()
@@ -455,8 +460,20 @@ define [
         @updateColumnHeaders()
         @renderFilters()
 
+      @postPolicies?.initialize()
+
+      @renderedGrid = $.when(
+        dataLoader.gotStudentIds,
+        dataLoader.gotContextModules,
+        dataLoader.gotCustomColumns,
+        dataLoader.gotAssignmentGroups,
+        dataLoader.gotGradingPeriodAssignments
+      ).then () =>
+        @finishRenderingUI()
+
       @gridReady.then () =>
         @renderViewOptionsMenu()
+        @renderGradebookSettingsModal()
 
     # called from app/jsx/bundles/gradezilla.js
     onShow: ->
@@ -629,7 +646,7 @@ define [
 
     ## Post-Data Load Initialization
 
-    doSlickgridStuff: =>
+    finishRenderingUI: =>
       @initGrid()
       @initHeader()
       @gridReady.resolve()
@@ -951,10 +968,11 @@ define [
       changedStudentIds = []
       submissions = []
 
-      for data in student_submissions
-        changedStudentIds.push(data.user_id)
-        student = @student(data.user_id)
-        for submission in data.submissions
+      for studentSubmissionGroup in student_submissions
+        changedStudentIds.push(studentSubmissionGroup.user_id)
+        student = @student(studentSubmissionGroup.user_id)
+        for submission in studentSubmissionGroup.submissions
+          ensureAssignmentVisibility(@getAssignment(submission.assignment_id), submission)
           submissions.push(submission)
           @updateSubmission(submission)
 
@@ -975,6 +993,7 @@ define [
       student = @student(submission.user_id)
       submission.submitted_at = tz.parse(submission.submitted_at)
       submission.excused = !!submission.excused
+      submission.hidden = !!submission.hidden
       submission.rawGrade = submission.grade # save the unformatted version of the grade too
       submission.grade = GradeFormatHelper.formatGrade(submission.grade, {
         gradingType: submission.gradingType, delocalize: false
@@ -1040,16 +1059,14 @@ define [
         if @isFilteringColumnsByGradingPeriod()
           grades = grades.gradingPeriods[@getGradingPeriodToShow()]
 
-        finalOrCurrent = if @include_ungraded_assignments then 'final' else 'current'
-
         for assignmentGroupId, group of @assignmentGroups
           grade = grades.assignmentGroups[assignmentGroupId]
-          grade = grade?[finalOrCurrent] || { score: 0, possible: 0, submissions: [] }
+          grade = grade?['current'] || { score: 0, possible: 0, submissions: [] }
 
           student["assignment_group_#{assignmentGroupId}"] = grade
           for submissionData in grade.submissions
             submissionData.submission.drop = submissionData.drop
-        student["total_grade"] = grades[finalOrCurrent]
+        student['total_grade'] = grades['current']
 
     ## Grid Styling Methods
 
@@ -1300,12 +1317,6 @@ define [
       onSelect: onSelect
       selected: showingNotes
 
-    getOverridesViewOptionsMenuProps: ->
-      disabled: @contentLoadStates.overridesColumnUpdating || @gridReady.state() != 'resolved'
-      label: if @options.grading_period_set then I18n.t('Grading Period Overrides') else I18n.t('Overrides')
-      onSelect: @toggleOverrides
-      selected: @gridDisplaySettings.showFinalGradeOverrides
-
     getColumnSortSettingsViewOptionsMenuProps: ->
       storedSortOrder = @getColumnOrder()
       criterion = if @isDefaultSortOrder(storedSortOrder.sortType)
@@ -1349,8 +1360,6 @@ define [
 
     getViewOptionsMenuProps: ->
       teacherNotes: @getTeacherNotesViewOptionsMenuProps()
-      overrides: @getOverridesViewOptionsMenuProps()
-      finalGradeOverrideEnabled: @options.final_grade_override_enabled
       columnSortSettings: @getColumnSortSettingsViewOptionsMenuProps()
       filterSettings: @getFilterSettingsViewOptionsMenuProps()
       showUnpublishedAssignments: @gridDisplaySettings.showUnpublishedAssignments
@@ -1420,11 +1429,18 @@ define [
     renderGradebookSettingsModal: =>
       gradebookSettingsModalMountPoint = document.querySelector("[data-component='GradebookSettingsModal']")
       gradebookSettingsModalProps =
+        anonymousAssignmentsPresent: _.any(@assignments, (assignment) => assignment.anonymous_grading)
         courseId: @options.context_id
+        courseFeatures: @courseFeatures
+        courseSettings: @courseSettings
+        gradedLateSubmissionsExist: @options.graded_late_submissions_exist
         locale: @options.locale
         onClose: => @gradebookSettingsModalButton.focus()
+        onCourseSettingsUpdated: (settings) =>
+          @courseSettings.handleUpdated(settings)
         onLatePolicyUpdate: @onLatePolicyUpdate
-        gradedLateSubmissionsExist: @options.graded_late_submissions_exist
+        postPolicies: @postPolicies
+
       @gradebookSettingsModal = renderComponent(
         GradebookSettingsModal,
         gradebookSettingsModalMountPoint,
@@ -1466,7 +1482,7 @@ define [
       @options.show_total_grade_as_points = not @options.show_total_grade_as_points
       $.ajaxJSON @options.setting_update_url, "PUT", show_total_grade_as_points: @options.show_total_grade_as_points
       @gradebookGrid.invalidate()
-      if @gridDisplaySettings.showFinalGradeOverrides
+      if @courseSettings.allowFinalGradeOverride
         @gradebookGrid.gridSupport.columns.updateColumnHeaders(['total_grade', 'total_grade_override'])
       else
         @gradebookGrid.gridSupport.columns.updateColumnHeaders(['total_grade'])
@@ -1512,7 +1528,7 @@ define [
         else
           scrollableColumns.push(@gridData.columns.definitions['total_grade'])
 
-        if @gridDisplaySettings.showFinalGradeOverrides
+        if @courseSettings.allowFinalGradeOverride
           scrollableColumns.push(@gridData.columns.definitions['total_grade_override'])
 
       if @gradebookColumnOrderSettings?.sortType
@@ -1650,13 +1666,16 @@ define [
         totalWidth = testWidth(label, columnWidths.total_grade_override.min, columnWidths.total_grade_override.max)
 
       {
-        id: 'total_grade_override'
-        minWidth: columnWidths.total_grade_override.min
-        maxWidth: columnWidths.total_grade_override.max
-        width: totalWidth
         cssClass: 'total-grade-override'
+        getGridSupport: => @gradebookGrid.gridSupport
         headerCssClass: 'total-grade-override'
+        id: 'total_grade_override'
+        maxWidth: columnWidths.total_grade_override.max
+        minWidth: columnWidths.total_grade_override.min
+        propFactory: new TotalGradeOverrideCellPropFactory(@)
+        toolTip: label
         type: 'total_grade_override'
+        width: totalWidth
       }
 
     initGrid: =>
@@ -1802,7 +1821,8 @@ define [
     # The current cell editor has been changed and is valid
     onCellChange: (event, obj) =>
       { item, column } = obj
-      if col_id = column.field.match /^custom_col_(\d+)/
+      if column.type == 'custom_column'
+        col_id = column.field.match /^custom_col_(\d+)/
         url = @options.custom_column_datum_url
           .replace(/:id/, col_id[1])
           .replace(/:user_id/, item.id)
@@ -1824,7 +1844,6 @@ define [
       showConcludedEnrollments = @getEnrollmentFilters().concluded,
       showInactiveEnrollments = @getEnrollmentFilters().inactive,
       showUnpublishedAssignments = @gridDisplaySettings.showUnpublishedAssignments,
-      showFinalGradeOverrides = @gridDisplaySettings.showFinalGradeOverrides,
       studentColumnDisplayAs = @getSelectedPrimaryInfo(),
       studentColumnSecondaryInfo = @getSelectedSecondaryInfo(),
       sortRowsBy = @getSortRowsBySetting(),
@@ -1838,8 +1857,8 @@ define [
           selected_view_options_filters: selectedViewOptionsFilters
           show_concluded_enrollments: showConcludedEnrollments
           show_inactive_enrollments: showInactiveEnrollments
+
           show_unpublished_assignments: showUnpublishedAssignments
-          show_final_grade_overrides: showFinalGradeOverrides
           student_column_display_as: studentColumnDisplayAs
           student_column_secondary_info: studentColumnSecondaryInfo
           filter_rows_by: ConvertCase.underscore(@gridDisplaySettings.filterRowsBy)
@@ -2106,6 +2125,10 @@ define [
       @updateColumns()
       @renderViewOptionsMenu()
 
+    updateColumnsAndRenderGradebookSettingsModal: =>
+      @updateColumns()
+      @renderGradebookSettingsModal()
+
     ## React Header Component Ref Methods
 
     setHeaderComponentRef: (columnId, ref) =>
@@ -2119,8 +2142,8 @@ define [
 
     ## React Grid Component Rendering Methods
 
-    updateColumnHeaders: ->
-      @gradebookGrid.gridSupport?.columns.updateColumnHeaders()
+    updateColumnHeaders: (columnIds = []) =>
+      @gradebookGrid.gridSupport?.columns.updateColumnHeaders(columnIds)
 
     # Column Header Helpers
     handleHeaderKeyDown: (e, columnId) =>
@@ -2411,33 +2434,15 @@ define [
       @gridDisplaySettings.showUnpublishedAssignments = showUnpublishedAssignments == 'true'
 
     toggleUnpublishedAssignments: =>
-      @gridDisplaySettings.showUnpublishedAssignments = !@gridDisplaySettings.showUnpublishedAssignments
-      @updateColumnsAndRenderViewOptionsMenu()
+      toggleableAction = =>
+        @gridDisplaySettings.showUnpublishedAssignments = !@gridDisplaySettings.showUnpublishedAssignments
+        @updateColumnsAndRenderViewOptionsMenu()
+      toggleableAction()
 
       @saveSettings(
         { showUnpublishedAssignments: @gridDisplaySettings.showUnpublishedAssignments },
         () =>, # on success, do nothing since the render happened earlier
-        () => # on failure, undo
-          @gridDisplaySettings.showUnpublishedAssignments = !@gridDisplaySettings.showUnpublishedAssignments
-          @updateColumnsAndRenderViewOptionsMenu()
-      )
-
-    initShowOverrides: (showFinalGradeOverrides = 'false') =>
-      @setShowFinalGradeOverrides(@options.final_grade_override_enabled && showFinalGradeOverrides == 'true')
-
-    setShowFinalGradeOverrides: (show) =>
-      @gridDisplaySettings.showFinalGradeOverrides = show
-
-    toggleOverrides: =>
-      @setShowFinalGradeOverrides(!@gridDisplaySettings.showFinalGradeOverrides)
-      @updateColumnsAndRenderViewOptionsMenu()
-
-      @saveSettings(
-        { showFinalGradeOverrides: @gridDisplaySettings.showFinalGradeOverrides },
-        () =>, # on success, do nothing since the render happened earlier
-        () => # on failure, undo
-          @gridDisplaySettings.showFinalGradeOverrides = !@gridDisplaySettings.showFinalGradeOverrides
-          @updateColumnsAndRenderViewOptionsMenu()
+        toggleableAction
       )
 
     setAssignmentsLoaded: (loaded) =>
@@ -2453,14 +2458,31 @@ define [
       @contentLoadStates.submissionsLoaded = loaded
 
     isGradeEditable: (studentId, assignmentId) =>
-      student = @student(studentId)
-      return false if !student || student.isConcluded
+      return false unless @isStudentGradeable(studentId)
       submissionState = @submissionStateMap.getSubmissionState(assignment_id: assignmentId, user_id: studentId)
       submissionState? && !submissionState.locked
 
     isGradeVisible: (studentId, assignmentId) =>
       submissionState = @submissionStateMap.getSubmissionState(assignment_id: assignmentId, user_id: studentId)
       submissionState? && !submissionState.hideGrade
+
+    isStudentGradeable: (studentId) =>
+      student = @student(studentId)
+      not (!student || student.isConcluded)
+
+    studentCanReceiveGradeOverride: (studentId) =>
+      @isStudentGradeable(studentId) && @studentHasGradedSubmission(studentId)
+
+    studentHasGradedSubmission: (studentId) =>
+      student = @student(studentId)
+      submissions = @submissionsForStudent(student)
+      return false unless submissions.length > 0
+
+      submissions.some (submission) ->
+        # A submission is graded if either:
+        # - it has a score and the workflow state is 'graded'
+        # - it is excused
+        submission.excused || (submission.score? && submission.workflow_state == 'graded')
 
     addPendingGradeInfo: (submission, gradeInfo) =>
       { userId, assignmentId } = submission
@@ -2645,6 +2667,9 @@ define [
 
     ## Course Settings Access Methods
 
+    getCourseGradingScheme: ->
+      @courseContent.courseGradingScheme
+
     getDefaultGradingScheme: ->
       @courseContent.defaultGradingScheme
 
@@ -2656,6 +2681,9 @@ define [
       @getGradingScheme(assignment.grading_standard_id) || @getDefaultGradingScheme()
 
     ## Gradebook Content Access Methods
+
+    getSections: () =>
+      Object.values(@sections)
 
     setSections: (sections) =>
       @sections = _.indexBy(sections, 'id')
@@ -2691,17 +2719,6 @@ define [
           @courseContent.modulesById[contextModule.id] = contextModule
 
       contextModules
-
-    getFinalGradeOverrides: (studentId) =>
-      @studentContent.finalGradeOverrides[studentId]
-
-    setFinalGradeOverrides: (finalGradeOverrides) =>
-      @studentContent.finalGradeOverrides = finalGradeOverrides
-
-    updateFinalGradeOverrides: (finalGradeOverrides) =>
-      @setFinalGradeOverrides(finalGradeOverrides)
-      studentIds = Object.keys(@studentContent.finalGradeOverrides)
-      @invalidateRowsForStudentIds(studentIds)
 
     onLatePolicyUpdate: (latePolicy) =>
       @setLatePolicy(latePolicy)
@@ -2933,3 +2950,4 @@ define [
       $(window).unbind('resize.fillWindowWithMe')
       $(document).unbind('gridready')
       @gradebookGrid.destroy()
+      @postPolicies?.destroy()

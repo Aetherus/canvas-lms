@@ -31,6 +31,8 @@ import natcompare from 'compiled/util/natcompare'
 import AssignmentResult from './AssignmentResult'
 import UnassessedAssignment from './UnassessedAssignment'
 import OutcomePopover from './OutcomePopover'
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
+import PresentationContent from '@instructure/ui-a11y/lib/components/PresentationContent'
 import * as shapes from './shapes'
 
 export default class Outcome extends React.Component {
@@ -51,8 +53,12 @@ export default class Outcome extends React.Component {
 
   renderHeader () {
     const { outcome, outcomeProficiency } = this.props
-    const { assignments, mastered, title } = outcome
+    const { assignments, display_name, mastered, title, score, points_possible, results } = outcome
     const numAlignments = assignments.length
+    const pillAttributes = {margin: "0 0 0 x-small", text: I18n.t('Not mastered')}
+    if (mastered) {
+        Object.assign(pillAttributes, {text: I18n.t('Mastered'), variant: "success"});
+    }
 
     return (
       <Flex direction="row" justifyItems="space-between" data-selenium="outcome">
@@ -64,7 +70,7 @@ export default class Outcome extends React.Component {
                   <FlexItem>
                     <OutcomePopover outcome={outcome} outcomeProficiency={outcomeProficiency}/>
                   </FlexItem>
-                  <FlexItem shrink padding="0 x-small"><TruncateText>{ title }</TruncateText></FlexItem>
+                  <FlexItem shrink padding="0 x-small"><TruncateText>{ display_name || title }</TruncateText></FlexItem>
                 </Flex>
               </Text>
             </FlexItem>
@@ -77,8 +83,13 @@ export default class Outcome extends React.Component {
         </FlexItem>
         <FlexItem>
         {
-          mastered ? <Pill text={I18n.t('Mastered')} variant="success" /> : <Pill text={I18n.t('Not mastered')} />
+          (_.isNumber(score) && !_.every(results, ['hide_points', true]) ) &&
+          <span>
+            <PresentationContent><Text size="medium">{score}/{points_possible}</Text></PresentationContent>
+            <ScreenReaderContent>{I18n.t('%{score} out of %{points_possible} points', { score, points_possible})}</ScreenReaderContent>
+          </span>
         }
+        <Pill {...pillAttributes} />
         </FlexItem>
       </Flex>
     )
@@ -87,10 +98,14 @@ export default class Outcome extends React.Component {
   renderDetails () {
     const { outcome, outcomeProficiency } = this.props
     const { assignments, results } = outcome
-    const assignmentsWithResults = results.map((r) => r.assignment.id.split('_')[1])
-    const unassessedAssignments = _.reject(assignments, (a) => (
-      _.includes(assignmentsWithResults, a.assignment_id.toString()
-    )))
+    const assignmentsWithResults = _.filter(results,
+      (r) => r.assignment.id.startsWith('assignment_')).map((r) => r.assignment.id.split('_')[1])
+    const assessmentsWithResults = _.filter(results,
+      (r) => r.assignment.id.startsWith('live_assessments/assessment_')).map((r) => r.assignment.id.split('_')[2])
+    const unassessed = _.filter(assignments, (a) => (
+      a.assignment_id && !_.includes(assignmentsWithResults, a.assignment_id.toString()) ||
+      a.assessment_id && !_.includes(assessmentsWithResults, a.assessment_id.toString())
+    ))
     return (
       <List variant="unstyled" delimiter="dashed">
       {
@@ -101,8 +116,10 @@ export default class Outcome extends React.Component {
         ))
       }
       {
-        unassessedAssignments.map((assignment) => (
-          <UnassessedAssignment assignment={assignment}/>
+        unassessed.map((assignment) => (
+          <UnassessedAssignment
+            key={assignment.assessment_id ? `a${assignment.assessment_id}` : assignment.assignment_id}
+            assignment={assignment}/>
         ))
       }
       </List>

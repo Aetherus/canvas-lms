@@ -65,6 +65,23 @@ class ContentMigration < ActiveRecord::Base
     can :manage_files and can :read
   end
 
+  def trigger_live_events!
+    # Trigger live events for the source course and migration
+    Canvas::LiveEventsCallbacks.after_update(context, context.saved_changes)
+    Canvas::LiveEventsCallbacks.after_update(self, self.saved_changes)
+
+    # Trigger live events for all updated/created records
+    imported_migration_items.each do |imported_item|
+      next unless LiveEventsObserver.observed_classes.include? imported_item.class
+      next if started_at.blank? || imported_item.created_at.blank?
+      if imported_item.created_at > started_at
+        Canvas::LiveEventsCallbacks.after_create(imported_item)
+      else
+        Canvas::LiveEventsCallbacks.after_update(imported_item, imported_item.saved_changes)
+      end
+    end
+  end
+
   def set_started_at_and_finished_at
     if workflow_state_changed?
       if pre_processing? || exporting? || importing?
@@ -92,6 +109,13 @@ class ContentMigration < ActiveRecord::Base
 
   def import_immediately?
     !!migration_settings[:import_immediately]
+  end
+
+  def content_export
+    if !association(:content_export).loaded? && source_course_id && Shard.shard_for(source_course_id) != self.shard
+      association(:content_export).target = Shard.shard_for(source_course_id).activate { ContentExport.where(:content_migration_id => self).first }
+    end
+    super
   end
 
   def converter_class=(c_class)
@@ -826,14 +850,24 @@ class ContentMigration < ActiveRecord::Base
     end
   end
 
+  def use_global_identifiers?
+    if self.content_export
+      self.content_export.global_identifiers?
+    elsif self.source_course
+      self.source_course.content_exports.temp_record.can_use_global_identifiers?
+    else
+      false
+    end
+  end
+
   # strips out the "id_" prepending the migration ids in the form
   # also converts arrays of migration ids (or real ids for course exports) into the old hash format
-  def self.process_copy_params(hash, for_content_export=false, return_asset_strings=false)
+  def self.process_copy_params(hash, for_content_export: false, return_asset_strings: false, global_identifiers: false)
     return {} if hash.blank?
     process_key = if return_asset_strings
       ->(asset_string) { asset_string }
     else
-      ->(asset_string) { CC::CCHelper.create_key(asset_string) }
+      ->(asset_string) { CC::CCHelper.create_key(asset_string, global: global_identifiers) }
     end
     new_hash = {}
 

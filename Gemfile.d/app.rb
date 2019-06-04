@@ -16,9 +16,9 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
 if CANVAS_RAILS5_1
-  gem 'rails', '5.1.6.1'
+  gem 'rails', '5.1.6.2'
 else
-  gem 'rails', '5.2.1.1'
+  gem 'rails', '5.2.2.1'
 end
     gem 'loofah', '2.2.3'
 
@@ -34,7 +34,7 @@ gem 'akamai-edge_auth'
 
 # oauth2-1.4.0 caused issues with google oauth login flow, which needs to be
 # investigated as part of a future gem bump.
-gem 'oauth2', '1.2.0', require: false
+gem 'oauth2', '1.4.1', require: false
 
 gem 'rails-observers', '0.1.5'
 
@@ -48,7 +48,7 @@ gem 'active_model_serializers',   '0.9.0alpha1',
 gem 'authlogic', '4.0.1'
   gem 'scrypt', '3.0.6'
 gem 'active_model-better_errors', '1.6.7', require: 'active_model/better_errors'
-gem 'switchman', '1.12.13'
+gem 'switchman', '1.13.2'
   gem 'open4', '1.3.4', require: false
 gem 'folio-pagination', '0.0.12', require: 'folio/rails'
   # for folio, see the folio README
@@ -68,13 +68,14 @@ gem 'barby', '0.6.5', require: false
   gem 'rqrcode', '0.10.1', require: false
   gem 'chunky_png', '1.3.10', require: false
 gem 'bcrypt', '3.1.11'
+gem 'brotli', '0.2.0', require: false
 gem 'canvas_connect', '0.3.11'
-  gem 'adobe_connect', '1.0.6', require: false
+  gem 'adobe_connect', '1.0.8', require: false
 gem 'canvas_webex', '0.17'
 gem 'inst-jobs', '0.15.5'
   gem 'rufus-scheduler', '3.4.2', require: false
     gem 'et-orbi', '1.0.8', require: false
-gem 'switchman-inst-jobs', '1.2.2'
+gem 'switchman-inst-jobs', '1.3.3'
 gem 'inst-jobs-autoscaling', '1.0.5'
   gem 'aws-sdk-autoscaling', '1.5.0', require: false
 # ffi 1.9.2x seem to have issues on RHEL & CentOS causing segfaults
@@ -95,7 +96,7 @@ gem 'icalendar', '2.5.1', require: false
 gem 'ims-lti', '2.2.3', require: 'ims'
 gem 'json_schemer', '0.1.7'
 gem 'simple_oauth', '0.3.1', require: false
-gem 'json', '2.1.0'
+gem 'json', '2.2.0'
 gem 'oj', '3.3.9'
 gem 'jwt', '1.5.6', require: false
 gem 'json-jwt', '1.9.4', require: false
@@ -104,25 +105,24 @@ gem 'twilio-ruby', '5.7.2', require: false
 gem 'mail', '2.7.0', require: false
   gem 'mini_mime', '1.0.0', require: false
 gem 'marginalia', '1.5.0', require: false
-gem 'mime-types', '1.25.1', require: 'mime/types'
+gem 'mime-types', '3.2.2'
 gem 'mini_magick', '4.8.0'
 gem 'multi_json', '1.13.1'
 gem 'netaddr', '1.5.1', require: false
-gem 'nokogiri', '1.8.5', require: false
+gem 'nokogiri', '1.10.1', require: false
 gem 'oauth', '0.5.4', require: false
 gem 'parallel', '1.12.1', require: false
   gem 'ruby-progressbar', '1.9.0', require: false # used to show progress of S3Uploader
 gem 'retriable', '1.4.1'
 gem 'rake', '12.3.1'
-gem 'ratom-nokogiri', '0.10.6', require: false
+gem 'ratom-nokogiri', '0.10.8', require: false
 gem 'rdiscount', '1.6.8', require: false
 gem 'ritex', '1.0.1', require: false
 
 gem 'rotp', '3.3.1', require: false
 gem 'net-ldap', '0.16.1', require: false
 gem 'ruby-duration', '3.2.3', require: false
-gem 'ruby-saml-mod', '0.3.8'
-gem 'saml2', '3.0.1'
+gem 'saml2', '3.0.7'
   gem 'nokogiri-xmlsec-instructure', '0.9.6', require: false
 gem 'rubycas-client', '2.3.9', require: false
 gem 'rubyzip', '1.2.1', require: 'zip'
@@ -130,18 +130,20 @@ gem 'safe_yaml', '1.0.4', require: false
 gem 'sanitize', '2.1.1', require: false
 gem 'shackles', '1.4.1'
 
-gem 'useragent', '0.16.10', require: false
+gem 'browser', '2.5.3', require: false
 
 gem 'crocodoc-ruby', '0.0.1', require: false
 gem 'sentry-raven', '2.7.2', require: false
-gem 'canvas_statsd', '2.0.4'
+gem 'inst_statsd', '2.1.4'
   gem 'statsd-ruby', '1.4.0', require: false
   gem 'aroi', '0.0.6', require: false
-gem 'gepub', '0.7.0beta4'
+  gem 'dogstatsd-ruby', '3.3.0'
+gem 'inst-jobs-statsd', '1.2.3'
+gem 'gepub', '1.0.1'
 gem 'imperium', '0.5.0', require: false
 gem 'academic_benchmarks', '0.0.10', require: false
 
-gem 'graphql', '1.8.8'
+gem 'graphql', '1.9.3'
 gem 'graphql-batch', '0.3.9'
 
 gem 'prawn-rails', '1.2.0'
@@ -188,4 +190,3 @@ gem 'twitter', path: 'gems/twitter'
 gem 'vericite_api', '1.5.3'
 gem 'utf8_cleaner', path: 'gems/utf8_cleaner'
 gem 'workflow', path: 'gems/workflow'
-gem 'dogstatsd-ruby', '3.3.0'

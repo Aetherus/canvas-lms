@@ -34,7 +34,7 @@ describe Lti::Ims::AuthenticationController do
   let(:verifier) { SecureRandom.hex 64 }
   let(:client_id) { developer_key.global_id }
   let(:context) { account_model }
-  let(:login_hint) { Lti::Asset.opaque_identifier_for(user) }
+  let(:login_hint) { Lti::Asset.opaque_identifier_for(user, context: context) }
   let(:nonce) { SecureRandom.uuid }
   let(:prompt) { 'none' }
   let(:redirect_uri) { 'https://redirect.tool.com?foo=bar' }
@@ -254,6 +254,17 @@ describe Lti::Ims::AuthenticationController do
 
       context 'when the devloper key is not active' do
         before { developer_key.update!(workflow_state: 'inactive') }
+
+        it_behaves_like 'non redirect_uri errors' do
+          let(:expected_message) { "Client not authorized in requested context" }
+          let(:expected_error) { "unauthorized_client" }
+        end
+      end
+
+      context 'when key has no bindings to the context' do
+        before do
+          developer_key.developer_key_account_bindings.destroy_all
+        end
 
         it_behaves_like 'non redirect_uri errors' do
           let(:expected_message) { "Client not authorized in requested context" }

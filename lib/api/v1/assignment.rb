@@ -180,6 +180,7 @@ module Api::V1::Assignment
 
     hash['is_quiz_assignment'] = assignment.quiz? && assignment.quiz.assignment?
     hash['can_duplicate'] = assignment.can_duplicate?
+    hash['original_course_id'] = assignment.duplicate_of&.course&.id
     hash['original_assignment_id'] = assignment.duplicate_of&.id
     hash['original_assignment_name'] = assignment.duplicate_of&.name
     hash['workflow_state'] = assignment.workflow_state
@@ -284,7 +285,9 @@ module Api::V1::Assignment
           'id' => rubric.id,
           'title' => rubric.title,
           'points_possible' => rubric.points_possible,
-          'free_form_criterion_comments' => !!rubric.free_form_criterion_comments
+          'free_form_criterion_comments' => !!rubric.free_form_criterion_comments,
+          'hide_score_total' => !!assignment.rubric_association.hide_score_total,
+          'hide_points' => !!assignment.rubric_association.hide_points
         }
       end
     end
@@ -501,11 +504,13 @@ module Api::V1::Assignment
     end
 
     if @overrides_affected.to_i > 0 || cached_due_dates_changed
+      assignment.clear_cache_key(:availability)
       DueDateCacher.recompute(prepared_update[:assignment], update_grades: true, executing_user: user)
     end
 
     response
-  rescue ActiveRecord::RecordInvalid
+  rescue ActiveRecord::RecordInvalid => e
+    assignment.errors.add('invalid_record', e)
     false
   rescue Lti::AssignmentSubscriptionsHelper::AssignmentSubscriptionError => e
     assignment.errors.add('plagiarism_tool_subscription', e)
@@ -914,7 +919,7 @@ module Api::V1::Assignment
     if plagiarism_capable?(assignment_params)
       tool = assignment_configuration_tool(assignment_params)
       assignment.tool_settings_tool = tool
-    elsif assignment.persisted? && assignment.assignment_configuration_tool_lookups.present?
+    elsif assignment.persisted? && clear_tool_settings_tools?(assignment, assignment_params)
       # Destroy subscriptions and tool associations
       assignment.send_later_if_production(:clear_tool_settings_tools)
     end
@@ -931,6 +936,15 @@ module Api::V1::Assignment
       tool = mh if mh_context == @context || @context.account_chain.include?(mh_context)
     end
     tool
+  end
+
+  def clear_tool_settings_tools?(assignment, assignment_params)
+    assignment.assignment_configuration_tool_lookups.present? &&
+      assignment_params['submission_types']&.present? &&
+      (
+        !assignment.submission_types.split(',').any? { |t| assignment_params['submission_types'].include?(t) } ||
+        assignment_params['submission_types'].blank?
+      )
   end
 
   def plagiarism_capable?(assignment_params)

@@ -32,7 +32,8 @@ const fakeActions = {
   createOrEditDeveloperKey: () => {},
   editDeveloperKey: () => {},
   ltiKeysSetDisabledPlacements: () => {},
-  ltiKeysSetEnabledScopes: () => {}
+  ltiKeysSetEnabledScopes: () => {},
+  ltiKeysSetPrivacyLevel: () => {}
 }
 
 const developerKey = {
@@ -47,12 +48,57 @@ const developerKey = {
   name: 'Dev Key Name',
   notes: 'all the notas',
   redirect_uri: 'http://my_redirect_uri.com',
-  redirect_uris: '',
+  redirect_uris: 'http://my_redirect_uri.com',
   user_id: '53532',
   user_name: 'billy bob',
   vendor_code: 'b3w9w9bf',
   workflow_state: 'active',
   test_cluster_only: false
+}
+
+const validToolConfig = {
+  title: "testTest",
+  description: "a",
+  scopes: [
+      "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
+      "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly",
+      "https://purl.imsglobal.org/spec/lti-ags/scope/score",
+      "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly"
+  ],
+  extensions: [
+      {
+          domain: "test.testcloud.org",
+          tool_id: "toolid",
+          platform: "canvas.instructure.com",
+          settings: {
+              text: "test",
+              use_1_3: true,
+              icon_url: "/img/default-icon-16x16.png",
+              selection_width: 500,
+              selection_height: 500,
+              placements: [{
+                  placement: "editor_button",
+                  target_link_uri: "https://test.testcloud.org/test/lti/store/",
+                  text: "testTools",
+                  enabled: true,
+                  icon_url: "https://static.test.org/img/default-icon-16x16.png",
+                  message_type: "LtiDeepLinkingRequest",
+                  canvas_icon_class: "icon-lti"
+              }]
+          },
+          privacy_level: "public"
+      }
+  ],
+  target_link_uri: "https://test.testcloud.org/test/lti/oidc_launch",
+  oidc_initiation_url: "https://test.testcloud.org/test/lti/oidc_login",
+  public_jwk: {
+      kty: "RSA",
+      e: "AQAB",
+      n: "vESXFmlzHz-nhZXTkjo29SBpamCzkd7SnpMXgdFEWjLfDeOu0D3JivEEUQ4U67xUBMY9voiJsG2oydMXjgkmGliUIVg-rhyKdBUJu5v6F659FwCj60A8J8qcstIkZfBn3yyOPVwp1FHEUSNvtbDLSRIHFPv-kh8gYyvqz130hE37qAVcaNME7lkbDmH1vbxi3D3A8AxKtiHs8oS41ui2MuSAN9MDb7NjAlFkf2iXlSVxAW5xSek4nHGr4BJKe_13vhLOvRUCTN8h8z-SLORWabxoNIkzuAab0NtfO_Qh0rgoWFC9T69jJPAPsXMDCn5oQ3xh_vhG0vltSSIzHsZ8pw",
+      kid: "-1302712033",
+      alg:"RS256",
+      use:"sig"
+  }
 }
 
 const createLtiKeyState = {
@@ -426,5 +472,86 @@ test('saves customizations', () => {
   )
   wrapper.instance().saveCustomizations()
   ok(ltiStub.calledWith(['https://www.test.com/lineitem'], ['account_navigation'], 22, {}, null))
+  wrapper.unmount()
+})
+
+test('flashes an error if redirect_uris is empty', () => {
+  const flashStub = sinon.stub($, 'flashError')
+  const createOrEditSpy = sinon.spy()
+  const dispatchSpy = sinon.spy()
+  const fakeActions = { createOrEditDeveloperKey: createOrEditSpy }
+  const fakeStore = { dispatch: dispatchSpy }
+  const developerKey2 = Object.assign({}, developerKey, { require_scopes: true, scopes: [], redirect_uris: '' })
+  const editDeveloperKeyState2 = Object.assign({}, editDeveloperKeyState, { developerKey: developerKey2 })
+  const wrapper = mount(
+    <DeveloperKeyModal
+      createLtiKeyState={createLtiKeyState}
+      availableScopes={{}}
+      availableScopesPending={false}
+      closeModal={() => {}}
+      createOrEditDeveloperKeyState={editDeveloperKeyState2}
+      listDeveloperKeyScopesState={listDeveloperKeyScopesState}
+      actions={fakeActions}
+      store={fakeStore}
+      mountNode={modalMountNode}
+      selectedScopes={[]}
+    />
+  )
+  wrapper.instance().saveLtiToolConfiguration()
+  ok(flashStub.calledWith('A redirect_uri is required, please supply one.'))
+  flashStub.restore()
+
+  wrapper.unmount()
+})
+
+test('renders the saved toolConfiguration if it is present in state', () => {
+  const ltiStub = sinon.spy()
+  const actions = Object.assign(fakeActions, {
+    saveLtiToolConfiguration: () => ltiStub
+  })
+
+  const wrapper = mount(
+    <DeveloperKeyModal
+      createLtiKeyState={Object.assign({}, createLtiKeyState, {configurationMethod: 'manual', isLtiKey: true})}
+      availableScopes={{}}
+      availableScopesPending={false}
+      closeModal={() => {}}
+      createOrEditDeveloperKeyState={{...createDeveloperKeyState, ...{developerKey: {...developerKey, tool_configuration: validToolConfig}}}}
+      actions={actions}
+      store={{dispatch: () => {}}}
+      mountNode={modalMountNode}
+      selectedScopes={selectedScopes}
+      ctx={{params: {contextId: '1'}}}
+    />
+  )
+  wrapper.instance().saveLtiToolConfiguration()
+  strictEqual(wrapper.state().toolConfiguration.oidc_initiation_url, validToolConfig.oidc_initiation_url)
+  ok(ltiStub.calledOnce)
+  wrapper.unmount()
+})
+
+test('clears state on modal close', () => {
+  const ltiStub = sinon.spy()
+  const actions = Object.assign(fakeActions, {
+    ltiKeysUpdateCustomizations: ltiStub
+  })
+
+  const wrapper = mount(
+    <DeveloperKeyModal
+      createLtiKeyState={createLtiKeyState}
+      availableScopes={{}}
+      availableScopesPending={false}
+      closeModal={() => {}}
+      createOrEditDeveloperKeyState={createDeveloperKeyState}
+      actions={actions}
+      store={{dispatch: () => {}}}
+      mountNode={modalMountNode}
+      selectedScopes={selectedScopes}
+    />
+  )
+  const text = 'I should show up in the text'
+  wrapper.instance().setState({toolConfiguration: {oidc_initiation_url: text}})
+  wrapper.instance().closeModal()
+  notOk(wrapper.state('toolConfiguration'))
   wrapper.unmount()
 })

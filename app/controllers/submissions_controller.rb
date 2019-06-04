@@ -122,6 +122,10 @@ class SubmissionsController < SubmissionsBaseController
 
     return render_unauthorized_action unless @submission.can_view_details?(@current_user)
 
+    # If anonymous peer reviews are enabled, submissions must be peer-reviewed
+    # via this controller's anonymous counterpart
+    return render_unauthorized_action if @assignment.anonymous_peer_reviews? && @submission.peer_reviewer?(@current_user)
+
     super
   end
 
@@ -195,12 +199,6 @@ class SubmissionsController < SubmissionsBaseController
     @assignment = AssignmentOverrideApplicator.assignment_overridden_for(@assignment, @current_user)
 
     return unless authorized_action(@assignment, @current_user, :submit)
-
-    if @assignment.locked_for?(@current_user) && !@assignment.grants_right?(@current_user, :update)
-      flash[:notice] = t('errors.can_not_submit_locked_assignment', "You can't submit an assignment when it is locked")
-      redirect_to named_context_url(@context, :context_assignment_url, @assignment.id)
-      return
-    end
 
     @group = @assignment.group_category.group_for(@current_user) if @assignment.has_group_category?
 
@@ -289,35 +287,39 @@ class SubmissionsController < SubmissionsBaseController
 
   def audit_events
     return render_unauthorized_action unless @context.grants_right?(@current_user, :view_audit_trail)
+    submission = Submission.find(params[:submission_id])
+
     audit_events = AnonymousOrModerationEvent.events_for_submission(
       assignment_id: params[:assignment_id],
       submission_id: params[:submission_id]
     )
 
-    submission = Submission.find(params[:submission_id])
+    user_data = User.find(audit_events.pluck(:user_id).compact)
+    tool_data = ContextExternalTool.find(audit_events.pluck(:context_external_tool_id).compact)
+    quiz_data = Quizzes::Quiz.find(audit_events.pluck(:quiz_id).compact)
 
     respond_to do |format|
       format.json do
         render json: {
           audit_events: audit_events.as_json(include_root: false),
-          users: audit_event_user_data(audit_events: audit_events, submission: submission)
+          users: audit_event_data(data: user_data, submission: submission),
+          tools: audit_event_data(data: tool_data, role: "grader"),
+          quizzes: audit_event_data(data: quiz_data, role: "grader", name_field: :title),
         }, status: :ok
       end
     end
   end
 
-  def audit_event_user_data(audit_events:, submission:)
-    auditing_users = User.find(audit_events.pluck(:user_id))
-
-    auditing_users.map do |user|
+  def audit_event_data(data:, submission: nil, role: nil, name_field: :name)
+    data.map do |datum|
       {
-        id: user.id,
-        name: user.name,
-        role: auditing_user_role(user: user, submission: submission)
+        id: datum.id,
+        name: datum.public_send(name_field),
+        role: role.presence || auditing_user_role(user: datum, submission: submission)
       }
     end
   end
-  private :audit_event_user_data
+  private :audit_event_data
 
   def auditing_user_role(user:, submission:)
     assignment = submission.assignment

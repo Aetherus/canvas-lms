@@ -46,7 +46,7 @@ class Message < ActiveRecord::Base
 
     delegate :deliver, :dispatch_at, :to => :message
     def message
-      @message ||= Message.where(:id => @id, :created_at => @created_at).first
+      @message ||= Message.where(:id => @id, :created_at => @created_at).first || Message.where(:id => @id).first
     end
   end
 
@@ -315,7 +315,7 @@ class Message < ActiveRecord::Base
       context = context.context if context.respond_to?(:context)
       context = context.account if context.respond_to?(:account)
       context = context.root_account if context.respond_to?(:root_account)
-      if context
+      if context && context.respond_to?(:root_account)
         p = SisPseudonym.for(user, context, type: :implicit, require_sis: false)
         context = p.account if p
       else
@@ -597,7 +597,7 @@ class Message < ActiveRecord::Base
     end
 
     check_acct = (user && user.account) || Account.site_admin
-    if check_acct.feature_enabled?(:notification_service) && path_type != "yo"
+    if check_acct.feature_enabled?(:notification_service)
       enqueue_to_sqs
     else
       send(delivery_method)

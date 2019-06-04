@@ -238,52 +238,6 @@ describe "assignment rubrics" do
       expect(f("#assignment_show .points_possible").text).to eq '5'
     end
 
-    it "should not allow XSS attacks through rubric descriptions", priority: "2", test_id: 220327 do
-      student = user_with_pseudonym active_user: true,
-                                    username: "student@example.com",
-                                    password: "password"
-      @course.enroll_user(student, "StudentEnrollment", enrollment_state: 'active')
-
-      @assignment = @course.assignments.create(name: 'assignment with rubric')
-      @rubric = Rubric.new(title: 'My Rubric', context: @course)
-      @rubric.data = [
-          {
-              points: 3,
-              description: "XSS Attack!",
-              long_description: "<b>This text should not be bold</b>",
-              id: 1,
-              ratings: [
-                  {
-                      points: 3,
-                      description: "Rockin'",
-                      criterion_id: 1,
-                      id: 2
-                  },
-                  {
-                      points: 0,
-                      description: "Lame",
-                      criterion_id: 1,
-                      id: 3
-                  }
-              ]
-          }
-      ]
-      @rubric.save!
-      @rubric.associate_with(@assignment, @course, purpose: 'grading')
-
-      get "/courses/#{@course.id}/assignments/#{@assignment.id}"
-
-      expect(f("#rubric_#{@rubric.id} .long_description").text).
-        to eq "<b>This text should not be bold</b>"
-
-      get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@assignment.id}"
-
-      f(".toggle_full_rubric").click
-      wait_for_ajaximations
-      fj("span:contains('view longer description')").find_element(:xpath, './parent::button').click
-      expect(f("span[aria-label='Criterion Long Description']")).to include_text("This text should not be bold")
-    end
-
     it "should follow learning outcome ignore_for_scoring", priority: "2", test_id: 220328 do
       student_in_course(active_all: true)
       outcome_with_rubric
@@ -649,7 +603,7 @@ describe "assignment rubrics" do
       expect(f(".ui-dialog div.long_description").text).to eq "This is awesome."
     end
 
-    it "should show criterion comments", priority: "2", test_id: 220333 do
+    it "should show criterion comments and only render when necessary", priority: "2", test_id: 220333 do
       # given
       comment = 'a comment'
       teacher_in_course(course: @course)
@@ -671,9 +625,9 @@ describe "assignment rubrics" do
       get "/courses/#{@course.id}/assignments/#{assignment.id}/submissions/#{@student.id}"
       f('.assess_submission_link').click
       # expect
-      comments = ff('.description-header')
-      expect(comments.first).to include_text('Instructor Comments').and include_text(comment)
-      expect(comments.second).not_to include_text('Instructor Comments')
+      comments = ff('.rubric-freeform')
+      expect(comments.length).to eq 1
+      expect(comments.first).to include_text(comment)
     end
 
     it "shouldn't show 'update description' button in long description dialog", priority: "2", test_id: 220334 do

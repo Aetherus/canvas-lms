@@ -570,6 +570,36 @@
 #           "example": true,
 #           "type": "boolean"
 #         },
+#         "grader_count": {
+#           "description": "The maximum number of provisional graders who may issue grades for this assignment. Only relevant for moderated assignments. Must be a positive value, and must be set to 1 if the course has fewer than two active instructors. Otherwise, the maximum value is the number of active instructors in the course minus one, or 10 if the course has more than 11 active instructors.",
+#           "example": 3,
+#           "type": "integer"
+#         },
+#         "final_grader_id": {
+#           "description": "The user ID of the grader responsible for choosing final grades for this assignment. Only relevant for moderated assignments.",
+#           "example": 3,
+#           "type": "integer"
+#         },
+#         "grader_comments_visible_to_graders": {
+#           "description": "Boolean indicating if provisional graders' comments are visible to other provisional graders. Only relevant for moderated assignments.",
+#           "example": true,
+#           "type": "boolean"
+#         },
+#         "graders_anonymous_to_graders": {
+#           "description": "Boolean indicating if provisional graders' identities are hidden from other provisional graders. Only relevant for moderated assignments with grader_comments_visible_to_graders set to true.",
+#           "example": true,
+#           "type": "boolean"
+#         },
+#         "grader_names_visible_to_final_grader": {
+#           "description": "Boolean indicating if provisional grader identities are visible to the final grader. Only relevant for moderated assignments.",
+#           "example": true,
+#           "type": "boolean"
+#         },
+#         "anonymous_grading": {
+#           "description": "Boolean indicating if the assignment is graded anonymously. If true, graders cannot see student identities.",
+#           "example": true,
+#           "type": "boolean"
+#         },
 #         "allowed_attempts": {
 #           "description": "The number of submission attempts a student can make for this assignment. -1 is considered unlimited.",
 #           "example": 2,
@@ -618,8 +648,10 @@ class AssignmentsApiController < ApplicationController
   end
 
   def duplicate
-    assignment_id = params[:assignment_id]
-    old_assignment = @context.active_assignments.find_by({ id: assignment_id })
+    # see private methods for definitions
+    old_assignment = old_assignment_for_duplicate
+    target_assignment = target_assignment_for_duplicate
+    target_course = target_course_for_duplicate
 
     if !old_assignment || old_assignment.workflow_state == "deleted"
       return render json: { error: t('assignment does not exist') }, status: :bad_request
@@ -631,18 +663,33 @@ class AssignmentsApiController < ApplicationController
 
     return unless authorized_action(old_assignment, @current_user, :create)
 
-    new_assignment = old_assignment.duplicate({ :user => @current_user })
+    new_assignment = old_assignment.duplicate(
+      user: @current_user,
+      # in case of failure retry, just reuse the title of failed assignment
+      # otherwise, we will have "assignment copy copy..." with multiple retries
+      copy_title: failure_retry? ? target_assignment.title : nil,
+      target_context: course_copy_retry? ? target_course : nil
+    )
 
-    new_assignment.insert_at(old_assignment.position + 1)
+    # if duplicated assignment is expected to be in a different course (course copy)
+    # set context and assignment_group
+    if course_copy_retry?
+      new_assignment.context = target_course
+      new_assignment.assignment_group = target_assignment.assignment_group
+    end
+
+    new_assignment.insert_at(target_assignment.position + 1)
     new_assignment.save!
-    positions_in_group = Assignment.active.where(assignment_group_id: old_assignment.assignment_group_id).
-      pluck("id", "position")
+    positions_in_group = Assignment.active.where(
+      assignment_group_id: target_assignment.assignment_group_id
+    ).pluck("id", "position")
     positions_hash = {}
     positions_in_group.each do |id_pos_pair|
       positions_hash[id_pos_pair[0]] = id_pos_pair[1]
     end
+
     if new_assignment
-      assignment_topic = old_assignment.discussion_topic
+      assignment_topic = target_assignment.discussion_topic
       if assignment_topic&.pinned && !assignment_topic&.position.nil?
         new_assignment.discussion_topic.insert_at(assignment_topic.position + 1)
       end
@@ -950,6 +997,34 @@ class AssignmentsApiController < ApplicationController
   # @argument assignment[moderated_grading] [Boolean]
   #   Whether this assignment is moderated.
   #
+  # @argument assignment[grader_count] [Integer]
+  #  The maximum number of provisional graders who may issue grades for this
+  #  assignment. Only relevant for moderated assignments. Must be a positive
+  #  value, and must be set to 1 if the course has fewer than two active
+  #  instructors. Otherwise, the maximum value is the number of active
+  #  instructors in the course minus one, or 10 if the course has more than 11
+  #  active instructors.
+  #
+  # @argument assignment[final_grader_id] [Integer]
+  #  The user ID of the grader responsible for choosing final grades for this
+  #  assignment. Only relevant for moderated assignments.
+  #
+  # @argument assignment[grader_comments_visible_to_graders] [Boolean]
+  #  Boolean indicating if provisional graders' comments are visible to other
+  #  provisional graders. Only relevant for moderated assignments.
+  #
+  # @argument assignment[graders_anonymous_to_graders] [Boolean]
+  #  Boolean indicating if provisional graders' identities are hidden from
+  #  other provisional graders. Only relevant for moderated assignments.
+  #
+  # @argument assignment[graders_names_visible_to_final_grader] [Boolean]
+  #  Boolean indicating if provisional grader identities are visible to the
+  #  the final grader. Only relevant for moderated assignments.
+  #
+  # @argument assignment[anonymous_grading] [Boolean]
+  #  Boolean indicating if the assignment is graded anonymously. If true,
+  #  graders cannot see student identities.
+  #
   # @argument assignment[allowed_attempts] [Integer]
   #   The number of submission attempts allowed for this assignment. Set to -1 for unlimited attempts.
   #
@@ -1109,6 +1184,34 @@ class AssignmentsApiController < ApplicationController
   # @argument assignment[moderated_grading] [Boolean]
   #   Whether this assignment is moderated.
   #
+  # @argument assignment[grader_count] [Integer]
+  #  The maximum number of provisional graders who may issue grades for this
+  #  assignment. Only relevant for moderated assignments. Must be a positive
+  #  value, and must be set to 1 if the course has fewer than two active
+  #  instructors. Otherwise, the maximum value is the number of active
+  #  instructors in the course minus one, or 10 if the course has more than 11
+  #  active instructors.
+  #
+  # @argument assignment[final_grader_id] [Integer]
+  #  The user ID of the grader responsible for choosing final grades for this
+  #  assignment. Only relevant for moderated assignments.
+  #
+  # @argument assignment[grader_comments_visible_to_graders] [Boolean]
+  #  Boolean indicating if provisional graders' comments are visible to other
+  #  provisional graders. Only relevant for moderated assignments.
+  #
+  # @argument assignment[graders_anonymous_to_graders] [Boolean]
+  #  Boolean indicating if provisional graders' identities are hidden from
+  #  other provisional graders. Only relevant for moderated assignments.
+  #
+  # @argument assignment[graders_names_visible_to_final_grader] [Boolean]
+  #  Boolean indicating if provisional grader identities are visible to the
+  #  the final grader. Only relevant for moderated assignments.
+  #
+  # @argument assignment[anonymous_grading] [Boolean]
+  #  Boolean indicating if the assignment is graded anonymously. If true,
+  #  graders cannot see student identities.
+  #
   # @argument assignment[allowed_attempts] [Integer]
   #   The number of submission attempts allowed for this assignment. Set to -1 or null for
   #   unlimited attempts.
@@ -1161,5 +1264,48 @@ class AssignmentsApiController < ApplicationController
     end
     # self, observer
     authorized_action(@user, @current_user, %i(read_as_parent read))
+  end
+
+  # old_assignment is the assignement we want to copy from
+  def old_assignment_for_duplicate
+    @_old_assignment_for_duplicate ||= begin
+      assignment_id = params[:assignment_id]
+      @context.active_assignments.find_by(id: assignment_id)
+    end
+  end
+
+  # target assignment is:
+  #   - used to postion newly created assignments
+  #   - an assignment(failed to duplicate) in target course (course/assignment copy)
+  #   - different from old_assignment, in case of "Retry" in course/assignment copy
+  #   - same as old_assignment for the initial try of duplicating
+  # in a failure retry, we place a new assignment next to the failed assignments
+  # in an initial dup request, a new assignment will be placed next to old_assignment
+  def target_assignment_for_duplicate
+    @_target_assignment_for_duplicate ||= begin
+      target_assignment_id = params[:target_assignment_id]
+      return old_assignment_for_duplicate if target_assignment_id.blank?
+      target_course_for_duplicate.active_assignments.find_by(id: target_assignment_id)
+    end
+  end
+
+  # target course is:
+  #   - the course in which an assignment is duplicated
+  #   - different from @context, in case of "Retry" in course copy
+  #   - the same @course for assignment copy
+  def target_course_for_duplicate
+    @_target_course_for_duplicate ||= begin
+      target_course_id = params[:target_course_id]
+      return @context if target_course_id.blank?
+      Course.find_by(id: target_course_id)
+    end
+  end
+
+  def failure_retry?
+    target_assignment_for_duplicate != old_assignment_for_duplicate
+  end
+
+  def course_copy_retry?
+    target_course_for_duplicate != @context
   end
 end

@@ -29,6 +29,24 @@ class AccountReport < ActiveRecord::Base
 
   serialize :parameters
 
+  attr_accessor :runners
+
+  def initialize(*)
+    @runners = []
+    super
+  end
+
+  def add_report_runner(batch)
+    @runners ||= []
+    runners << self.account_report_runners.new(batch_items: batch, created_at: Time.zone.now, updated_at: Time.zone.now)
+  end
+
+  def write_report_runners
+    return if runners.empty?
+    self.class.bulk_insert_objects(runners)
+    @runners = []
+  end
+
   workflow do
     state :created
     state :running
@@ -50,22 +68,19 @@ class AccountReport < ActiveRecord::Base
   end
 
   def self.delete_old_rows_and_runners
-    AccountReportRow.where("created_at<?", 30.days.ago).find_ids_in_batches(batch_size: 10_000) do |batch|
-      AccountReportRow.where(id: batch).delete_all
-    end
+    cleanup = AccountReportRow.where("created_at<?", 28.days.ago).limit(10_000)
+    until cleanup.delete_all < 10_000; end
     # There is a FK between rows and runners, skipping 2 days to avoid conflicts
     # for a long running report or a big backlog of queued reports.
     # This avoids the join to check for rows so that it can run faster in a
     # periodic job.
-    AccountReportRunner.where("created_at<?", 28.days.ago).find_ids_in_batches(batch_size: 10_000) do |batch|
-      AccountReportRunner.where(id: batch).delete_all
-    end
+    cleanup = AccountReportRunner.where("created_at<?", 30.days.ago).limit(10_000)
+    until cleanup.delete_all < 10_000; end
   end
 
   def delete_account_report_rows
-    self.account_report_rows.find_ids_in_batches(batch_size: 10_000) do |batch|
-      AccountReportRow.where(id: batch).delete_all
-    end
+    cleanup = self.account_report_rows.limit(10_000)
+    until cleanup.delete_all < 10_000; end
   end
 
   def context

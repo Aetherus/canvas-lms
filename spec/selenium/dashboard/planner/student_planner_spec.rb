@@ -112,12 +112,12 @@ describe "student planner" do
       get "/courses/#{@course.id}/pages/"
       wait_for_ajaximations
       expect(f('a[data-sort-field="todo_date"]')).to be_displayed
-      expect(f('tbody.collectionViewItems')).to include_text(format_time_for_view(@wiki_page.todo_date))
+      expect(f('tbody.collectionViewItems')).to include_text(format_time_for_view(@wiki_page.todo_date, :short))
     end
 
     it 'shows the date in the show page' do
       get "/courses/#{@course.id}/pages/#{@wiki_page.id}/"
-      expect(f('.show-content')).to include_text(format_time_for_view(@wiki_page.todo_date))
+      expect(f('.show-content')).to include_text(format_time_for_view(@wiki_page.todo_date, :short))
     end
   end
 
@@ -392,7 +392,7 @@ describe "student planner" do
       view_todo_item
       modal = todo_sidebar_modal(@student_to_do.title)
       title_input = f('input', modal)
-      course_name_dropdown = fj('span:contains("Course")>span>span>span>input', modal)
+      course_name_dropdown = f('#to-do-item-course-select', modal)
 
       expect(title_input[:value]).to eq(@student_to_do.title)
       expect(course_name_dropdown[:value]).to eq("#{@course.name} - #{@course.short_name}")

@@ -24,7 +24,7 @@ import Text from '@instructure/ui-elements/lib/components/Text'
 import IconCheckMark from '@instructure/ui-icons/lib/Solid/IconCheckMark'
 import IconExpandStart from '@instructure/ui-icons/lib/Line/IconExpandStart'
 import IconEnd from '@instructure/ui-icons/lib/Solid/IconEnd'
-import I18n from 'i18n!gradebook'
+import I18n from 'i18n!gradezilla'
 import GradeFormatHelper from '../../../../../gradebook/shared/helpers/GradeFormatHelper'
 
 const themeOverrides = {
@@ -152,13 +152,13 @@ export default class ReadOnlyCell extends Component {
 
     return (
       <ApplyTheme theme={themeOverrides}>
-        <div className="Grid__AssignmentRowCell Grid__ReadOnlyCell">
-          <div className="Grid__AssignmentRowCell__StartContainer" />
+        <div className="Grid__GradeCell Grid__ReadOnlyCell">
+          <div className="Grid__GradeCell__StartContainer" />
 
-          <div className="Grid__AssignmentRowCell__Content">{gradeIsVisible && content}</div>
+          <div className="Grid__GradeCell__Content">{gradeIsVisible && content}</div>
 
-          <div className="Grid__AssignmentRowCell__EndContainer">
-            <div className="Grid__AssignmentRowCell__Options">
+          <div className="Grid__GradeCell__EndContainer">
+            <div className="Grid__GradeCell__Options">
               <Button
                 buttonRef={this.bindToggleTrayButtonRef}
                 onClick={this.handleToggleTrayButtonClick}

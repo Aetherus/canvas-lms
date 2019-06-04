@@ -564,6 +564,7 @@ describe Canvas::LiveEvents do
         hash_including({
           assignment_id: assignment.global_id.to_s,
           context_id: @course.global_id.to_s,
+          context_uuid: @course.uuid,
           context_type: 'Course',
           workflow_state: assignment.workflow_state,
           title: assignment.title,
@@ -590,6 +591,7 @@ describe Canvas::LiveEvents do
         hash_including({
           assignment_id: assignment.global_id.to_s,
           context_id: @course.global_id.to_s,
+          context_uuid: @course.uuid,
           context_type: 'Course',
           workflow_state: assignment.workflow_state,
           title: assignment.title,
@@ -604,6 +606,42 @@ describe Canvas::LiveEvents do
         })).once
 
       Canvas::LiveEvents.assignment_updated(assignment)
+    end
+  end
+
+  describe 'assignment_group_updated' do
+    let(:course) do
+      course_with_student_submissions
+      @course
+    end
+    let(:assignment_group) { course.assignment_groups.take }
+    let(:expected_data) do
+      {
+        assignment_group_id: assignment_group.id.to_s,
+        context_id: assignment_group.context_id.to_s,
+        context_type: assignment_group.context_type,
+        name: assignment_group.name,
+        position: assignment_group.position,
+        group_weight: assignment_group.group_weight,
+        sis_source_id: assignment_group.sis_source_id,
+        integration_data: assignment_group.integration_data,
+        rules: assignment_group.rules,
+        workflow_state: assignment_group.workflow_state
+      }
+    end
+
+    context 'when updated' do
+      it 'sends the expected data' do
+        expect_event('assignment_group_updated', expected_data).once
+        Canvas::LiveEvents.assignment_group_updated(assignment_group)
+      end
+    end
+
+    context 'when created' do
+      it 'sends the expected data' do
+        expect_event('assignment_group_created', expected_data).once
+        Canvas::LiveEvents.assignment_group_created(assignment_group)
+      end
     end
   end
 
@@ -880,6 +918,33 @@ describe Canvas::LiveEvents do
       expect_event('course_completed', expected_event_body).once
 
       Canvas::LiveEvents.course_completed(context_module_progression)
+    end
+  end
+
+  describe '.discussion_topic_created' do
+    it 'should trigger a discussion topic created live event' do
+      course = course_model
+      assignment = course.assignments.create!
+      topic = course.discussion_topics.create!(
+        title: "test title",
+        message: "test body",
+        assignment_id: assignment.id
+      )
+
+      expect_event('discussion_topic_created', {
+        discussion_topic_id: topic.global_id.to_s,
+        is_announcement: topic.is_announcement,
+        title: topic.title,
+        body: topic.message,
+        assignment_id: topic.assignment_id.to_s,
+        context_id: topic.context_id.to_s,
+        context_type: topic.context_type,
+        workflow_state: topic.workflow_state,
+        lock_at: topic.lock_at,
+        updated_at: topic.updated_at
+      }).once
+
+      Canvas::LiveEvents.discussion_topic_created(topic)
     end
   end
 end
