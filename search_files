@@ -1,4 +1,0 @@
-#!/usr/bin/env ruby
-(Dir['app/**/*.js'] + Dir['app/**/*.coffee']).each do |f|
-  puts f if File.read(f) =~ /(?<!version )\b3\b/
-end
