@@ -63,13 +63,13 @@ module Lti
       def validate_client_id!
         binding_context = context.respond_to?(:account) ? context.account : context
 
-        unless developer_key.usable? && developer_key.account_binding_for(binding_context).workflow_state == 'on'
+        unless developer_key.usable? && developer_key.account_binding_for(binding_context)&.workflow_state == 'on'
           set_oidc_error!('unauthorized_client', 'Client not authorized in requested context')
         end
       end
 
       def validate_current_user!
-        if Lti::Asset.opaque_identifier_for(@current_user) != oidc_params[:login_hint]
+        if Lti::Asset.opaque_identifier_for(@current_user, context: context) != oidc_params[:login_hint]
           set_oidc_error!('login_required', 'The user is not logged in')
         end
       end
@@ -126,7 +126,9 @@ module Lti
 
       def authorize_redirect_url
         url = URI.parse(lti_1_3_authorization_url(params: oidc_params))
-        url.host = canvas_domain
+        parts = canvas_domain.split(':')
+        url.host = parts.first
+        url.port = parts.last if parts.size > 1
         url.to_s
       end
 

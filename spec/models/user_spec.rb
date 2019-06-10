@@ -25,6 +25,29 @@ describe User do
     it "should create a new instance given valid attributes" do
       expect(user_model).to be_valid
     end
+
+    context 'on update' do
+      let(:user) { user_model }
+
+      it 'fails validation if lti_id changes' do
+        user.short_name = "chewie"
+        user.lti_id = "changedToThis"
+        expect(user).to_not be_valid
+      end
+
+      it 'passes validation if lti_id is not changed' do
+        user
+        user.short_name = "chewie"
+        expect(user).to be_valid
+      end
+    end
+  end
+
+  it 'adds an lti_id on creation' do
+    user = User.new
+    expect(user.lti_id).to be_blank
+    user.save!
+    expect(user.lti_id).to_not be_blank
   end
 
   it "should get the first email from communication_channel" do
@@ -1528,6 +1551,22 @@ describe User do
           course2.enroll_student(user)
         end
         expect(user.cached_current_enrollments).to eq [e1, e2]
+      end
+
+      it "should properly update when using new redis cache keys" do
+        skip("requires redis") unless Canvas.redis_enabled?
+        enable_cache(:redis_store) do
+          user = User.create!
+          course1 = Account.default.courses.create!(:workflow_state => "available")
+          e1 = course1.enroll_student(user, :enrollment_state => "active")
+          expect(user.cached_current_enrollments).to eq [e1]
+          e2 = @shard1.activate do
+            account2 = Account.create!
+            course2 = account2.courses.create!(:workflow_state => "available")
+            course2.enroll_student(user, :enrollment_state => "active")
+          end
+          expect(user.cached_current_enrollments).to eq [e1, e2]
+        end
       end
     end
   end

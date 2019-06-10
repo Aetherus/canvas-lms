@@ -74,17 +74,17 @@ describe GradeSummaryAssignmentPresenter do
   end
 
   describe '#upload_status' do
-    it 'returns attachment workflow_state when workflow_state is pending_upload' do
-      expect(presenter.upload_status).to eq('pending_upload')
+    it 'returns attachment upload_status when upload_status is pending' do
+      allow(Rails.cache).to receive(:read).and_return('pending')
+      expect(presenter.upload_status).to eq('pending')
     end
 
-    it 'returns attachment workflow_state when workflow_state is errored' do
-      @attachment.workflow_state = 'errored'
-      @attachment.save!
-      expect(presenter.upload_status).to eq('errored')
+    it 'returns attachment upload_status when upload_status is failed' do
+      allow(Rails.cache).to receive(:read).and_return('failed')
+      expect(presenter.upload_status).to eq('failed')
     end
 
-    it 'returns the proper attachment when there are muliptle attachments in different states' do
+    it 'returns the proper attachment when there are multiple attachments in different states' do
       attachment_1 = attachment_model(context: @student)
       attachment_1.workflow_state = 'success'
       attachment_1.save!
@@ -93,7 +93,10 @@ describe GradeSummaryAssignmentPresenter do
       attachment_2.save!
       attachment_3 = attachment_model(context: @student)
       @assignment.submit_homework @student, attachments: [attachment_1, attachment_2, attachment_3]
-      expect(presenter.upload_status).to eq('errored')
+      AttachmentUploadStatus.success!(attachment_1)
+      AttachmentUploadStatus.failed!(attachment_2, 'bad things')
+      AttachmentUploadStatus.pending!(attachment_3)
+      expect(presenter.upload_status).to eq('failed')
     end
   end
 
@@ -231,6 +234,34 @@ describe GradeSummaryAssignmentPresenter do
     it "returns the value of the submission method" do
       expect(@submission).to receive(:late?).and_return('foo')
       expect(presenter.late?).to eq('foo')
+    end
+  end
+
+  describe "#posted_to_student?" do
+    context "when post policies are enabled" do
+      before(:each) { @course.enable_feature!(:post_policies) }
+
+      it "returns true when the student's submission is posted" do
+        @submission.update!(posted_at: Time.zone.now)
+        expect(presenter).to be_posted_to_student
+      end
+
+      it "returns false when the student's submission is not posted" do
+        @submission.update!(posted_at: nil)
+        expect(presenter).not_to be_posted_to_student
+      end
+    end
+
+    context "when post policies are not enabled" do
+      it "returns true when the assignment is unmuted" do
+        @assignment.unmute!
+        expect(presenter).to be_posted_to_student
+      end
+
+      it "returns false when the assignment is muted" do
+        @assignment.mute!
+        expect(presenter).not_to be_posted_to_student
+      end
     end
   end
 end

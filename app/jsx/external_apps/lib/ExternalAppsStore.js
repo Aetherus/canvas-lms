@@ -39,22 +39,18 @@ import 'compiled/jquery.rails_flash_notifications'
     }
   };
 
-  const store = createStore({
+  const defaultState = {
     externalTools: [],
     links: {},
     isLoading: false,    // flag to indicate fetch is in progress
     isLoaded: false,     // flag to indicate data has loaded
     hasMore: false       // flag to indicate if there are more pages of external tools
-  });
+  }
+
+  const store = createStore(defaultState);
 
   store.reset = function() {
-    this.setState({
-      externalTools: [],
-      links: {},
-      isLoading: false,
-      isLoaded: false,
-      hasMore: false
-    })
+    this.setState(defaultState)
   };
 
   store.fetch = function() {
@@ -262,9 +258,7 @@ import 'compiled/jquery.rails_flash_notifications'
 
   store._fetchSuccessHandler = function(tools, status, xhr) {
     var links = parseLinkHeader(xhr);
-    if (links.current !== links.first) {
-      tools = this.getState().externalTools.concat(tools);
-    }
+    tools = this.getState().externalTools.concat(tools);
 
     this.setState({
       links: links,

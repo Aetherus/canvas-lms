@@ -38,6 +38,7 @@ class CommunicationChannel < ActiveRecord::Base
   validate :validate_email, if: lambda { |cc| cc.path_type == TYPE_EMAIL && cc.new_record? }
   validate :not_otp_communication_channel, :if => lambda { |cc| cc.path_type == TYPE_SMS && cc.retired? && !cc.new_record? }
   after_commit :check_if_bouncing_changed
+  after_save :clear_user_email_cache
 
   acts_as_list :scope => :user
 
@@ -53,6 +54,10 @@ class CommunicationChannel < ActiveRecord::Base
   TYPE_PUSH     = 'push'
 
   RETIRE_THRESHOLD = 1
+
+  def clear_user_email_cache
+    self.user.clear_email_cache! if self.path_type == TYPE_EMAIL
+  end
 
   def self.country_codes
     # [country code, name, true if email should be used instead of Twilio]
@@ -271,13 +276,23 @@ class CommunicationChannel < ActiveRecord::Base
   end
 
   def forgot_password!
+    return if Rails.cache.read(['recent_password_reset', self.global_id].cache_key) == true
     @request_password = true
+    Rails.cache.write(['recent_password_reset', self.global_id].cache_key, true, expires_in: Setting.get('resend_password_reset_time', 5).to_f.minutes)
     set_confirmation_code(true, Setting.get('password_reset_token_expiration_minutes', '120').to_i.minutes.from_now)
     self.save!
     @request_password = false
   end
 
+  def confirmation_limit_reached
+    self.confirmation_sent_count > 2
+  end
+
   def send_confirmation!(root_account)
+    if self.confirmation_limit_reached
+      return
+    end
+    self.confirmation_sent_count = self.confirmation_sent_count + 1
     @send_confirmation = true
     @root_account = root_account
     self.save!

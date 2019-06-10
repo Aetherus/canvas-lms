@@ -27,7 +27,8 @@ RSpec.describe ApplicationController do
       headers: {},
       format: double(:html? => true),
       user_agent: nil,
-      remote_ip: '0.0.0.0'
+      remote_ip: '0.0.0.0',
+      base_url: 'https://canvas.test'
     )
     allow(controller).to receive(:request).and_return(request_double)
   end
@@ -159,8 +160,13 @@ RSpec.describe ApplicationController do
         "microphone *",
         "camera *",
         "midi *",
-        "encrypted-media *"
+        "encrypted-media *",
+        "autoplay *"
       ]
+    end
+
+    it 'sets DEEP_LINKING_POST_MESSAGE_ORIGIN' do
+      expect(@controller.js_env[:DEEP_LINKING_POST_MESSAGE_ORIGIN]).to eq @controller.request.base_url
     end
 
     context "sharding" do
@@ -198,6 +204,12 @@ RSpec.describe ApplicationController do
 
     it "should reject disallowed paths" do
       expect(controller.send(:clean_return_to, "ftp://example.com/javascript:hai")).to be_nil
+    end
+
+    it "removes /download from the end of a file path" do
+      expect(controller.send(:clean_return_to, "/courses/1/files/1/download?wrap=1")).to eq "https://canvas.example.com/courses/1/files/1"
+      expect(controller.send(:clean_return_to, "/courses/1~1/files/1~1/download?wrap=1")).to eq "https://canvas.example.com/courses/1~1/files/1~1"
+      expect(controller.send(:clean_return_to, "/courses/1/pages/download?wrap=1")).to eq "https://canvas.example.com/courses/1/pages/download?wrap=1"
     end
   end
 
@@ -268,7 +280,7 @@ RSpec.describe ApplicationController do
     it "should not include :download=>1 in download urls for relative contexts" do
       controller.instance_variable_set(:@context, @attachment.context)
       allow(controller).to receive(:named_context_url).and_return('')
-      url = controller.send(:safe_domain_file_url, @attachment, nil, nil, true)
+      url = controller.send(:safe_domain_file_url, @attachment, download: true)
       expect(url).not_to match(/[\?&]download=1(&|$)/)
     end
 
@@ -276,7 +288,7 @@ RSpec.describe ApplicationController do
       expect(controller).to receive(:file_download_url).
         with(@attachment, @common_params.merge(:download_frd => 1)).
         and_return('')
-      controller.send(:safe_domain_file_url, @attachment, nil, nil, true)
+      controller.send(:safe_domain_file_url, @attachment, download: true)
     end
 
     it "prepends a unique file subdomain if configured" do
@@ -284,7 +296,7 @@ RSpec.describe ApplicationController do
         expect(controller).to receive(:file_download_url).
           with(@attachment, @common_params.merge(:inline => 1)).
           and_return("/files/#{@attachment.id}")
-        expect(controller.send(:safe_domain_file_url, @attachment, ['canvasfiles.com', Shard.default], nil, false)).to eq "a#{@attachment.shard.id}-#{@attachment.id}.canvasfiles.com/files/#{@attachment.id}"
+        expect(controller.send(:safe_domain_file_url, @attachment, host_and_shard: ['canvasfiles.com', Shard.default])).to eq "a#{@attachment.shard.id}-#{@attachment.id}.canvasfiles.com/files/#{@attachment.id}"
       end
     end
   end
@@ -498,6 +510,7 @@ RSpec.describe ApplicationController do
     context 'ContextExternalTool' do
 
       let(:course){ course_model }
+      let_once(:dev_key) { DeveloperKey.create! }
 
       let(:tool) do
         tool = course.context_external_tools.new(
@@ -505,7 +518,8 @@ RSpec.describe ApplicationController do
           consumer_key: "bob",
           shared_secret: "bob",
           tool_id: 'some_tool',
-          privacy_level: 'public'
+          privacy_level: 'public',
+          developer_key: dev_key
         )
         tool.url = "http://www.example.com/basic_lti"
         tool.resource_selection = {
@@ -644,6 +658,41 @@ RSpec.describe ApplicationController do
             it 'sets the "login_hint" to the current user lti id' do
               expect(assigns[:lti_launch].params['login_hint']).to eq Lti::Asset.opaque_identifier_for(user)
             end
+
+            it 'does not use the oidc_initiation_url as the resource_url' do
+              expect(assigns[:lti_launch].resource_url).to eq tool.url
+            end
+
+            it 'sets the "canvas_domain" to the request domain' do
+              message_hint = JSON::JWT.decode(assigns[:lti_launch].params['lti_message_hint'], :skip_verification)
+              expect(message_hint['canvas_domain']).to eq 'localhost'
+            end
+
+            context 'when the developer key has an oidc_initiation_url' do
+              before do
+                tool.developer_key.update!(oidc_initiation_url: oidc_initiation_url)
+                controller.send(:content_tag_redirect, course, content_tag, nil)
+              end
+
+              let(:oidc_initiation_url) { 'https://www.test.com/oidc/login' }
+
+              it 'does use the oidc_initiation_url as the resource_url' do
+                expect(assigns[:lti_launch].resource_url).to eq oidc_initiation_url
+              end
+            end
+
+            context 'when the content tag has a custom url' do
+              let(:custom_url) { 'http://www.example.com/basic_lti?deep_linking=true' }
+
+              before do
+                content_tag.update!(url: custom_url)
+                controller.send(:content_tag_redirect, course, content_tag, nil)
+              end
+
+              it 'uses the custom url as the target_link_uri' do
+                expect(assigns[:lti_launch].params['target_link_uri']).to eq custom_url
+              end
+            end
           end
 
           context 'assignments' do
@@ -661,6 +710,11 @@ RSpec.describe ApplicationController do
         it 'creates a basic lti launch request when tool is not configured to use LTI 1.3' do
           controller.send(:content_tag_redirect, course, content_tag, nil)
           expect(assigns[:lti_launch].params["lti_message_type"]).to eq "basic-lti-launch-request"
+        end
+
+        it 'does not use the oidc_initiation_url as the resource_url' do
+          controller.send(:content_tag_redirect, course, content_tag, nil)
+          expect(assigns[:resource_url]).to eq tool.url
         end
       end
 
@@ -800,6 +854,14 @@ RSpec.describe ApplicationController do
         expect(hash[:icon_url]).to eq "http://example.com/icon.png?#{setting.to_s}"
         expect(hash[:canvas_icon_class]).to be nil
       end
+    end
+
+    it "doesn't return an invalid icon_url" do
+      totallyavalidurl = %{');\"></i>nothing to see here</button><img src=x onerror="alert(document.cookie);alert(document.domain);" />}
+      @tool.settings[:editor_button][:icon_url] = totallyavalidurl
+      @tool.save!
+      hash = controller.external_tool_display_hash(@tool, :editor_button)
+      expect(hash[:icon_url]).to be_nil
     end
 
     it 'all settings return canvas_icon_class if set' do
@@ -1047,6 +1109,12 @@ describe ApplicationController do
       controller.instance_variable_set(:@current_user, current_user)
       controller.send(:setup_live_events_context)
       expect(LiveEvents.get_context).to eq({user_id: '12345'}.merge(non_conditional_values))
+    end
+
+    it 'sets the "context_sis_source_id"' do
+      controller.instance_variable_set(:@context, course_model(sis_source_id: 'banana'))
+      controller.send(:setup_live_events_context)
+      expect(LiveEvents.get_context[:context_sis_source_id]).to eq 'banana'
     end
 
     context 'when a domain_root_account exists' do
@@ -1349,7 +1417,8 @@ describe CoursesController do
       controller.instance_variable_set(:@access_token, token)
       allow(controller).to receive(:request).and_return(double({
         params: {},
-        method: 'GET'
+        method: 'GET',
+        path: '/not_allowed_path'
       }))
       expect { controller.send(:validate_scopes) }.to raise_error(AuthenticationMethods::AccessTokenScopeError)
     end

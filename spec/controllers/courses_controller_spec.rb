@@ -273,7 +273,7 @@ describe CoursesController do
         expect(assigns[:future_enrollments]).to be_empty
 
         observer = user_with_pseudonym(active_all: true)
-        o = @student.as_student_observation_links.build; o.observer = observer; o.save!
+        add_linked_observer(@student, observer)
         user_session(observer)
         get 'index'
         expect(response).to be_successful
@@ -407,7 +407,7 @@ describe CoursesController do
         expect(assigns[:future_enrollments].map(&:course_id)).to eq [course1.id, course2.id]
 
         observer = user_with_pseudonym(active_all: true)
-        o = @student.as_student_observation_links.build; o.observer = observer; o.save!
+        add_linked_observer(@student, observer)
         user_session(observer)
         get 'index'
         expect(response).to be_successful
@@ -441,7 +441,7 @@ describe CoursesController do
         expect(assigns[:future_enrollments]).to eq [enrollment1]
 
         observer = user_with_pseudonym(active_all: true)
-        o = @student.as_student_observation_links.build; o.observer = observer; o.save!
+        add_linked_observer(@student, observer)
         user_session(observer)
         get 'index'
         expect(response).to be_successful
@@ -497,38 +497,40 @@ describe CoursesController do
     end
 
     describe "per-assignment permissions" do
-      let(:js_permissions) { assigns[:js_env][:PERMISSIONS] }
+      let(:assignment_permissions) { assigns[:js_env][:PERMISSIONS][:by_assignment_id] }
 
       before(:each) do
-        course_with_teacher_logged_in(active_all: true)
-
-        @course.update!(default_view: 'assignments')
+        @course = Course.create!(default_view: "assignments")
+        @teacher = course_with_user("TeacherEnrollment", course: @course, active_all: true).user
+        @ta = course_with_user("TaEnrollment", course: @course, active_all: true).user
         @course.enable_feature!(:moderated_grading)
 
-        @editable_assignment = @course.assignments.create!(
+        @assignment = @course.assignments.create!(
           moderated_grading: true,
           grader_count: 2,
           final_grader: @teacher
         )
 
         ta_in_course(active_all: true)
-        @uneditable_assignment = @course.assignments.create!(
-          moderated_grading: true,
-          grader_count: 2,
-          final_grader: @ta
-        )
       end
 
-      let(:assignment_permissions) { assigns[:js_env][:PERMISSIONS][:by_assignment_id] }
-
-      it "sets the 'update' attribute for an editable assignment to true" do
+      it "sets the 'update' attribute to true when user is the final grader" do
+        user_session(@teacher)
         get 'show', params: {id: @course.id}
-        expect(assignment_permissions[@editable_assignment.id][:update]).to eq(true)
+        expect(assignment_permissions[@assignment.id][:update]).to eq(true)
       end
 
-      it "sets the 'update' attribute for an uneditable assignment to false" do
+      it "sets the 'update' attribute to true when user has the Select Final Grade permission" do
+        user_session(@ta)
         get 'show', params: {id: @course.id}
-        expect(assignment_permissions[@uneditable_assignment.id][:update]).to eq(false)
+        expect(assignment_permissions[@assignment.id][:update]).to eq(true)
+      end
+
+      it "sets the 'update' attribute to false when user does not have the Select Final Grade permission" do
+        @course.account.role_overrides.create!(permission: :select_final_grade, enabled: false, role: ta_role)
+        user_session(@ta)
+        get 'show', params: {id: @course.id}
+        expect(assignment_permissions[@assignment.id][:update]).to eq(false)
       end
     end
   end
@@ -545,6 +547,22 @@ describe CoursesController do
     before :once do
       course_with_teacher(active_all: true)
       student_in_course(active_all: true)
+    end
+
+    it 'sets the external tools create url' do
+      user_session(@teacher)
+      get 'settings', params: {:course_id => @course.id}
+      expect(controller.js_env[:EXTERNAL_TOOLS_CREATE_URL]).to eq(
+        "http://test.host/courses/#{@course.id}/external_tools"
+      )
+    end
+
+    it 'sets the tool configuration show url' do
+      user_session(@teacher)
+      get 'settings', params: {:course_id => @course.id}
+      expect(controller.js_env[:TOOL_CONFIGURATION_SHOW_URL]).to eq(
+        "http://test.host/api/lti/courses/#{@course.id}/developer_keys/:developer_key_id/tool_configuration"
+      )
     end
 
     it "should set tool creation permissions true for roles that are granted rights" do
@@ -614,7 +632,7 @@ describe CoursesController do
 
     it "should assign active course_settings_sub_navigation external tools" do
       user_session(@teacher)
-      @teacher.enable_feature!(:lor_for_user)
+      Account.default.enable_feature!(:lor_for_account)
       shared_settings = { consumer_key: 'test', shared_secret: 'secret', url: 'http://example.com/lti' }
       other_tool = @course.context_external_tools.create(shared_settings.merge(name: 'other', course_navigation: {enabled: true}))
       inactive_tool = @course.context_external_tools.create(shared_settings.merge(name: 'inactive', course_settings_sub_navigation: {enabled: true}))
@@ -1520,7 +1538,14 @@ describe CoursesController do
     end
 
     it "should log published event on update" do
+      @course.claim!
       expect(Auditors::Course).to receive(:record_published).once
+      user_session(@teacher)
+      put 'update', params: {:id => @course.id, :offer => true}
+    end
+
+    it "should not log published event if course was already published" do
+      expect(Auditors::Course).to receive(:record_published).never
       user_session(@teacher)
       put 'update', params: {:id => @course.id, :offer => true}
     end
@@ -1560,6 +1585,64 @@ describe CoursesController do
       put 'update', params: {:id => @course.id, :course => { :event => 'claim' }}
       @course.reload
       expect(@course.workflow_state).to eq 'claimed'
+    end
+
+    it "concludes a course" do
+      expect(Auditors::Course).to receive(:record_concluded).once
+      user_session(@teacher)
+      put 'update', params: {:id => @course.id, :course => {:event => "conclude"}, :format => :json}
+      json = JSON.parse response.body
+      expect(json['course']['workflow_state']).to eq 'completed'
+      @course.reload
+      expect(@course.workflow_state).to eq 'completed'
+    end
+
+    it "publishes a course" do
+      @course.claim!
+      expect(Auditors::Course).to receive(:record_published).once
+      user_session(@teacher)
+      put 'update', params: {:id => @course.id, :course => {:event => 'offer'}, :format => :json}
+      json = JSON.parse response.body
+      expect(json['course']['workflow_state']).to eq 'available'
+      @course.reload
+      expect(@course.workflow_state).to eq 'available'
+    end
+
+    it "deletes a course" do
+      user_session(@teacher)
+      expect(Auditors::Course).to receive(:record_deleted).once
+      put 'update', params: {:id => @course.id, :course => {:event => 'delete'}, :format => :json}
+      json = JSON.parse response.body
+      expect(json['course']['workflow_state']).to eq 'deleted'
+      @course.reload
+      expect(@course.workflow_state).to eq 'deleted'
+    end
+
+    it "doesn't allow a teacher to undelete a course" do
+      @course.destroy
+      expect(Auditors::Course).to receive(:record_restored).never
+      user_session(@teacher)
+      put 'update', params: {:id => @course.id, :course => {:event => 'undelete'}, :format => :json}
+      expect(response.status).to eq 401
+    end
+
+    it "undeletes a course" do
+      @course.destroy
+      expect(Auditors::Course).to receive(:record_restored).once
+      user_session(account_admin_user)
+      put 'update', params: {:id => @course.id, :course => {:event => 'undelete'}, :format => :json}
+      json = JSON.parse response.body
+      expect(json['course']['workflow_state']).to eq 'claimed'
+      @course.reload
+      expect(@course.workflow_state).to eq 'claimed'
+    end
+
+    it "returns an error if a bad event is given" do
+      user_session(@teacher)
+      put 'update', params: {:id => @course.id, :course => {:event => 'boogie'}, :format => :json}
+      expect(response.status).to eq 400
+      json = JSON.parse response.body
+      expect(json['errors'].keys).to include 'workflow_state'
     end
 
     it "should lock active course announcements" do
@@ -1786,6 +1869,7 @@ describe CoursesController do
       before :once do
         account_admin_user
         course_factory
+        ta_in_course
       end
 
       before :each do
@@ -1793,7 +1877,6 @@ describe CoursesController do
       end
 
       it 'should require :manage_master_courses permission' do
-        ta_in_course
         user_session @ta
         put 'update', params: {:id => @course.id, :course => { :blueprint => '1' }}, :format => 'json'
         expect(response).to be_unauthorized
@@ -1828,6 +1911,35 @@ describe CoursesController do
         expect(response).to be_successful
         template = MasterCourses::MasterTemplate.full_template_for(@course)
         expect(template.default_restrictions).to eq({:content => false, :due_dates => true})
+      end
+
+      describe "changing restrictions" do
+        before :once do
+          @template = MasterCourses::MasterTemplate.set_as_master_course(@course)
+          @template.update_attribute(:default_restrictions, {:content => true})
+        end
+
+        it "allows an admin to change restrictions" do
+          put 'update', params: {:id => @course.id, :course => { :blueprint => '1',
+            :blueprint_restrictions => {'content' => '0', 'due_dates' => '1'}}}, :format => 'json'
+          expect(response).to be_successful
+          template = MasterCourses::MasterTemplate.full_template_for(@course)
+          expect(template.default_restrictions).to eq({:content => false, :due_dates => true})
+        end
+
+        it "forbids a non-admin from changing restrictions" do
+          user_session @ta
+          put 'update', params: {:id => @course.id, :course => { :blueprint => '1',
+            :blueprint_restrictions => {'content' => '0', 'due_dates' => '1'}}}, :format => 'json'
+          expect(response).to be_unauthorized
+        end
+
+        it "allows a non-admin to perform a no-op request" do
+          user_session @ta
+          put 'update', params: {:id => @course.id, :course => { :blueprint => '1',
+            :blueprint_restrictions => {'content' => '1'}}}, :format => 'json'
+          expect(response).to be_successful
+        end
       end
 
       it "should validate template restrictions" do
@@ -2121,14 +2233,37 @@ describe CoursesController do
       expect(feed.entries.all?{|e| e.authors.present?}).to be_truthy
     end
 
-    it "should not include unpublished assignments or discussions" do
+    it "should not include unpublished assignments or discussions or pages" do
       discussion_topic_model(:context => @course)
       @assignment.unpublish
       @topic.unpublish!
+      @course.wiki_pages.create! :title => 'unpublished', :workflow_state => 'unpublished'
       get 'public_feed', params: {:feed_code => @enrollment.feed_code}, :format => 'atom'
       feed = Atom::Feed.load_feed(response.body) rescue nil
       expect(feed).not_to be_nil
       expect(feed.entries).to be_empty
+    end
+
+    it "respects assignment overrides" do
+      @assignment.update_attribute :only_visible_to_overrides, true
+      @a0 = @assignment
+      graded_discussion_topic(context: @course)
+      @topic.assignment.update_attribute :only_visible_to_overrides, true
+
+      get 'public_feed', params: {:feed_code => @enrollment.feed_code}, :format => 'atom'
+      feed = Atom::Feed.load_feed(response.body) rescue nil
+      expect(feed).not_to be_nil
+      expect(feed.entries.map(&:id).join(" ")).not_to include @a0.asset_string
+      expect(feed.entries.map(&:id).join(" ")).not_to include @topic.asset_string
+
+      assignment_override_model :assignment => @a0, :set => @enrollment.course_section
+      assignment_override_model :assignment => @topic.assignment, :set => @enrollment.course_section
+
+      get 'public_feed', params: {:feed_code => @enrollment.feed_code}, :format => 'atom'
+      feed = Atom::Feed.load_feed(response.body) rescue nil
+      expect(feed).not_to be_nil
+      expect(feed.entries.map(&:id).join(" ")).to include @a0.asset_string
+      expect(feed.entries.map(&:id).join(" ")).to include @topic.asset_string
     end
   end
 
@@ -2480,6 +2615,36 @@ describe CoursesController do
       json = json_parse(response.body)
       expect(json[0]).to include({ "id" => student1.id, "group_ids" => [group1.id] })
       expect(json[1]).to include({ "id" => student2.id, "group_ids" => [group2.id] })
+    end
+
+    it 'can take student uuids as inputs and output uuids in json' do
+      user_session(teacher)
+      get 'users', params: {
+        course_id: course.id,
+        user_uuids: [student1.uuid],
+        format: 'json',
+        include: ['uuid'],
+        enrollment_role: 'StudentEnrollment'
+      }
+      json = json_parse(response.body)
+      expect(json.count).to eq(1)
+      expect(json[0]).to include({ "id" => student1.id, "uuid" => student1.uuid })
+    end
+
+    it 'can sort uesrs' do
+      student1.update!(name: 'Student B')
+      student2.update!(name: 'Student A')
+
+      user_session(teacher)
+      get 'users', params: {
+        course_id: course.id,
+        format: 'json',
+        enrollment_role: 'StudentEnrollment',
+        sort: 'username'
+      }
+      json = json_parse(response.body)
+      expect(json[0]).to include({ 'id' => student2.id })
+      expect(json[1]).to include({ 'id' => student1.id })
     end
   end
 end

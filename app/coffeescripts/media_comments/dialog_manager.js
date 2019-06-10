@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import I18n from 'i18n!media_comments'
+import I18n from 'i18n!media_comment_dialog_manager'
 import $ from 'jquery'
 import 'jqueryui/dialog'
 import ReactDOM from 'react-dom'
@@ -68,8 +68,8 @@ export default class DialogManager {
   showUpdateDialog() {
     return this.dialog.dialog({
       title: I18n.t('titles.record_upload_media_comment', 'Record/Upload Media Comment'),
-      width: 560,
-      height: 475,
+      width: 650,
+      height: 550,
       modal: true
     })
   }

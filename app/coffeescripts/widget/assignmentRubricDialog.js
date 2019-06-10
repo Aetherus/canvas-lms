@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import I18n from 'i18n!rubrics'
+import I18n from 'i18n!assignmentRubricDialog'
 import $ from 'jquery'
 import htmlEscape from 'str/htmlEscape'
 import 'jqueryui/dialog'
@@ -31,8 +31,10 @@ const assignmentRubricDialog = {
     const $trigger = $('.rubric_dialog_trigger')
     if ($trigger) {
       this.noRubricExists = $trigger.data('noRubricExists')
-      this.url = $trigger.data('url')
-      this.$focusReturnsTo = $($trigger.data('focusReturnsTo'))
+      const selector = $trigger.data('focusReturnsTo')
+      try {
+        this.$focusReturnsTo = $(document.querySelector(selector))
+      } catch(err) {}
 
       $trigger.click((event) => {
         event.preventDefault()
@@ -53,7 +55,7 @@ const assignmentRubricDialog = {
       close: () => this.$focusReturnsTo.focus()
     })
 
-    return $.get(this.url, (html) => {
+    return $.get(ENV.DISCUSSION.GRADED_RUBRICS_URL, (html) => {
       // if there is not already a rubric, we want to click the "add rubric" button for them,
       // since that is the point of why they clicked the link.
       if (assignmentRubricDialog.noRubricExists) {

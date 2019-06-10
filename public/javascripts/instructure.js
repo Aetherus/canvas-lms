@@ -18,11 +18,10 @@
 
 import KeyboardNavDialog from 'compiled/views/KeyboardNavDialog'
 import INST from './INST'
-import I18n from 'i18n!instructure'
+import I18n from 'i18n!instructure_js'
 import $ from 'jquery'
 import _ from 'underscore'
 import tz from 'timezone'
-import userSettings from 'compiled/userSettings'
 import htmlEscape from './str/htmlEscape'
 import preventDefault from 'compiled/fn/preventDefault'
 import RichContentEditor from 'jsx/shared/rce/RichContentEditor'
@@ -48,7 +47,6 @@ import 'jqueryui/resizable'
 import 'jqueryui/sortable'
 import 'jqueryui/tabs'
 import 'compiled/behaviors/trackEvent'
-import 'compiled/badge_counts'
 
 function handleYoutubeLink () {
   const $link = $(this)
@@ -782,14 +780,13 @@ function handleYoutubeLink () {
       var sf = $('#sequence_footer')
       if (sf.length) {
         var el = $(sf[0]);
-        require.ensure([], function (require) {
-          require('compiled/jquery/ModuleSequenceFooter')
+        import('compiled/jquery/ModuleSequenceFooter').then(() => {
           el.moduleSequenceFooter({
             courseID: el.attr("data-course-id"),
             assetType: el.attr("data-asset-type"),
             assetID: el.attr("data-asset-id")
           });
-        }, 'ModuleSequenceFooterAsyncChunk');
+        });
       }
     }
 

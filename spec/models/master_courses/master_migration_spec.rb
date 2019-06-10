@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
-require 'spec_helper'
+require 'sharding_spec_helper'
 
 describe MasterCourses::MasterMigration do
   before :once do
@@ -408,6 +408,11 @@ describe MasterCourses::MasterMigration do
 
       q_to = @copy_to.quizzes.where(:migration_id => mig_id(q)).first
       copied_answers = Hash[q_to.quiz_questions.to_a.map{|qq| [qq.id, qq.question_data.to_hash["answers"]]}]
+      expect(copied_answers.values.flatten.all?{|a| a["id"] != 0}).to be_truthy
+      q.quiz_questions.each do |qq|
+        qq_to = q_to.quiz_questions.where(:migration_id => mig_id(qq)).first
+        expect(copied_answers[qq_to.id].map{|a| a["id"].to_i}).to eq qq.question_data["answers"].map{|a| a["id"].to_i}
+      end
 
       Quizzes::Quiz.where(:id => q).update_all(:updated_at => 1.minute.from_now) # recopy
       run_master_migration
@@ -934,6 +939,42 @@ describe MasterCourses::MasterMigration do
       expect(copied_page.title).to eq new_master_title # even the title
     end
 
+    it "updates links correctly when creating an assignment and moving a file" do
+      @copy_to = course_factory
+
+      sub = @template.add_child_course!(@copy_to)
+
+      folder1 = @copy_from.folders.create!(:name => "folder1")
+      folder2 = folder1.sub_folders.create!(:name => "folder2", :context => @copy_from)
+      folder3 = folder2.sub_folders.create!(:name => "folder3", :context => @copy_from)
+      attachment = folder3.file_attachments.build
+      attachment.context = @copy_from
+      attachment.uploaded_data = default_uploaded_data
+      attachment.display_name = "lalala"
+      attachment.save!
+
+      expect(@copy_to.folders.where(:name => "folder 1").first).to be_nil
+
+      run_master_migration
+
+      folder3.parent_folder = folder1
+      folder3.save!
+
+      assignment = @copy_from.assignments.create!(:title => "hahaha")
+      assignment.description = "<p><a id=\"\" class=\"instructure_file_link instructure_image_thumbnail \" title=\"lalala\" href=\"/courses/#{@copy_from.id}/files/#{attachment.id}/download?wrap=1\" target=\"\">lalala</a></p>"
+      assignment.save!
+
+      run_master_migration
+
+      @copy_to.reload
+      copy_attachment = @copy_to.attachments.first
+      copy_assignments = @copy_to.assignments.all
+      expect(copy_assignments.length).to eq 1
+      copy_assignment = copy_assignments[0]
+      expect(copy_assignment.title).to eq "hahaha"
+      expect(copy_assignment.description).to eq "<p><a id=\"\" class=\"instructure_file_link instructure_image_thumbnail \" title=\"lalala\" href=\"/courses/#{@copy_to.id}/files/#{copy_attachment.id}/download?wrap=1\" target=\"\">lalala</a></p>"
+    end
+
     it "overwrites/removes availability dates and settings when pushing a locked quiz" do
       @copy_to = course_factory
       sub = @template.add_child_course!(@copy_to)
@@ -1128,6 +1169,36 @@ describe MasterCourses::MasterMigration do
       expect(copied_topic_assmt.reload.due_at.to_i).to eq new_master_due_at.to_i
     end
 
+    it "allows a minion course's change of the graded status of a discussion topic to stick" do
+      @copy_to = course_factory
+      sub = @template.add_child_course!(@copy_to)
+
+      topic = @copy_from.discussion_topics.new
+      topic.assignment = @copy_from.assignments.build(:due_at => 1.month.from_now)
+      topic.save!
+      run_master_migration
+
+      topic_to = @copy_to.discussion_topics.where(:migration_id => mig_id(topic)).take
+      assignment_to = topic_to.assignment
+      topic_to.assignment = nil
+      topic_to.save!
+
+      expect(assignment_to.reload).to be_deleted
+      topic_tag = MasterCourses::ChildContentTag.where(content_type: 'DiscussionTopic', content_id: topic_to.id).take
+      expect(topic_tag.downstream_changes).to include 'assignment_id'
+      assign_tag = MasterCourses::ChildContentTag.where(content_id: 'Assignment', content_id: assignment_to.id).take
+      expect(assign_tag.downstream_changes).to include 'workflow_state'
+
+      Timecop.travel(1.hour.from_now) do
+        topic.message = 'content updated'
+        topic.save!
+      end
+      run_master_migration
+
+      expect(topic_to.reload.assignment).to be_nil
+      expect(assignment_to.reload).to be_deleted
+    end
+
     it "should ignore course settings on selective export unless requested" do
       @copy_to = course_factory
       @sub = @template.add_child_course!(@copy_to)
@@ -1171,6 +1242,25 @@ describe MasterCourses::MasterMigration do
       run_master_migration(:copy_settings => true) # selective with settings
       expect(@copy_to.reload.start_at).to be_nil # remove the dates
       expect(@copy_to.conclude_at).to be_nil
+    end
+
+    it "should be able to disable grading standard" do
+      gs = @copy_from.grading_standards.create!(:title => "Standard eh", :data => [["Eh", 0.93], ["Eff", 0]])
+      @copy_from.update_attributes(:grading_standard_enabled => true, :grading_standard => gs)
+
+      @copy_to = course_factory
+      @sub = @template.add_child_course!(@copy_to)
+
+      run_master_migration
+
+      expect(@copy_to.reload.grading_standard.data).to eq gs.data
+      expect(@copy_to.grading_standard_enabled).to eq true
+
+      @copy_from.update_attribute(:grading_standard_enabled, false)
+      run_master_migration(:copy_settings => true)
+
+      expect(@copy_to.reload.grading_standard).to be_nil
+      expect(@copy_to.grading_standard_enabled).to eq false
     end
 
     it "should copy front wiki pages" do
@@ -1427,6 +1517,33 @@ describe MasterCourses::MasterMigration do
       Assignment.where(:id => @assmt).update_all(:updated_at => 10.minutes.from_now)
       run_master_migration
       expect(assignment_to.reload.rubric).to eq other_rubric
+    end
+
+    it "should link assignment rubrics when association is pointed to a new rubric" do
+      Timecop.freeze(10.minutes.ago) do
+        @copy_to = course_factory
+        @template.add_child_course!(@copy_to)
+        @assmt = @copy_from.assignments.create!
+        @course = @copy_from
+        @first_rubric = outcome_with_rubric
+        @ra = @first_rubric.associate_with(@assmt, @copy_from, purpose: 'grading')
+      end
+      Timecop.freeze(8.minutes.ago) do
+        run_master_migration
+      end
+
+      assignment_to = @copy_to.assignments.where(:migration_id => mig_id(@assmt)).first
+      rubric_to = @copy_to.rubrics.where(:migration_id => mig_id(@first_rubric)).first
+      expect(assignment_to.reload.rubric).to eq rubric_to
+
+      @second_rubric = outcome_with_rubric
+      @ra.rubric = @second_rubric
+      @ra.save! # change the rubric but don't make a new association
+
+      run_master_migration
+
+      second_rubric_to = @copy_to.rubrics.where(:migration_id => mig_id(@second_rubric)).first
+      expect(assignment_to.reload.rubric).to eq second_rubric_to
     end
 
     it "shouldn't delete module items in associated courses" do
@@ -1918,6 +2035,36 @@ describe MasterCourses::MasterMigration do
       run_master_migration
 
       expect(a_to.reload.external_tool_tag).to eq tag # don't change
+    end
+
+    context "sharding" do
+      specs_require_sharding
+
+      it "should translate links to content with module item id" do
+        mod1 = @copy_from.context_modules.create!(:name => "some module")
+        asmnt = @copy_from.assignments.create!(:title => "some assignment")
+        assmt_tag = mod1.add_item({:id => asmnt.id, :type => 'assignment', :indent => 1})
+        page = @copy_from.wiki_pages.create!(:title => "some page")
+        page_tag = mod1.add_item({:id => page.id, :type => 'wiki_page', :indent => 1})
+
+        body = %{<p>Link to assignment module item: <a href="/courses/%s/assignments/%s?module_item_id=%s">some assignment</a></p>
+          <p>Link to page module item: <a href="/courses/%s/pages/%s?module_item_id=%s">some page</a></p>}
+        topic = @copy_from.discussion_topics.create!(:title => "some topic",
+          :message => body % [@copy_from.id, asmnt.id, assmt_tag.id, @copy_from.id, page.url, page_tag.id])
+
+        @copy_to = course_factory
+        @sub = @template.add_child_course!(@copy_to)
+
+        run_master_migration
+
+        mod1_to = @copy_to.context_modules.where(migration_id: mig_id(mod1)).first
+        asmnt_to = @copy_to.assignments.where(migration_id: mig_id(asmnt)).first
+        assmt_tag_to = mod1_to.content_tags.where(:content_type => "Assignment").first
+        page_to = @copy_to.wiki_pages.where(migration_id: mig_id(page)).first
+        page_tag_to = mod1_to.content_tags.where(:content_type => "WikiPage").first
+        topic_to = @copy_to.discussion_topics.where(migration_id: mig_id(topic)).first
+        expect(topic_to.message).to eq body % [@copy_to.id, asmnt_to.id, assmt_tag_to.id, @copy_to.id, page_to.url, page_tag_to.id]
+      end
     end
 
     it "sends notifications", priority: "2", test_id: 3211103 do

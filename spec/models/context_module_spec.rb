@@ -24,17 +24,34 @@ describe ContextModule do
     @module = @course.context_modules.create!(:name => "some module")
   end
 
+  describe "name validation" do
+    before :once do
+      course_factory
+    end
+
+    it "rejects an empty name if required" do
+      mod = @course.context_modules.build
+      expect(mod).to be_valid
+      mod.require_presence_of_name = true
+      expect(mod).not_to be_valid
+      mod.name = 'blah'
+      expect(mod).to be_valid
+    end
+  end
+
   describe "publish_items!" do
+    before :once do
+      course_module
+      @file = @course.attachments.create!(:display_name => "some file", :uploaded_data => default_uploaded_data, :locked => true)
+      @tag = @module.add_item(:id => @file.id, :type => "attachment")
+    end
+
     context "with file usage rights required" do
-      before :each do
-        course_module
+      before :once do
         @course.enable_feature! :usage_rights_required
-        @file = @course.attachments.create!(:display_name => "some file", :uploaded_data => default_uploaded_data, :locked => true)
-        @tag = @module.add_item(:id => @file.id, :type => "attachment")
       end
 
       it "should not publish Attachment module items if usage rights are missing" do
-        @file.usage_rights = nil
         @module.publish_items!
         expect(@tag.published?).to eql(false)
         expect(@file.published?).to eql(false)
@@ -44,14 +61,17 @@ describe ContextModule do
         @file.usage_rights = @course.usage_rights.create(:use_justification => 'own_copyright')
         @file.save!
 
-        # ensure models are in sync around publish_items!
-        @module.reload
-        @module.publish_items!
-        @file.reload
-        @tag.reload
+        @module.reload.publish_items!
+        expect(@tag.reload.published?).to eql(true)
+        expect(@file.reload.published?).to eql(true)
+      end
+    end
 
-        expect(@tag.published?).to eql(true)
-        expect(@file.published?).to eql(true)
+    context "without file usage rights required" do
+      it "should publish Attachment module items" do
+        @module.publish_items!
+        expect(@tag.reload.published?).to eql(true)
+        expect(@file.reload.published?).to eql(true)
       end
     end
   end
@@ -134,7 +154,7 @@ describe ContextModule do
     expect(new_module.content_tags[3].url).to eq('http://www.instructure.com')
     expect(new_module.content_tags[3].new_tab).to eq(true)
     expect(new_module.unlock_at).to be_nil
-    expect(new_module.prerequisites).to be_nil
+    expect(new_module.prerequisites).to eq []
   end
 
   describe "available_for?" do
@@ -165,7 +185,8 @@ describe ContextModule do
     it "should reevaluate progressions if a tag is not provided and deep_check_if_needed is given" do
       module1 = course_module
       module1.find_or_create_progression(@student)
-      module2 = course_module
+      module1.save!
+      module2 = @course.context_modules.create!(:name => "some module")
       url_item = module2.content_tags.create!(content_type: 'ExternalUrl', context: @course,
         title: 'url', url: 'https://www.google.com')
       module2.completion_requirements = [{id: url_item.id, type: 'must_view'}]
@@ -236,6 +257,21 @@ describe ContextModule do
       expect(@module2.prerequisites).not_to be_empty
       expect(@module2.prerequisites[0][:id]).to eql(@module.id)
       expect(@module2.prerequisites.length).to eql(1)
+    end
+
+    it "should remove itself as a requirement when deleted" do
+      course_module
+      @module2 = @course.context_modules.build(:name => "next module")
+      @module2.prerequisites = "module_#{@module.id}"
+      @module2.save!
+
+      expect(@module2.prerequisites).to be_is_a(Array)
+      expect(@module2.prerequisites).not_to be_empty
+      expect(@module2.prerequisites[0][:id]).to eq(@module.id)
+      @module.destroy
+      @module2 = ContextModule.find(@module2.id)
+      expect(@module2.prerequisites).to be_is_a(Array)
+      expect(@module2.prerequisites).to be_empty
     end
   end
 
@@ -781,7 +817,7 @@ describe ContextModule do
     end
 
     describe "must_submit requirement" do
-      before :each do
+      before :once do
         course_module
         student_in_course course: @course, active_all: true
 
@@ -1143,7 +1179,7 @@ describe ContextModule do
   end
 
   context 'unpublished completion requirements' do
-    before do
+    before :once do
       course_module
       course_with_student(course: @course, user: @student, active_all: true)
 
@@ -1189,7 +1225,7 @@ describe ContextModule do
   end
 
   describe "content_tags_visible_to" do
-    before do
+    before :once do
       course_module
       @student_1 = student_in_course(course: @course, active_all: true).user
       @student_2 = student_in_course(course: @course, active_all: true).user
@@ -1307,7 +1343,7 @@ describe ContextModule do
   end
 
   describe "#relock_warning?" do
-    before :each do
+    before :once do
       course_factory(active_all: true)
     end
 
@@ -1364,6 +1400,31 @@ describe ContextModule do
       mod2.save!
       mod1.unpublish!; mod1.publish!
       expect(mod1.relock_warning?).to be_falsey
+    end
+
+    it "should be true when publishing a module that has prerequisites" do
+      # this is necessary because the prerequisites may have changed while the module was unpublished
+      mod1 = @course.context_modules.new(:name => "some module")
+      mod1.workflow_state = "active"
+      mod1.save!
+
+      mod2 = @course.context_modules.new(:name => "some module2")
+      mod2.prerequisites = "module_#{mod1.id}"
+      mod2.workflow_state = "unpublished"
+      mod2.save!
+
+      mod2.publish!
+      expect(mod2.relock_warning?).to eq true
+    end
+
+    it "should be true when publishing a module that has an unlock_at date" do
+      mod1 = @course.context_modules.new(:name => "some module")
+      mod1.workflow_state = "unpublished"
+      mod1.unlock_at = 1.month.from_now
+      mod1.save!
+
+      mod1.publish!
+      expect(mod1.relock_warning?).to eq true
     end
   end
 

@@ -200,6 +200,10 @@ class Course < ActiveRecord::Base
   has_many :master_course_subscriptions, :class_name => "MasterCourses::ChildSubscription", :foreign_key => 'child_course_id'
   has_one :late_policy, dependent: :destroy, inverse_of: :course
 
+  has_many :post_policies, dependent: :destroy, inverse_of: :course
+  has_many :assignment_post_policies, -> { where.not(assignment_id: nil) }, class_name: 'PostPolicy', inverse_of: :course
+  has_one :default_post_policy, -> { where(assignment_id: nil) }, class_name: 'PostPolicy', inverse_of: :course
+
   prepend Profile::Association
 
   before_save :assign_uuid
@@ -207,6 +211,7 @@ class Course < ActiveRecord::Base
   before_save :update_enrollments_later
   before_save :update_show_total_grade_as_on_weighting_scheme_change
   before_save :set_self_enrollment_code
+  before_save :validate_license
   after_save :update_final_scores_on_weighting_scheme_change
   after_save :update_account_associations_if_changed
   after_save :update_enrollment_states_if_necessary
@@ -241,9 +246,9 @@ class Course < ActiveRecord::Base
 
   include ContentNotices
   define_content_notice :import_in_progress,
-    icon_class: 'icon-import-content',
-    alert_class: 'alert-info import-in-progress-notice',
-    template: 'courses/import_in_progress_notice',
+    text: -> { t('One or more items are currently being imported. They will be shown in the course below once they are available.') },
+    link_text: -> { t('Import Status') },
+    link_target: ->(course) { "/courses/#{course.to_param}/content_migrations" },
     should_show: ->(course, user) do
       course.grants_right?(user, :manage_content)
     end
@@ -302,7 +307,10 @@ class Course < ActiveRecord::Base
         (self.saved_change_to_workflow_state? && (completed? || self.workflow_state_before_last_save == 'completed'))
         # a lot of things can change the date logic here :/
 
-      EnrollmentState.send_later_if_production(:invalidate_states_for_course_or_section, self) if self.enrollments.exists?
+      if self.enrollments.exists?
+        EnrollmentState.send_later_if_production_enqueue_args(:invalidate_states_for_course_or_section,
+          {:n_strand => ["invalidate_enrollment_states", self.global_root_account_id]}, self)
+      end
       # if the course date settings have been changed, we'll end up reprocessing all the access values anyway, so no need to queue below for other setting changes
     end
     if saved_change_to_account_id? || @changed_settings
@@ -449,7 +457,7 @@ class Course < ActiveRecord::Base
   end
 
   def course_visibility_options
-    ActiveSupport::OrderedHash[
+    options = [
         'course',
         {
             :setting => t('course', 'Course')
@@ -463,6 +471,16 @@ class Course < ActiveRecord::Base
             :setting => t('public', 'Public')
         }
       ]
+    options = self.root_account.available_course_visibility_override_options(options).to_a.flatten
+    ActiveSupport::OrderedHash[*options]
+  end
+
+  def course_visibility_option_descriptions
+    {
+      'course' => t('All users associated with this course'),
+      'institution' => t('All users associated with this institution'),
+      'public' => t('Anyone with the URL')
+    }
   end
 
   def custom_course_visibility
@@ -493,7 +511,9 @@ class Course < ActiveRecord::Base
   end
 
   def course_visibility
-    if is_public == true
+    if self.overridden_course_visibility.present?
+      self.overridden_course_visibility
+    elsif is_public == true
       'public'
     elsif is_public_to_auth_users == true
       'institution'
@@ -671,6 +691,7 @@ class Course < ActiveRecord::Base
        UNION SELECT courses.id AS course_id, e.user_id FROM #{Course.quoted_table_name}
          INNER JOIN #{Enrollment.quoted_table_name} AS e ON e.course_id = courses.id AND e.user_id = #{user_id.to_i}
            AND e.workflow_state IN(#{workflow_states}) AND e.type IN ('TeacherEnrollment', 'TaEnrollment', 'DesignerEnrollment')
+         INNER JOIN #{EnrollmentState.quoted_table_name} AS es ON es.enrollment_id = e.id AND es.state IN (#{workflow_states})
          WHERE courses.workflow_state <> 'deleted') as course_users
        ON course_users.course_id = courses.id")
   }
@@ -766,41 +787,35 @@ class Course < ActiveRecord::Base
   # in the course.
   def user_is_admin?(user)
     return unless user
-    RequestCache.cache('user_is_admin', self, user) do
-      Rails.cache.fetch([self, user, "course_user_is_admin"].cache_key) do
-        self.enrollments.for_user(user).active_by_date.of_admin_type.exists?
-      end
+    fetch_on_enrollments('user_is_admin', user) do
+      self.enrollments.for_user(user).active_by_date.of_admin_type.exists?
     end
   end
 
   def user_is_instructor?(user)
     return unless user
-    RequestCache.cache('user_is_instructor', self, user) do
-      Rails.cache.fetch([self, user, "course_user_is_instructor"].cache_key) do
-        self.enrollments.for_user(user).active_by_date.of_instructor_type.exists?
-      end
+    fetch_on_enrollments('user_is_instructor', user) do
+      self.enrollments.for_user(user).active_by_date.of_instructor_type.exists?
     end
   end
 
   def user_is_student?(user, opts = {})
     return unless user
 
-    RequestCache.cache('user_is_student', self, user, opts) do
-      Rails.cache.fetch([self, user, "course_user_is_student", opts].cache_key) do
-        enroll_types = ["StudentEnrollment"]
-        enroll_types << "StudentViewEnrollment" if opts[:include_fake_student]
+    fetch_on_enrollments('user_is_student', user, opts) do
+      enroll_types = ["StudentEnrollment"]
+      enroll_types << "StudentViewEnrollment" if opts[:include_fake_student]
 
-        enroll_scope = self.enrollments.for_user(user).where(:type => enroll_types)
-        if opts[:include_future]
-          enroll_scope = enroll_scope.active_or_pending_by_date_ignoring_access
-        elsif opts[:include_all]
-          enroll_scope = enroll_scope.not_inactive_by_date_ignoring_access
-        else
-          return false unless self.available?
-          enroll_scope = enroll_scope.active_by_date
-        end
-        enroll_scope.exists?
+      enroll_scope = self.enrollments.for_user(user).where(:type => enroll_types)
+      if opts[:include_future]
+        enroll_scope = enroll_scope.active_or_pending_by_date_ignoring_access
+      elsif opts[:include_all]
+        enroll_scope = enroll_scope.not_inactive_by_date_ignoring_access
+      else
+        return false unless self.available?
+        enroll_scope = enroll_scope.active_by_date
       end
+      enroll_scope.exists?
     end
   end
 
@@ -830,13 +845,8 @@ class Course < ActiveRecord::Base
       return preloaded_user_has_been?(user, %w{TaEnrollment TeacherEnrollment})
     end
     # enrollments should be on the course's shard
-    RequestCache.cache('user_has_been_instructor', self, user) do
-      self.shard.activate do
-        Rails.cache.fetch([self, user, "course_user_has_been_instructor"].cache_key) do
-          # active here is !deleted; it still includes concluded, etc.
-          self.instructor_enrollments.active.where(user_id: user).exists?
-        end
-      end
+    fetch_on_enrollments('user_has_been_instructor', user) do
+      self.instructor_enrollments.active.where(user_id: user).exists? # active here is !deleted; it still includes concluded, etc.
     end
   end
 
@@ -846,11 +856,8 @@ class Course < ActiveRecord::Base
       return preloaded_user_has_been?(user, %w{TaEnrollment TeacherEnrollment DesignerEnrollment})
     end
 
-    RequestCache.cache('user_has_been_admin', self, user) do
-      Rails.cache.fetch([self, user, "course_user_has_been_admin"].cache_key) do
-        # active here is !deleted; it still includes concluded, etc.
-        self.admin_enrollments.active.where(user_id: user).exists?
-      end
+    fetch_on_enrollments('user_has_been_admin', user) do
+      self.admin_enrollments.active.where(user_id: user).exists? # active here is !deleted; it still includes concluded, etc.
     end
   end
 
@@ -860,11 +867,8 @@ class Course < ActiveRecord::Base
       return preloaded_user_has_been?(user, "ObserverEnrollment")
     end
 
-    RequestCache.cache('user_has_been_observer', self, user) do
-      Rails.cache.fetch([self, user, "course_user_has_been_observer"].cache_key) do
-        # active here is !deleted; it still includes concluded, etc.
-        self.observer_enrollments.shard(self).active.where(user_id: user).exists?
-      end
+    fetch_on_enrollments('user_has_been_observer', user) do
+      self.observer_enrollments.shard(self).active.where(user_id: user).exists? # active here is !deleted; it still includes concluded, etc.
     end
   end
 
@@ -874,10 +878,8 @@ class Course < ActiveRecord::Base
       return preloaded_user_has_been?(user, %w{StudentEnrollment StudentViewEnrollment})
     end
 
-    RequestCache.cache('user_has_been_student', self, user) do
-      Rails.cache.fetch([self, user, "course_user_has_been_student"].cache_key) do
-        self.all_student_enrollments.where(user_id: user).exists?
-      end
+    fetch_on_enrollments('user_has_been_student', user) do
+      self.all_student_enrollments.where(user_id: user).exists?
     end
   end
 
@@ -889,10 +891,8 @@ class Course < ActiveRecord::Base
       end
     end
 
-    RequestCache.cache('user_has_no_enrollments', self, user) do
-      Rails.cache.fetch([self, user, "course_user_has_no_enrollments"].cache_key) do
-        !enrollments.where(user_id: user).exists?
-      end
+    fetch_on_enrollments('user_has_no_enrollments', user) do
+      !enrollments.where(user_id: user).exists?
     end
   end
 
@@ -1034,8 +1034,12 @@ class Course < ActiveRecord::Base
         Enrollment.where(:course_id => self).update_all(:root_account_id => self.root_account_id)
       end
 
-      Enrollment.where(:course_id => self).touch_all
-      User.where(id: Enrollment.where(course_id: self).select(:user_id)).touch_all
+      self.class.connection.after_transaction_commit do
+        Enrollment.where(:course_id => self).touch_all
+        user_ids = Enrollment.where(course_id: self).distinct.pluck(:user_id).sort
+        User.touch_and_clear_cache_keys(user_ids, :enrollments)
+      end
+
       data
     end
   end
@@ -1096,6 +1100,13 @@ class Course < ActiveRecord::Base
       self.show_total_grade_as_points = false
     end
     true
+  end
+
+  # set license to "private" if it's present but not recognized
+  def validate_license
+    unless license.nil?
+      self.license = 'private' unless self.class.licenses.key?(self.license)
+    end
   end
 
   # to ensure permissions on the root folder are updated after hiding or showing the files tab
@@ -1251,22 +1262,31 @@ class Course < ActiveRecord::Base
       event :claim, :transitions_to => :claimed
       event :offer, :transitions_to => :available
       event :complete, :transitions_to => :completed
+      event :delete, :transitions_to => :deleted
     end
 
     state :claimed do
       event :offer, :transitions_to => :available
       event :complete, :transitions_to => :completed
+      event :delete, :transitions_to => :deleted
     end
 
     state :available do
       event :complete, :transitions_to => :completed
       event :claim, :transitions_to => :claimed
+      event :delete, :transitions_to => :deleted
     end
 
     state :completed do
       event :unconclude, :transitions_to => :available
+      event :offer, :transitions_to => :available
+      event :claim, :transitions_to => :claimed
+      event :delete, :transitions_to => :deleted
     end
-    state :deleted
+
+    state :deleted do
+      event :undelete, :transitions_to => :claimed
+    end
   end
 
   def api_state
@@ -1292,7 +1312,7 @@ class Course < ActiveRecord::Base
       Enrollment.where(id: e_batch.map(&:id)).update_all(workflow_state: 'deleted', updated_at: Time.zone.now)
       EnrollmentState.where(:enrollment_id => e_batch.map(&:id)).
         update_all(["state = ?, state_is_current = ?, lock_version = lock_version + 1", 'deleted', true])
-      User.where(id: user_ids).touch_all
+      User.touch_and_clear_cache_keys(user_ids, :enrollments)
       User.send_later_if_production(:update_account_associations, user_ids) if user_ids.any?
     end
     c_data = SisBatchRollBackData.build_dependent_data(sis_batch: sis_batch, contexts: courses, updated_state: 'deleted', batch_mode_delete: batch_mode)
@@ -1329,7 +1349,9 @@ class Course < ActiveRecord::Base
     shard.activate do
       return if Rails.cache.read(['has_assignment_group', self].cache_key)
       if self.assignment_groups.active.empty?
-        self.assignment_groups.create(:name => t('#assignment_group.default_name', "Assignments"))
+        Shackles.activate(:master) do
+          self.assignment_groups.create!(name: t('#assignment_group.default_name', "Assignments"))
+        end
       end
       Rails.cache.write(['has_assignment_group', self].cache_key, true)
     end
@@ -1403,8 +1425,12 @@ class Course < ActiveRecord::Base
     end
   end
 
+  def unenrolled_user_can_read?(user, session)
+    self.is_public || (self.is_public_to_auth_users && session.present? && session.has_key?(:user_id))
+  end
+
   set_policy do
-    given { |user, session| self.available? && (self.is_public || (self.is_public_to_auth_users && session.present? && session.has_key?(:user_id)))  }
+    given { |user, session| self.available? &&  unenrolled_user_can_read?(user, session)}
     can :read and can :read_outcomes and can :read_syllabus
 
     given { |user, session| self.available? && (self.public_syllabus || (self.public_syllabus_to_auth && session.present? && session.has_key?(:user_id)))}
@@ -1567,7 +1593,7 @@ class Course < ActiveRecord::Base
 
   # Public: Return true if the end date for a course (or its term, if the course doesn't have one) has passed.
   #
-  # Returns boolean or nil.
+  # Returns boolean
   def soft_concluded?(enrollment_type = nil)
     now = Time.now
     return end_at < now if end_at && restrict_enrollments_to_course_dates
@@ -1576,7 +1602,7 @@ class Course < ActiveRecord::Base
       end_at = override.end_at if override
     end
     end_at ||= enrollment_term.end_at
-    end_at && end_at < now
+    end_at ? end_at < now : false
   end
 
   def soft_conclude!
@@ -1697,7 +1723,18 @@ class Course < ActiveRecord::Base
         "instructure_csv" => {
             :name => t('grade_export_types.instructure_csv', "Instructure formatted CSV"),
             :callback => lambda { |course, enrollments, publishing_user, publishing_pseudonym|
-                course.generate_grade_publishing_csv_output(enrollments, publishing_user, publishing_pseudonym)
+                grade_export_settings = Canvas::Plugin.find!('grade_export').settings || {}
+                include_final_grade_overrides = Canvas::Plugin.value_to_boolean(
+                  grade_export_settings[:include_final_grade_overrides]
+                )
+                include_final_grade_overrides &= course.allow_final_grade_override?
+
+                course.generate_grade_publishing_csv_output(
+                  enrollments,
+                  publishing_user,
+                  publishing_pseudonym,
+                  include_final_grade_overrides: include_final_grade_overrides
+                )
             },
             :requires_grading_standard => false,
             :requires_publishing_pseudonym => false
@@ -1748,7 +1785,6 @@ class Course < ActiveRecord::Base
     all_enrollment_ids = enrollments.map(&:id)
 
     begin
-
       raise "final grade publishing disabled" unless Canvas::Plugin.find!('grade_export').enabled?
       settings = Canvas::Plugin.find!('grade_export').settings
       raise "endpoint undefined" if settings[:publish_endpoint].blank?
@@ -1757,12 +1793,10 @@ class Course < ActiveRecord::Base
       raise "grade publishing requires a grading standard" if !self.grading_standard_enabled? && format_settings[:requires_grading_standard]
 
       publishing_pseudonym = SisPseudonym.for(publishing_user, self)
-      raise "publishing disallowed for this publishing user" if publishing_pseudonym.nil? and format_settings[:requires_publishing_pseudonym]
+      raise "publishing disallowed for this publishing user" if publishing_pseudonym.nil? && format_settings[:requires_publishing_pseudonym]
 
       callback = Course.valid_grade_export_types[settings[:format_type]][:callback]
-
       posts_to_make = callback.call(self, enrollments, publishing_user, publishing_pseudonym)
-
     rescue => e
       Enrollment.where(:id => all_enrollment_ids).update_all(:grade_publishing_status => "error", :grade_publishing_message => e.to_s)
       raise e
@@ -1792,28 +1826,63 @@ class Course < ActiveRecord::Base
     raise errors[0] if errors.size > 0
   end
 
-  def generate_grade_publishing_csv_output(enrollments, publishing_user, publishing_pseudonym)
+  def generate_grade_publishing_csv_output(enrollments, publishing_user, publishing_pseudonym, include_final_grade_overrides: false)
     enrollment_ids = []
+
     res = CSV.generate do |csv|
-      row = ["publisher_id", "publisher_sis_id", "course_id", "course_sis_id", "section_id", "section_sis_id", "student_id", "student_sis_id", "enrollment_id", "enrollment_status", "score"]
-      row << "grade" if self.grading_standard_enabled?
-      csv << row
+      column_names = [
+        "publisher_id",
+        "publisher_sis_id",
+        "course_id",
+        "course_sis_id",
+        "section_id",
+        "section_sis_id",
+        "student_id",
+        "student_sis_id",
+        "enrollment_id",
+        "enrollment_status",
+        "score"
+      ]
+      column_names << "grade" if self.grading_standard_enabled?
+      csv << column_names
+
       enrollments.each do |enrollment|
-        next unless enrollment.computed_final_score
+        next if include_final_grade_overrides && !enrollment.effective_final_score
+        next if !include_final_grade_overrides && !enrollment.computed_final_score
+
         enrollment_ids << enrollment.id
+
+        if include_final_grade_overrides
+          grade = enrollment.effective_final_grade
+          score = enrollment.effective_final_score
+        else
+          grade = enrollment.computed_final_grade
+          score = enrollment.computed_final_score
+        end
+
         pseudonym_sis_ids = enrollment.user.pseudonyms.active.where(account_id: self.root_account_id).pluck(:sis_user_id)
         pseudonym_sis_ids = [nil] if pseudonym_sis_ids.empty?
+
         pseudonym_sis_ids.each do |pseudonym_sis_id|
-          row = [publishing_user.try(:id), publishing_pseudonym.try(:sis_user_id),
-                 enrollment.course.id, enrollment.course.sis_source_id,
-                 enrollment.course_section.id, enrollment.course_section.sis_source_id,
-                 enrollment.user.id, pseudonym_sis_id, enrollment.id,
-                 enrollment.workflow_state, enrollment.computed_final_score]
-          row << enrollment.computed_final_grade if self.grading_standard_enabled?
+          row = [
+            publishing_user.try(:id),
+            publishing_pseudonym.try(:sis_user_id),
+            enrollment.course.id,
+            enrollment.course.sis_source_id,
+            enrollment.course_section.id,
+            enrollment.course_section.sis_source_id,
+            enrollment.user.id,
+            pseudonym_sis_id,
+            enrollment.id,
+            enrollment.workflow_state,
+            score
+          ]
+          row << grade if self.grading_standard_enabled?
           csv << row
         end
       end
     end
+
     if enrollment_ids.any?
       [[enrollment_ids, res, "text/csv"]]
     else
@@ -1987,6 +2056,7 @@ class Course < ActiveRecord::Base
       e.self_enrolled = self_enrolled
       e.start_at = start_at
       e.end_at = end_at
+      e.sis_pseudonym_id = opts[:sis_pseudonym_id]
       if e.changed?
         e.need_touch_user = true if opts[:skip_touch_user]
         transaction do
@@ -2080,8 +2150,16 @@ class Course < ActiveRecord::Base
       section.default_section = true
       section.course = self
       section.root_account_id = self.root_account_id
-      Shackles.activate(:master) do
-        section.save unless new_record?
+      unless new_record?
+        Shackles.activate(:master) do
+          CourseSection.unique_constraint_retry do |retry_count|
+            if retry_count > 0
+              section = course_sections.active.where(default_section: true).first
+            else
+              section.save
+            end
+          end
+        end
       end
     end
     section
@@ -2256,7 +2334,7 @@ class Course < ActiveRecord::Base
       :public_syllabus_to_auth, :allow_student_wiki_edits, :show_public_context_messages,
       :syllabus_body, :allow_student_forum_attachments, :lock_all_announcements,
       :default_wiki_editing_roles, :allow_student_organized_groups,
-      :default_view, :show_total_grade_as_points,
+      :default_view, :show_total_grade_as_points, :allow_final_grade_override,
       :open_enrollment,
       :storage_quota, :tab_configuration, :allow_wiki_comments,
       :turnitin_comments, :self_enrollment, :license, :indexed, :locale,
@@ -2299,33 +2377,39 @@ class Course < ActiveRecord::Base
 
   def self.serialization_excludes; [:uuid]; end
 
+  # helper method to DRY-up some similar methods that all can be cached based on a user's enrollments
+  def fetch_on_enrollments(key, user, opts=nil)
+    self.shard.activate do
+      RequestCache.cache(key, user, self, opts) do
+        Rails.cache.fetch_with_batched_keys([key, self.global_asset_string, opts].compact.cache_key, batch_object: user, batched_keys: :enrollments) do
+          yield
+        end
+      end
+    end
+  end
 
   ADMIN_TYPES = %w{TeacherEnrollment TaEnrollment DesignerEnrollment}
   def section_visibilities_for(user, opts={})
-    RequestCache.cache('section_visibilities_for', user, self, opts) do
-      shard.activate do
-        Rails.cache.fetch(['section_visibilities_for', user, self, opts].cache_key) do
-          workflow_not = opts[:excluded_workflows] || 'deleted'
+    fetch_on_enrollments('section_visibilities_for', user, opts) do
+      workflow_not = opts[:excluded_workflows] || 'deleted'
 
-          enrollment_rows = all_enrollments.
-            where(user: user).
-            where.not(workflow_state: workflow_not).
-            pluck(
-              :course_section_id,
-              :limit_privileges_to_course_section,
-              :type,
-              :associated_user_id)
+      enrollment_rows = all_enrollments.
+        where(user: user).
+        where.not(workflow_state: workflow_not).
+        pluck(
+          :course_section_id,
+          :limit_privileges_to_course_section,
+          :type,
+          :associated_user_id)
 
-          enrollment_rows.map do |section_id, limit_privileges, type, associated_user_id|
-            {
-              :course_section_id => section_id,
-              :limit_privileges_to_course_section => limit_privileges,
-              :type => type,
-              :associated_user_id => associated_user_id,
-              :admin => ADMIN_TYPES.include?(type)
-            }
-          end
-        end
+      enrollment_rows.map do |section_id, limit_privileges, type, associated_user_id|
+        {
+          :course_section_id => section_id,
+          :limit_privileges_to_course_section => limit_privileges,
+          :type => type,
+          :associated_user_id => associated_user_id,
+          :admin => ADMIN_TYPES.include?(type)
+        }
       end
     end
   end
@@ -2851,6 +2935,7 @@ class Course < ActiveRecord::Base
   # course import/export :(
   add_setting :hide_final_grade, :alias => :hide_final_grades, :boolean => true
   add_setting :hide_distribution_graphs, :boolean => true
+  add_setting :allow_final_grade_override, boolean: false, default: false
   add_setting :allow_student_discussion_topics, :boolean => true, :default => true
   add_setting :allow_student_discussion_editing, :boolean => true, :default => true
   add_setting :show_total_grade_as_points, :boolean => true, :default => false
@@ -2864,6 +2949,7 @@ class Course < ActiveRecord::Base
   add_setting :organize_epub_by_content_type, :boolean => true, :default => false
   add_setting :enable_offline_web_export, :boolean => true, :default => lambda { |c| c.account.enable_offline_web_export? }
   add_setting :is_public_to_auth_users, :boolean => true, :default => false
+  add_setting :overridden_course_visibility
 
   add_setting :restrict_student_future_view, :boolean => true, :inherited => true
   add_setting :restrict_student_past_view, :boolean => true, :inherited => true
@@ -2905,6 +2991,7 @@ class Course < ActiveRecord::Base
   end
 
   def reset_content
+    self.shard.activate do
     Course.transaction do
       new_course = Course.new
       self.attributes.delete_if{|k,v| [:id, :created_at, :updated_at, :syllabus_body, :wiki_id, :default_view, :tab_configuration, :lti_context_id, :workflow_state, :latest_outcome_import_id].include?(k.to_sym) }.each do |key, val|
@@ -2926,8 +3013,15 @@ class Course < ActiveRecord::Base
       # we also want to bring along prior enrollments, so don't use the enrollments
       # association
       Enrollment.where(:course_id => self).update_all(:course_id => new_course.id, :updated_at => Time.now.utc)
-      User.where(id: new_course.all_enrollments.select(:user_id)).
-          update_all(updated_at: Time.now.utc)
+      user_ids = new_course.all_enrollments.pluck(:user_id)
+      self.class.connection.after_transaction_commit do
+        User.touch_and_clear_cache_keys(user_ids, :enrollments)
+      end
+      Shard.partition_by_shard(user_ids) do |sharded_user_ids|
+        Favorite.where(:user_id => sharded_user_ids, :context_type => "Course", :context_id => self.id).
+          update_all(:context_id => new_course.id, :updated_at => Time.now.utc)
+      end
+
       self.replacement_course_id = new_course.id
       self.workflow_state = 'deleted'
       self.save!
@@ -2936,6 +3030,7 @@ class Course < ActiveRecord::Base
       end
 
       Course.find(new_course.id)
+    end
     end
   end
 
@@ -3246,7 +3341,9 @@ class Course < ActiveRecord::Base
   # to identify the user can't move backwards, such as feature flags
   def gradebook_backwards_incompatible_features_enabled?
     # The old gradebook can't deal with late policies at all
-    return true if late_policy&.missing_submission_deduction_enabled? || late_policy&.late_submission_deduction_enabled?
+    return true if late_policy&.missing_submission_deduction_enabled? ||
+      late_policy&.late_submission_deduction_enabled? ||
+      feature_enabled?(:final_grades_override)
 
     # If you've used the grade tray status changes at all, you can't
     # go back. Even if set to none, it'll break "Message Students
@@ -3259,6 +3356,10 @@ class Course < ActiveRecord::Base
 
   def grading_standard_or_default
     default_grading_standard || GradingStandard.default_instance
+  end
+
+  def allow_final_grade_override?
+    feature_enabled?(:final_grades_override) && allow_final_grade_override == "true"
   end
 
   def moderators
@@ -3274,6 +3375,46 @@ class Course < ActiveRecord::Base
     # for any given assignment: 1 assigned moderator + N max graders = all participating instructors
     # so N max graders = all participating instructors - 1 assigned moderator
     count - 1
+  end
+
+  def post_manually?
+    return false unless feature_enabled?(:post_policies)
+
+    default_post_policy.present? && default_post_policy.post_manually?
+  end
+
+  def apply_overridden_course_visibility(visibility)
+    if !['institution', 'public', 'course'].include?(visibility) &&
+        self.root_account.available_course_visibility_override_options.keys.include?(visibility)
+      self.overridden_course_visibility = visibility
+    else
+      self.overridden_course_visibility = nil
+    end
+  end
+
+  def apply_visibility_configuration(course_visibility, syllabus_visibility)
+    apply_overridden_course_visibility(course_visibility)
+    if course_visibility == 'institution'
+      self.is_public_to_auth_users = true
+      self.is_public = false
+    elsif course_visibility == 'public'
+      self.is_public = true
+    else
+      self.is_public_to_auth_users = false
+      self.is_public = false
+    end
+
+    if syllabus_visibility.present?
+      if self.is_public || syllabus_visibility == 'public'
+        self.public_syllabus = true
+      elsif self.is_public_to_auth_users || syllabus_visibility == 'institution'
+        self.public_syllabus_to_auth = true
+        self.public_syllabus = false
+      else
+        self.public_syllabus = false
+        self.public_syllabus_to_auth = false
+      end
+    end
   end
 
   private

@@ -25,7 +25,7 @@ Events are delivered with attributes and a body. The attributes are:
 | Name | Type | Description | Example |
 | ---- | ---- | ----------- | ------- |
 | `event_name` | String | The name of the event. | `create_discussion_topic` |
-| `event_time` | String.timestamp | The time, in ISO 8601 format. | `2015-03-18T15:15:54Z` |
+| `event_time` | String.timestamp | The time, in ISO 8601 format with millisecond precision. | `2015-03-18T15:15:54.047Z` |
 
 #### Body (metadata)
 
@@ -44,6 +44,7 @@ event originated as part of a web request:
 | `root_account_lti_guid` | String | The Canvas lti_guid of the root account associated with the current user. |
 | `context_type` | String | The type of context where the event happened. |
 | `context_id` | String | The Canvas id of the current context. Always use the `context_type` when using this id to lookup the object. |
+| `context_sis_source_id` | String | The Canvas SIS source id of the current context. |
 | `role` | String | The role of the current user in the current context.  |
 | `hostname` | String | The hostname of the current request |
 | `producer` | String | The name of the producer of an event. Will always be 'canvas' when an event is originating in canvas. |
@@ -122,6 +123,21 @@ what's described in this document. Those fields are subject to change.
 
 
 #### `discussion_topic_created`
+
+| Field | Description |
+| ----- | ----------- |
+| `discussion_topic_id` | The Canvas id of the new discussion topic. |
+| `is_announcement` | `true` if this topic was posted as an announcement, `false` otherwise. |
+| `title` | Title of the topic (possibly truncated). |
+| `body` | Body of the topic (possibly truncated). |
+| `assignment_id` | The Canvas id of the topic's associated assignment |
+| `context_id` | The Canvas id of the topic's context |
+| `context_type` | The type of the topic's context (usually 'Assignment') |
+| `workflow_state` | The state of the topic |
+| `lock_at` | The lock date (discussion is locked after this date) |
+| `updated_at` | The time at which this topic was last modified in any way |
+
+#### `discussion_topic_updated`
 
 | Field | Description |
 | ----- | ----------- |
@@ -324,6 +340,35 @@ by `asset_type` and `asset_id`.
 | `points_possible` | The maximum points possible for the assignment |
 | `lti_assignment_id` | The LTI assignment guid for the assignment |
 
+#### `assignment_group_created`
+
+| Field | Description |
+| ----- | ----------- |
+| `assignment_group_id` | The Canvas id of the new assignment group. |
+| `context_id` | The Canvas context id of the new assignment group. |
+| `context_type` | The context type of the new assignment group. |
+| `name` | The name of the new assignment group. |
+| `position` | The position of the new assignment group. |
+| `group_weight` | The group weight of the new assignment grou. |
+| `sis_source_id` | The SIS source id of the new assignment group. |
+| `integration_data` | Integration data for the new assignment group. |
+| `rules` | Rules for the new assignment group. |
+| `workflow_state` | Workflow state of the assignment group. |
+
+#### `assignment_group_updated`
+
+| Field | Description |
+| ----- | ----------- |
+| `assignment_group_id` | The Canvas id of the updated assignment group. |
+| `context_id` | The Canvas context id of the updated assignment group. |
+| `context_type` | The context type of the updated assignment group. |
+| `name` | The name of the updated assignment group. |
+| `position` | The position of the updated assignment group. |
+| `group_weight` | The group weight of the updated assignment group. |
+| `sis_source_id` | The SIS source id of the updated assignment group. |
+| `integration_data` | Integration data for the updated assignment group. |
+| `rules` | Rules for the updated assignment group. |
+| `workflow_state` | Workflow state of the assignment group. |
 
 #### `submission_created`
 

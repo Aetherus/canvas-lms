@@ -19,7 +19,6 @@
 import React from 'react'
 import {shallow} from 'enzyme'
 import CoursesListRow from '../CoursesListRow'
-import Tooltip from '@instructure/ui-overlays/lib/components/Tooltip';
 
 const props = {
   id: '1',
@@ -38,7 +37,8 @@ const props = {
   term: {
     name: 'A Term'
   },
-  workflow_state: 'alive'
+  workflow_state: 'alive',
+  concluded: false
 }
 
 it('indicates if a course is a blueprint course', () => {
@@ -59,7 +59,7 @@ it('indicates if a course is a blueprint course', () => {
 it('shows add-enrollment if it makes sense', () => {
   const tooltip = 'Tooltip[tip="Add Users to A"] IconPlus'
   expect(
-    shallow(<CoursesListRow {...props} can_create_enrollments={true} />)
+    shallow(<CoursesListRow {...props} can_create_enrollments concluded={false} />)
       .find(tooltip)
       .exists()
   ).toBe(true)
@@ -68,15 +68,22 @@ it('shows add-enrollment if it makes sense', () => {
 it('does not show add-enrollment when not allowed', () => {
   const tooltip = 'Tooltip[tip="Add Users to A"] IconPlus'
   expect(
-    shallow(<CoursesListRow {...props}
-                            can_create_enrollments={false} workflow_state='active' />)
+    shallow(
+      <CoursesListRow
+        {...props}
+        can_create_enrollments={false}
+        workflow_state="active"
+        concluded={false}
+      />
+    )
       .find(tooltip)
       .exists()
   ).toBe(false)
 
   expect(
-    shallow(<CoursesListRow {...props}
-                            can_create_enrollments={true} workflow_state='completed'  />)
+    shallow(
+      <CoursesListRow {...props} can_create_enrollments workflow_state="completed" concluded />
+    )
       .find(tooltip)
       .exists()
   ).toBe(false)

@@ -12,6 +12,7 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
     <ModalBody
       as="div"
       padding="medium"
+      variant="default"
     >
       <div
         className="ActAs__body"
@@ -35,12 +36,18 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
         >
           <View
             as="div"
+            debug={false}
             display="auto"
+            overflowX="visible"
+            overflowY="visible"
             size="small"
           >
             <View
               as="div"
+              debug={false}
               display="auto"
+              overflowX="visible"
+              overflowY="visible"
               padding="0 0 x-small 0"
               textAlign="center"
             >
@@ -55,7 +62,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
             </View>
             <View
               as="div"
+              debug={false}
               display="auto"
+              overflowX="visible"
+              overflowY="visible"
               textAlign="center"
             >
               <Text
@@ -69,7 +79,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
             </View>
             <View
               as="div"
+              debug={false}
               display="auto"
+              overflowX="visible"
+              overflowY="visible"
               textAlign="center"
             >
               <Avatar
@@ -84,7 +97,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
             </View>
             <View
               as="div"
+              debug={false}
               display="auto"
+              overflowX="visible"
+              overflowY="visible"
               textAlign="center"
             >
               <Table
@@ -96,6 +112,7 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                   </ScreenReaderContent>
                 }
                 hover={false}
+                layout="auto"
                 size="medium"
               >
                 <thead>
@@ -130,7 +147,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -157,7 +177,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -184,7 +207,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -211,7 +237,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -230,9 +259,12 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
             </View>
             <View
               as="div"
+              debug={false}
               display="auto"
               key="qux"
               margin="large 0 0 0"
+              overflowX="visible"
+              overflowY="visible"
               textAlign="center"
             >
               <Table
@@ -244,6 +276,7 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                   </ScreenReaderContent>
                 }
                 hover={false}
+                layout="auto"
                 size="medium"
               >
                 <thead>
@@ -278,7 +311,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -305,7 +341,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -332,7 +371,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -351,9 +393,12 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
             </View>
             <View
               as="div"
+              debug={false}
               display="auto"
               key="tic"
               margin="large 0 0 0"
+              overflowX="visible"
+              overflowY="visible"
               textAlign="center"
             >
               <Table
@@ -365,6 +410,7 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                   </ScreenReaderContent>
                 }
                 hover={false}
+                layout="auto"
                 size="medium"
               >
                 <thead>
@@ -399,7 +445,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -426,7 +475,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -453,7 +505,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
                     <td>
                       <View
                         as="div"
+                        debug={false}
                         display="auto"
+                        overflowX="visible"
+                        overflowY="visible"
                         textAlign="end"
                       >
                         <Text
@@ -472,7 +527,10 @@ exports[`ActAsModal renders with panda svgs, user avatar, table, and proceed but
             </View>
             <View
               as="div"
+              debug={false}
               display="auto"
+              overflowX="visible"
+              overflowY="visible"
               textAlign="center"
             >
               <Button

@@ -25,7 +25,6 @@ module LtiAdvantage::Serializers
     STANDARD_IMS_CLAIMS = %w(
       context
       custom
-      custom
       deployment_id
       launch_presentation
       lis
@@ -35,6 +34,7 @@ module LtiAdvantage::Serializers
       roles
       tool_platform
       version
+      target_link_uri
     ).freeze
 
     DEEP_LINKING_CLAIMS = %w(

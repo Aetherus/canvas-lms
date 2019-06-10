@@ -17,7 +17,7 @@
  */
 
 import Checkbox from '@instructure/ui-forms/lib/components/Checkbox'
-import FormFieldGroup from '@instructure/ui-forms/lib/components/FormFieldGroup'
+import FormFieldGroup from '@instructure/ui-form-field/lib/components/FormFieldGroup'
 import Grid, {GridCol, GridRow} from '@instructure/ui-layout/lib/components/Grid'
 import I18n from 'i18n!react_developer_keys'
 import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
@@ -40,6 +40,14 @@ export default class DeveloperKeyFormFields extends React.Component {
     }
   }
 
+  generateToolConfiguration = () => {
+    return this.toolConfigRef.generateToolConfiguration()
+  }
+
+  valid = () => {
+    return this.toolConfigRef.valid()
+  }
+
   get keyForm () {
     return this.keyFormRef
   }
@@ -53,6 +61,8 @@ export default class DeveloperKeyFormFields extends React.Component {
   }
 
   setKeyFormRef = node => { this.keyFormRef = node }
+
+  setToolConfigRef = node => { this.toolConfigRef = node }
 
   fieldValue(field, defaultValue) {
     const {developerKey} = this.props
@@ -85,7 +95,7 @@ export default class DeveloperKeyFormFields extends React.Component {
   }
 
   formBody() {
-    const { createLtiKeyState } = this.props
+    const { createLtiKeyState, editing } = this.props
 
     if (!createLtiKeyState.isLtiKey) {
       return <DeveloperKeyScopes
@@ -99,10 +109,15 @@ export default class DeveloperKeyFormFields extends React.Component {
       />
     }
     return <ToolConfiguration
+      ref={this.setToolConfigRef}
       createLtiKeyState={createLtiKeyState}
       setEnabledScopes={this.props.setEnabledScopes}
       setDisabledPlacements={this.props.setDisabledPlacements}
+      setLtiConfigurationMethod={this.props.setLtiConfigurationMethod}
+      setPrivacyLevel={this.props.setPrivacyLevel}
       dispatch={this.props.dispatch}
+      toolConfiguration={this.props.tool_configuration}
+      editing={editing}
     />
   }
 
@@ -130,8 +145,9 @@ export default class DeveloperKeyFormFields extends React.Component {
                   disabled={this.props.createLtiKeyState.customizing}
                 />
                 <TextArea
-                  label={I18n.t('Redirect URIs:')}
+                  label={this.props.createLtiKeyState.isLtiKey ? I18n.t('* Redirect URIs:') : I18n.t('Redirect URIs:')}
                   name="developer_key[redirect_uris]"
+                  required={this.props.createLtiKeyState.isLtiKey}
                   defaultValue={this.fieldValue('redirect_uris')}
                   resize="both"
                   disabled={this.props.createLtiKeyState.customizing}
@@ -184,6 +200,8 @@ DeveloperKeyFormFields.propTypes = {
   dispatch: PropTypes.func.isRequired,
   listDeveloperKeyScopesSet: PropTypes.func.isRequired,
   setDisabledPlacements: PropTypes.func.isRequired,
+  setLtiConfigurationMethod: PropTypes.func.isRequired,
+  setPrivacyLevel: PropTypes.func.isRequired,
   setEnabledScopes: PropTypes.func.isRequired,
   createLtiKeyState: PropTypes.shape({
     isLtiKey: PropTypes.bool.isRequired,
@@ -196,7 +214,10 @@ DeveloperKeyFormFields.propTypes = {
     redirect_uris: PropTypes.string,
     email: PropTypes.string,
     name: PropTypes.string,
-    require_scopes: PropTypes.bool
+    require_scopes: PropTypes.bool,
+    tool_configuration: PropTypes.shape({
+      oidc_initiation_url: PropTypes.string
+    })
   }),
   availableScopes: PropTypes.objectOf(PropTypes.arrayOf(
     PropTypes.shape({
@@ -204,5 +225,9 @@ DeveloperKeyFormFields.propTypes = {
       scope: PropTypes.string
     })
   )).isRequired,
-  availableScopesPending: PropTypes.bool.isRequired
+  availableScopesPending: PropTypes.bool.isRequired,
+  editing: PropTypes.bool.isRequired,
+  tool_configuration: PropTypes.shape({
+    oidc_initiation_url: PropTypes.string
+  })
 }

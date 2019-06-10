@@ -23,12 +23,33 @@ import CustomizationForm from './CustomizationForm'
 import ToolConfigurationForm from './ToolConfigurationForm'
 
 export default class ToolConfiguration extends React.Component {
+  // Because of how the original implementation was written this was the cleanest
+  // way to get the values on the modal save button. A better solution would
+  // require changing how the form button's actions are used to get the data from the
+  // form.
+  generateToolConfiguration = () => {
+    return this.configMethodsRef.generateToolConfiguration();
+  }
+
+  valid = () => {
+    return this.configMethodsRef.valid()
+  }
+
+  setConfigurationMethodsRef = node => this.configMethodsRef = node;
+
   body() {
     if (!this.props.createLtiKeyState.customizing) {
       return (
         <ToolConfigurationForm
-          toolConfiguration={this.props.createLtiKeyState.toolConfiguration}
+          ref={this.setConfigurationMethodsRef}
+          dispatch={this.props.dispatch}
+          toolConfiguration={this.props.toolConfiguration}
           toolConfigurationUrl={this.props.createLtiKeyState.toolConfigurationUrl}
+          validScopes={ENV.validLtiScopes}
+          validPlacements={ENV.validLtiPlacements}
+          setLtiConfigurationMethod={this.props.setLtiConfigurationMethod}
+          configurationMethod={this.props.createLtiKeyState.configurationMethod}
+          editing={this.props.editing}
         />
       )
     }
@@ -42,6 +63,7 @@ export default class ToolConfiguration extends React.Component {
         dispatch={this.props.dispatch}
         setEnabledScopes={this.props.setEnabledScopes}
         setDisabledPlacements={this.props.setDisabledPlacements}
+        setPrivacyLevel={this.props.setPrivacyLevel}
       />
     )
   }
@@ -59,11 +81,18 @@ ToolConfiguration.propTypes = {
   dispatch: PropTypes.func.isRequired,
   setEnabledScopes: PropTypes.func.isRequired,
   setDisabledPlacements: PropTypes.func.isRequired,
+  setLtiConfigurationMethod: PropTypes.func.isRequired,
+  setPrivacyLevel: PropTypes.func.isRequired,
   createLtiKeyState: PropTypes.shape({
     customizing: PropTypes.bool.isRequired,
     toolConfiguration: PropTypes.object.isRequired,
     toolConfigurationUrl: PropTypes.string.isRequired,
     enabledScopes: PropTypes.arrayOf(PropTypes.string).isRequired,
     disabledPlacements: PropTypes.arrayOf(PropTypes.string).isRequired,
-  }).isRequired
+    configurationMethod: PropTypes.string.isRequired
+  }).isRequired,
+  toolConfiguration: PropTypes.shape({
+    oidc_initiation_url: PropTypes.string
+  }),
+  editing: PropTypes.bool.isRequired
 }

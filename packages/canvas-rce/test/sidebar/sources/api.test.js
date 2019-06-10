@@ -21,7 +21,6 @@ import sinon from 'sinon'
 import RceApiSource from '../../../src/sidebar/sources/api'
 import fetchMock from 'fetch-mock'
 import * as fileUrl from '../../../src/common/fileUrl'
-import jsdom from 'mocha-jsdom'
 
 describe('sources/api', () => {
   const endpoint = 'wikiPages'
@@ -58,7 +57,7 @@ describe('sources/api', () => {
     it('creates a collection with a bookmark derived from props', () => {
       assert.equal(
         collection.bookmark,
-        '//example.host/api/wikiPages?contextType=group&contextId=123'
+        `${window.location.protocol}//example.host/api/wikiPages?contextType=group&contextId=123`
       )
     })
 
@@ -81,7 +80,7 @@ describe('sources/api', () => {
 
   describe('URI construction', () => {
     it('uses a protocol relative url when no window', () => {
-      let uri = apiSource.baseUri('files', 'example.instructure.com')
+      let uri = apiSource.baseUri('files', 'example.instructure.com', {})
       assert.equal(uri, '//example.instructure.com/api/files')
     })
 
@@ -218,6 +217,26 @@ describe('sources/api', () => {
     })
   })
 
+  describe('fetchMediaFolder', () => {
+    let files;
+    beforeEach(() => {
+      files = [{id: 24}]
+      const body = {files}
+      sinon.stub(apiSource, 'fetchPage').returns(Promise.resolve(body))
+    })
+
+    afterEach(() => {
+      apiSource.fetchPage.restore()
+    })
+    it('calls fetchPage with the proper params', () => {
+      return apiSource.fetchMediaFolder({
+        contextType: 'course', contextId: '22'
+      }).then(() => {
+        sinon.assert.calledWith(apiSource.fetchPage, '/api/folders/media?contextType=course&contextId=22')
+      })
+    })
+  })
+
   describe('preflightUpload', () => {
     const uri = '/api/upload'
     let fileProps = {}
@@ -262,7 +281,6 @@ describe('sources/api', () => {
 
   describe('uploadFRD', () => {
     let fileDomObject, uploadUrl, preflightProps, file, wrapUrl
-    jsdom()
 
     beforeEach(() => {
       fileDomObject = new window.Blob()

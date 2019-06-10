@@ -56,9 +56,9 @@ class Enrollment::BatchStateUpdater
       # touch users after removing group_memberships to invalidate the cache.
       cancel_future_appointments(@courses, @user_ids)
       disassociate_cross_shard_users(@user_ids)
-      update_linked_enrollments(@students)
-      update_assignment_overrides(batch, @courses, @user_ids)
     end
+    update_linked_enrollments(@students)
+    update_assignment_overrides(batch, @courses, @user_ids)
     touch_and_update_associations(@user_ids)
     clear_email_caches(@invited_user_ids) unless @invited_user_ids.empty?
     needs_grading_count_updated(@courses)
@@ -73,10 +73,10 @@ class Enrollment::BatchStateUpdater
   def self.mark_enrollments_as_deleted(batch, sis_batch: nil, batch_mode: false)
     data = SisBatchRollBackData.build_dependent_data(sis_batch: sis_batch, contexts: batch, updated_state: 'deleted', batch_mode_delete: batch_mode)
     updates = {workflow_state: 'deleted', updated_at: Time.now.utc}
-    updates[sis_batch_id: sis_batch.id] if sis_batch
+    updates[:sis_batch_id] = sis_batch.id if sis_batch
     Enrollment.where(id: batch).update_all(updates)
     EnrollmentState.where(enrollment_id: batch).update_all(state: 'deleted', state_valid_until: nil)
-    Score.where(enrollment_id: batch).update_all(workflow_state: 'deleted', updated_at: Time.zone.now)
+    Score.where(enrollment_id: batch).order(:id).update_all(workflow_state: 'deleted', updated_at: Time.zone.now)
     data
   end
 
@@ -136,7 +136,7 @@ class Enrollment::BatchStateUpdater
     courses_to_touch_admins = students.map(&:course_id).uniq
     admin_ids = Enrollment.where(course_id: courses_to_touch_admins,
       type: ['TeacherEnrollment', 'TaEnrollment', 'DesignerEnrollment']).
-      active.distinct.pluck(:user_id).sort
+      active.distinct.order(:user_id).pluck(:user_id)
     admin_ids.each_slice(1000) do |sliced_admin_ids|
       User.where(id: sliced_admin_ids).touch_all
     end
@@ -188,20 +188,28 @@ class Enrollment::BatchStateUpdater
 
   # this is to be used for enrollments that just changed workflow_states but are
   # not deleted. This also skips notifying users.
-  def self.run_call_backs_for(batch)
+  def self.run_call_backs_for(batch, root_account=nil)
     raise ArgumentError, 'Cannot call with more than 1000 enrollments' if batch.count > 1_000
-    Enrollment.transaction do
-      EnrollmentState.send_later_if_production(:force_recalculation, batch)
-      students = Enrollment.of_student_type.where(id: batch).preload({user: :linked_observers}, :root_account).to_a
-      user_ids = Enrollment.where(id: batch).distinct.pluck(:user_id)
-      courses = Course.where(id: Enrollment.where(id: batch).select(:course_id).distinct).to_a
-      root_account = courses.first.root_account
-      touch_and_update_associations(user_ids)
-      update_linked_enrollments(students)
-      needs_grading_count_updated(courses)
-      recache_all_course_grade_distribution(courses)
-      update_cached_due_dates(students, root_account)
-      touch_all_graders_if_needed(students)
-    end
+    return if batch.empty?
+    root_account ||= Enrollment.where(id: batch).take&.root_account
+    return unless root_account
+    EnrollmentState.send_later_if_production_enqueue_args(
+      :force_recalculation,
+      {run_at: Setting.get("wait_time_to_calculate_enrollment_state", 1).to_f.minute.from_now,
+       n_strand: ["restore_states_enrollment_states", root_account.global_id],
+       max_attempts: 2},
+      batch
+    )
+    students = Enrollment.of_student_type.where(id: batch).preload({user: :linked_observers}, :root_account).to_a
+    user_ids = Enrollment.where(id: batch).distinct.pluck(:user_id)
+    courses = Course.where(id: Enrollment.where(id: batch).select(:course_id).distinct).to_a
+    root_account ||= courses.first.root_account
+    return unless root_account
+    touch_and_update_associations(user_ids)
+    update_linked_enrollments(students)
+    needs_grading_count_updated(courses)
+    recache_all_course_grade_distribution(courses)
+    update_cached_due_dates(students, root_account)
+    touch_all_graders_if_needed(students)
   end
 end

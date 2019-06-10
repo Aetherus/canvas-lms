@@ -179,6 +179,11 @@
 #           "description": "Extra submission attempts allowed for the given user and assignment.",
 #           "example": 10,
 #           "type": "number"
+#         },
+#         "anonymous_id": {
+#           "description": "A unique short ID identifying this submission without reference to the owning user. Only included if the caller has administrator access for the current account.",
+#           "example": "acJ4Q",
+#           "type": "string"
 #         }
 #       }
 #     }
@@ -463,7 +468,7 @@ class SubmissionsApiController < ApplicationController
     if params[:grouped].present?
       scope = (@section || @context).all_student_enrollments.
         preload(:root_account, :sis_pseudonym, :user => :pseudonyms).
-        where(:user_id => student_ids)
+        where(:user_id => student_ids).order(:user_id)
       student_enrollments = Api.paginate(scope, self, polymorphic_url([:api_v1, @section || @context, :student_submissions]))
 
       submissions_scope = Submission.active.where(user_id: student_enrollments.map(&:user_id), assignment_id: assignments)
@@ -703,6 +708,9 @@ class SubmissionsApiController < ApplicationController
   #   The points awarded for this row.
   #     rubric_assessment[criterion_id][points]
   #
+  #   The rating id for the row.
+  #     rubric_assessment[criterion_id][rating_id]
+  #
   #   Comments to add for this row.
   #     rubric_assessment[criterion_id][comments]
   #
@@ -716,8 +724,8 @@ class SubmissionsApiController < ApplicationController
   #         'description': 'Criterion 1',
   #         'ratings':
   #         [
-  #           { 'description': 'Good', 'points': 10 },
-  #           { 'description': 'Poor', 'points': 3 }
+  #           { 'id': 'rat1', 'description': 'Good', 'points': 10 },
+  #           { 'id': 'rat2', 'description': 'Poor', 'points': 3 }
   #         ]
   #       },
   #       {
@@ -726,14 +734,15 @@ class SubmissionsApiController < ApplicationController
   #         'description': 'Criterion 2',
   #         'ratings':
   #         [
-  #           { 'description': 'Complete', 'points': 5 },
-  #           { 'description': 'Incomplete', 'points': 0 }
+  #           { 'id': 'rat1', 'description': 'Exemplary', 'points': 5 },
+  #           { 'id': 'rat2', 'description': 'Complete', 'points': 5 },
+  #           { 'id': 'rat3', 'description': 'Incomplete', 'points': 0 }
   #         ]
   #       }
   #     ]
   #
   #   Then a possible set of values for rubric_assessment would be:
-  #       rubric_assessment[crit1][points]=3&rubric_assessment[crit2][points]=5&rubric_assessment[crit2][comments]=Well%20Done.
+  #       rubric_assessment[crit1][points]=3&rubric_assessment[crit1][rating_id]=rat1&rubric_assessment[crit2][points]=5&rubric_assessment[crit2][rating_id]=rat2&rubric_assessment[crit2][comments]=Well%20Done.
   def update
     @assignment = @context.assignments.active.find(params[:assignment_id])
 
@@ -870,9 +879,16 @@ class SubmissionsApiController < ApplicationController
   #
   # A paginated list of students eligible to submit the assignment. The caller must have permission to view grades.
   #
+  # If anonymous grading is enabled for the current assignment and the allow_new_anonymous_id parameter is passed,
+  # the returned data will not include any values identifying the student, but will instead include an
+  # assignment-specific anonymous ID for each student.
+  #
   # Section-limited instructors will only see students in their own sections.
   #
-  # returns [UserDisplay]
+  # @returns [UserDisplay] if anonymous grading is not enabled for the assignment or if the
+  #   allow_new_anonymous_id parameter is not true
+  # @returns [AnonymousUserDisplay] if anonymous grading is enabled for the assignment and the
+  #   allow_new_anonymous_id parameter is true
   def gradeable_students
     if authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
       @assignment = @context.assignments.active.find(params[:assignment_id])

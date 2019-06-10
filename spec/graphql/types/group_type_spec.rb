@@ -17,7 +17,7 @@
 #
 
 require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
-require File.expand_path(File.dirname(__FILE__) + '/../../helpers/graphql_type_tester')
+require_relative "../graphql_spec_helper"
 
 describe Types::GroupType do
   before(:once) do
@@ -36,7 +36,9 @@ describe Types::GroupType do
       to eq @group.group_memberships.map(&:to_param)
   end
 
-  it "requires permission" do
+  it "requires read permission" do
+    user = user_factory(active_all: true)
+    expect(group_type.resolve("_id", current_user: user)).to be_nil
   end
 
   describe Types::GroupMembershipType do

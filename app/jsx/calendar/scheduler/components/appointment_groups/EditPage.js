@@ -23,7 +23,7 @@ import I18n from 'i18n!appointment_groups'
 import Breadcrumb, { BreadcrumbLink } from '@instructure/ui-breadcrumb/lib/components/Breadcrumb'
 import Button from '@instructure/ui-buttons/lib/components/Button'
 import Grid, { GridCol, GridRow } from '@instructure/ui-layout/lib/components/Grid'
-import FormFieldGroup from '@instructure/ui-forms/lib/components/FormFieldGroup'
+import FormFieldGroup from '@instructure/ui-form-field/lib/components/FormFieldGroup'
 import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
 import TextArea from '@instructure/ui-forms/lib/components/TextArea'
 import TextInput from '@instructure/ui-forms/lib/components/TextInput'
@@ -304,12 +304,6 @@ import TimeBlockSelector from './TimeBlockSelector'
                 layout="inline"
                 vAlign="top"
               >
-                <Checkbox
-                  checked={this.state.appointmentGroup.participant_type === 'Group'}
-                  id="group_signup_required"
-                  aria-disabled="true"
-                  label={I18n.t('Students must sign up in groups')}
-                />
                 <div className="ic-Form-control ic-Form-control--checkbox">
                   <input
                     type="checkbox"

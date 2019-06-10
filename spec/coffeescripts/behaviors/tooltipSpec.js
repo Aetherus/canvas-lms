@@ -18,10 +18,7 @@
 
 import tooltip from 'compiled/behaviors/tooltip'
 
-QUnit.module('tooltip position selection', {
-  setup() {},
-  teardown() {}
-})
+QUnit.module('tooltip')
 
 test('provides a position hash for a cardinal direction', () => {
   const opts = {position: 'bottom'}
@@ -44,3 +41,4 @@ test('can be compelled to abandon collision detection', () => {
   tooltip.setPosition(opts)
   equal(opts.position.collision, 'none')
 })
+

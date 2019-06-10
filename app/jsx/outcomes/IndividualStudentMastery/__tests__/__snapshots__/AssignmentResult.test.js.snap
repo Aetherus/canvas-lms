@@ -18,7 +18,7 @@ exports[`renders the AlignmentResult component 1`] = `
   >
     <Link
       as="button"
-      ellipsis={false}
+      disabled={false}
       href="http://foo"
       iconPlacement="start"
       linkRef={[Function]}
@@ -71,7 +71,10 @@ exports[`renders the AlignmentResult component 1`] = `
     shrink={false}
   >
     <View
+      debug={false}
       display="auto"
+      overflowX="visible"
+      overflowY="visible"
       padding="x-small 0 0 0"
     >
       <Text

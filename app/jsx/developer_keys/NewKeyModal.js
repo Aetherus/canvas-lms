@@ -18,7 +18,7 @@
 
 import I18n from 'i18n!react_developer_keys'
 import $ from 'jquery'
-import Button from '@instructure/ui-buttons/lib/components/Button'
+
 import CloseButton from '@instructure/ui-buttons/lib/components/CloseButton'
 import Heading from '@instructure/ui-elements/lib/components/Heading'
 import Modal, {ModalHeader, ModalBody} from '@instructure/ui-overlays/lib/components/Modal'
@@ -26,11 +26,15 @@ import Spinner from '@instructure/ui-elements/lib/components/Spinner'
 import View from '@instructure/ui-layout/lib/components/View'
 import React from 'react'
 import PropTypes from 'prop-types'
-import DeveloperKeyFormFields from './NewKeyForm'
+import NewKeyForm from './NewKeyForm'
 import NewKeyFooter from './NewKeyFooter'
 import LtiKeyFooter from './LtiKeyFooter'
 
 export default class DeveloperKeyModal extends React.Component {
+  state = {
+    toolConfiguration: null // used to save state when saving the key, display what was there if failure
+  }
+
   developerKeyUrl() {
     if (this.developerKey()) {
       return `/api/v1/developer_keys/${this.developerKey().id}`
@@ -44,6 +48,22 @@ export default class DeveloperKeyModal extends React.Component {
 
   modalTitle() {
     return this.developerKey() ? I18n.t('Create developer key') : I18n.t('Edit developer key')
+  }
+
+  get manualForm () {
+    return this.newForm ? this.newForm : {
+      valid: () => true,
+      generateToolConfiguration: () => {
+        return this.toolConfiguration
+      }
+    }
+  }
+
+  get toolConfiguration () {
+    const {
+      createOrEditDeveloperKeyState: { developerKey }
+    } = this.props;
+    return this.state.toolConfiguration ? this.state.toolConfiguration : (developerKey && developerKey.tool_configuration || {})
   }
 
   get submissionForm () {
@@ -67,7 +87,8 @@ export default class DeveloperKeyModal extends React.Component {
       createLtiKeyState.disabledPlacements,
       createOrEditDeveloperKeyState.developerKey.id,
       createLtiKeyState.toolConfiguration,
-      customFields
+      customFields,
+      createLtiKeyState.privacyLevel
     ))
     this.closeModal()
   }
@@ -100,31 +121,71 @@ export default class DeveloperKeyModal extends React.Component {
     )
   }
 
+  saveLTIKeyEdit (settings) {
+    const { store: { dispatch }, actions } = this.props
+    dispatch(actions.saveLtiToolConfigurationStart())
+    this.setState({toolConfiguration: settings})
+    return actions.ltiKeysUpdateCustomizations(
+      settings.scopes,
+      [],
+      this.props.createOrEditDeveloperKeyState.developerKey.id,
+      settings,
+      '',
+      null
+    )(dispatch).then((data) => {
+      dispatch(actions.saveLtiToolConfigurationSuccessful())
+      const { developer_key, tool_configuration } = data
+      developer_key.tool_configuration = tool_configuration.settings
+      dispatch(actions.listDeveloperKeysReplace(developer_key))
+      this.closeModal()
+      $.flashMessage(I18n.t('Save successful.'))
+    }).catch(errors => {
+      $.flashError(I18n.t('Failed to save changes: %{errors}%', {errors}))
+    })
+  }
+
   saveLtiToolConfiguration = () => {
+    const { store: { dispatch }, actions } = this.props
     const formData = new FormData(this.submissionForm)
-    let settings
-    try {
-      settings = JSON.parse(formData.get("tool_configuration"))
-    } catch(e) {
-      if (e instanceof SyntaxError) {
-        $.flashError(I18n.t('Json is not valid. Please submit properly formatted json.'))
+    if (formData.get("developer_key[redirect_uris]").trim().length === 0) {
+      $.flashError(I18n.t('A redirect_uri is required, please supply one.'))
+      return
+    }
+    let settings = {};
+    if (this.props.createLtiKeyState.configurationMethod === 'json') {
+      try {
+        settings = JSON.parse(formData.get("tool_configuration"))
+      } catch(e) {
+        if (e instanceof SyntaxError) {
+          $.flashError(I18n.t('Json is not valid. Please submit properly formatted json.'))
+          return
+        }
+      }
+    } else if(this.props.createLtiKeyState.configurationMethod === 'manual') {
+      if (!this.manualForm.valid()) {
         return
       }
+      settings = this.manualForm.generateToolConfiguration();
+      this.setState({toolConfiguration: settings})
     }
 
-    this.props.store.dispatch(this.props.actions.saveLtiToolConfiguration({
-      account_id: this.props.ctx.params.contextId,
-      developer_key: {
-        name: formData.get("developer_key[name]"),
-        email: formData.get("developer_key[email]"),
-        notes: formData.get("developer_key[notes]"),
-        redirect_uris: formData.get("developer_key[redirect_uris]"),
-        test_cluster_only: this.testClusterOnly,
-        access_token_count: 0
-      },
-      settings,
-      settings_url: formData.get("tool_configuration_url"),
-    }))
+    if (this.props.createOrEditDeveloperKeyState.editing) {
+      this.saveLTIKeyEdit(settings)
+    } else {
+      return actions.saveLtiToolConfiguration({
+        account_id: this.props.ctx.params.contextId,
+        developer_key: {
+          name: formData.get("developer_key[name]"),
+          email: formData.get("developer_key[email]"),
+          notes: formData.get("developer_key[notes]"),
+          redirect_uris: formData.get("developer_key[redirect_uris]"),
+          test_cluster_only: this.testClusterOnly,
+          access_token_count: 0
+        },
+        settings,
+        settings_url: formData.get("tool_configuration_url"),
+      })(dispatch)
+    }
   }
 
   get isLtiKey() {
@@ -182,11 +243,11 @@ export default class DeveloperKeyModal extends React.Component {
       createLtiKeyState,
       availableScopes,
       availableScopesPending,
-      createOrEditDeveloperKeyState: { developerKey },
+      createOrEditDeveloperKeyState: { developerKey, editing },
       actions
     } = this.props;
 
-    return <DeveloperKeyFormFields
+    return <NewKeyForm
       ref={this.setNewFormRef}
       developerKey={developerKey}
       availableScopes={availableScopes}
@@ -195,11 +256,16 @@ export default class DeveloperKeyModal extends React.Component {
       listDeveloperKeyScopesSet={actions.listDeveloperKeyScopesSet}
       setEnabledScopes={actions.ltiKeysSetEnabledScopes}
       setDisabledPlacements={actions.ltiKeysSetDisabledPlacements}
+      setPrivacyLevel={actions.ltiKeysSetPrivacyLevel}
       createLtiKeyState={createLtiKeyState}
+      setLtiConfigurationMethod={actions.setLtiConfigurationMethod}
+      tool_configuration={this.toolConfiguration}
+      editing={editing}
     />
   }
 
   setNewFormRef = node => { this.newForm = node }
+
   modalContainerRef = node => { this.modalContainer = node }
 
   modalIsOpen() {
@@ -211,6 +277,7 @@ export default class DeveloperKeyModal extends React.Component {
     store.dispatch(actions.developerKeysModalClose())
     store.dispatch(actions.resetLtiState())
     store.dispatch(actions.editDeveloperKey())
+    this.setState({toolConfiguration: null})
   }
 
   render() {
@@ -253,21 +320,26 @@ DeveloperKeyModal.propTypes = {
     editDeveloperKey: PropTypes.func.isRequired,
     listDeveloperKeyScopesSet: PropTypes.func.isRequired,
     saveLtiToolConfiguration: PropTypes.func.isRequired,
-    resetLtiState: PropTypes.func.isRequired
+    resetLtiState: PropTypes.func.isRequired,
+    setLtiConfigurationMethod: PropTypes.func.isRequired,
+    ltiKeysUpdateCustomizations: PropTypes.func.isRequired,
+    saveLtiToolConfigurationStart: PropTypes.func.isRequired
   }).isRequired,
   createLtiKeyState: PropTypes.shape({
     isLtiKey: PropTypes.bool.isRequired,
     customizing: PropTypes.bool.isRequired,
     toolConfiguration: PropTypes.object.isRequired,
     toolConfigurationUrl: PropTypes.string.isRequired,
-    saveToolConfigurationPending: PropTypes.bool.isRequired
+    saveToolConfigurationPending: PropTypes.bool.isRequired,
+    configurationMethod: PropTypes.string.isRequired
   }).isRequired,
   createOrEditDeveloperKeyState: PropTypes.shape({
     developerKeyCreateOrEditSuccessful: PropTypes.bool.isRequired,
     developerKeyCreateOrEditFailed: PropTypes.bool.isRequired,
     developerKeyCreateOrEditPending: PropTypes.bool.isRequired,
     developerKeyModalOpen: PropTypes.bool.isRequired,
-    developerKey: DeveloperKeyFormFields.propTypes.developerKey
+    developerKey: NewKeyForm.propTypes.developerKey,
+    editing: PropTypes.bool.isRequired
   }).isRequired,
   availableScopesPending: PropTypes.bool.isRequired,
   ctx: PropTypes.shape({

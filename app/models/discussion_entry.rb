@@ -202,8 +202,8 @@ class DiscussionEntry < ActiveRecord::Base
   def update_topic_submission
     if self.discussion_topic.for_assignment?
       entries = self.discussion_topic.discussion_entries.where(:user_id => self.user_id, :workflow_state => 'active')
-      submission = self.discussion_topic.assignment.submissions.where(:user_id => self.user_id).first
-      if entries.any?
+      submission = self.discussion_topic.assignment.submissions.where(:user_id => self.user_id).take
+      if submission && entries.any?
         submission_date = entries.order(:created_at).limit(1).pluck(:created_at).first
         if submission_date > self.created_at
           submission.submitted_at = submission_date
@@ -350,15 +350,14 @@ class DiscussionEntry < ActiveRecord::Base
   end
 
   def context_module_action_later
-    unless self.deleted?
-      self.send_later_if_production(:context_module_action)
-    end
+    self.send_later_if_production(:context_module_action)
   end
   protected :context_module_action_later
 
   def context_module_action
     if self.discussion_topic && self.user
-      self.discussion_topic.context_module_action(user, :contributed)
+      action = self.deleted? ? :deleted : :contributed
+      self.discussion_topic.context_module_action(user, action)
     end
   end
 

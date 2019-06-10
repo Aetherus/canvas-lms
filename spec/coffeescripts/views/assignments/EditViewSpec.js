@@ -32,7 +32,6 @@ import PeerReviewsSelector from 'compiled/views/assignments/PeerReviewsSelector'
 import fakeENV from 'helpers/fakeENV'
 import userSettings from 'compiled/userSettings'
 import assertions from 'helpers/assertions'
-import tinymce from 'compiled/editor/stocktiny'
 import 'helpers/jquery.simulate'
 
 const s_params = 'some super secure params'
@@ -712,6 +711,14 @@ QUnit.module('#handleAnonymousGradingChange', (hooks) => {
   test('leaves the group category box disabled if the assignment is moderated', () => {
     view.assignment.moderatedGrading(true)
     disableCheckbox('has_group_category')
+    view.handleAnonymousGradingChange()
+    const groupCategoryCheckbox = document.getElementById('has_group_category')
+    strictEqual(groupCategoryCheckbox.disabled, true)
+  })
+
+  test('leaves the group category box disabled if the assignment has submissions', () => {
+    disableCheckbox('has_group_category')
+    view.model.set('has_submitted_submissions', true)
     view.handleAnonymousGradingChange()
     const groupCategoryCheckbox = document.getElementById('has_group_category')
     strictEqual(groupCategoryCheckbox.disabled, true)

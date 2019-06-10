@@ -37,6 +37,7 @@ afterEach(() => {
 
 it('will render the availaible step container if assignment is not locked', () => {
   const assignment = mockAssignment({lockInfo: {isLocked: false}})
+  assignment.submissionsConnection.nodes[0].state = 'unsubmitted'
   ReactDOM.render(<StepContainer assignment={assignment} />, document.getElementById('fixtures'))
 
   const expectedElement = $('.in-progress')
@@ -45,7 +46,7 @@ it('will render the availaible step container if assignment is not locked', () =
   expect(unexpectedElement).toHaveLength(0)
 })
 
-it('will render the unavailaible step container if assignment is locked', () => {
+it('will render the unavailable step container if assignment is locked', () => {
   const assignment = mockAssignment({lockInfo: {isLocked: true}})
   ReactDOM.render(<StepContainer assignment={assignment} />, document.getElementById('fixtures'))
 
@@ -53,4 +54,27 @@ it('will render the unavailaible step container if assignment is locked', () => 
   const unexpectedElement = $('.in-progress')
   expect(expectedElement).toHaveLength(1)
   expect(unexpectedElement).toHaveLength(0)
+})
+
+it('will render collapsed label if steps is collapsed', () => {
+  const assignment = mockAssignment({lockInfo: {isLocked: false}})
+  ReactDOM.render(
+    <StepContainer assignment={assignment} isCollapsed />,
+    document.getElementById('fixtures')
+  )
+
+  const expectedElement = $('.steps-main-status-label')
+  expect(expectedElement.text()).toBe('Submitted')
+})
+
+it('will not render collapsed label if steps is collapsed', () => {
+  const label = 'TEST'
+  const assignment = mockAssignment({lockInfo: {isLocked: false}})
+  ReactDOM.render(
+    <StepContainer assignment={assignment} isCollapsed={false} collapsedLabel={label} />,
+    document.getElementById('fixtures')
+  )
+
+  const expectedElement = $('.steps-main-status-label')
+  expect(expectedElement.text()).toHaveLength(0)
 })
