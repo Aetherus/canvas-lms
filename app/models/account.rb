@@ -22,7 +22,7 @@ class Account < ActiveRecord::Base
   include Context
   include OutcomeImportContext
 
-  has_closure_tree parent_column_name: 'parent_account_id'
+  #has_closure_tree parent_column_name: 'parent_account_id'
 
   INSTANCE_GUID_SUFFIX = 'canvas-lms'
 

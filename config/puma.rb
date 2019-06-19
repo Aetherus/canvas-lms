@@ -17,7 +17,7 @@
 #
 
 if ENV['RAILS_ENV'] == 'production'
-  workers 4
+  workers(`nproc`.to_i / 2)
   threads 4, 4
   port 3000
   environment 'production'
@@ -38,5 +38,5 @@ if ENV['RAILS_ENV'] == 'production'
   
   plugin :tmp_restart  
 else
-  threads 0,1
+  threads 1,16
 end

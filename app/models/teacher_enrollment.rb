@@ -17,8 +17,6 @@
 #
 
 class TeacherEnrollment < Enrollment
-  include FullTextSearch::TeacherEnrollment
-
   def teacher?
     true
   end
